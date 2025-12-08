@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetSuite Time Tracking Analyzer</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        h1 {
+            font-size: 1.8em;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .controls {
+            padding: 15px 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            flex-shrink: 0;
+        }
+
+        .filter-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #495057;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input, select {
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        select[multiple] {
+            padding: 6px;
+        }
+
+        select[multiple] option {
+            padding: 8px;
+            border-radius: 4px;
+            margin: 2px 0;
+        }
+
+        select[multiple] option:checked {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            padding: 15px 30px;
+            background: #f8f9fa;
+            flex-shrink: 0;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.75em;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #212529;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            padding: 0 30px;
+            flex-shrink: 0;
+        }
+
+        .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            font-weight: 600;
+            color: #6c757d;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+
+        .tab:hover {
+            color: #495057;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: white;
+        }
+
+        .view-container {
+            display: none;
+            flex: 1;
+            overflow: auto;
+        }
+
+        .view-container.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .table-container {
+            flex: 1;
+            overflow: auto;
+            padding: 0;
+        }
+
+        .pivot-table-container {
+            padding: 20px 30px;
+        }
+
+        .pivot-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85em;
+        }
+
+        .pivot-table th.row-header {
+            text-align: left;
+            background: #f8f9fa;
+            font-weight: 600;
+            position: sticky;
+            left: 0;
+            z-index: 3;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        .pivot-table th.month-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            font-weight: 600;
+            padding: 10px 8px;
+            min-width: 100px;
+            position: sticky;
+            top: 0;
+            z-index: 4;
+        }
+
+        .pivot-table td {
+            text-align: right;
+            padding: 10px 12px;
+        }
+
+        .pivot-table td.row-label {
+            text-align: left;
+            font-weight: 500;
+            background: #f8f9fa;
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        .pivot-table tr.total-row {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+        }
+
+        .pivot-table tr.total-row td {
+            border-top: 3px solid #764ba2;
+        }
+
+        .pivot-table tbody tr:hover {
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .pivot-table td.zero {
+            color: #ccc;
+        }
+
+        .pivot-table td.has-value {
+            color: #212529;
+            font-weight: 500;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95em;
+        }
+
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        th {
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.8em;
+            position: sticky;
+            top: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 10;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th:hover {
+            background: linear-gradient(135deg, #5a6fd4 0%, #6a428c 100%);
+        }
+
+        th.sortable::after {
+            content: ' ⇅';
+            opacity: 0.5;
+        }
+
+        th.sort-asc::after {
+            content: ' ↑';
+            opacity: 1;
+        }
+
+        th.sort-desc::after {
+            content: ' ↓';
+            opacity: 1;
+        }
+
+        td {
+            padding: 10px 15px;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 0.9em;
+        }
+
+        tbody tr {
+            transition: background 0.2s ease;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        tbody tr:nth-child(even):hover {
+            background: #e9ecef;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2em;
+            color: #6c757d;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 50px;
+            color: #6c757d;
+            font-size: 1.2em;
+        }
+
+        .file-upload {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-label {
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+
+        .file-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-name {
+            color: #495057;
+            font-style: italic;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 30px;
+            border-left: 4px solid #f5c6cb;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 30px;
+            border-left: 4px solid #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 NetSuite Time Tracking Analyzer</h1>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.4.0</span></p>
+        </header>
+
+        <div class="controls">
+            <div id="fileUploadSection" class="file-upload" style="margin-bottom: 20px;">
+                <label for="csvFile" class="file-label">Load CSV File</label>
+                <input type="file" id="csvFile" accept=".csv">
+                <span class="file-name" id="fileName">Loading from directory...</span>
+            </div>
+
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label for="dateFrom">Date From (DD/MM/YYYY)</label>
+                    <input type="text" id="dateFrom" placeholder="DD/MM/YYYY" maxlength="10">
+                </div>
+                <div class="filter-group">
+                    <label for="dateTo">Date To (DD/MM/YYYY)</label>
+                    <input type="text" id="dateTo" placeholder="DD/MM/YYYY" maxlength="10">
+                </div>
+                <div class="filter-group">
+                    <label for="productFilter">Main Product</label>
+                    <select id="productFilter" multiple size="5">
+                        <option value="">All Products</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="projectTypeFilter">Project Type</label>
+                    <select id="projectTypeFilter" multiple size="5">
+                        <option value="">All Project Types</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-secondary" onclick="resetFilters()">Reset All Filters</button>
+                <button class="btn-secondary" onclick="clearCache(); location.reload();" title="Clear cached data and reload">Clear Cache</button>
+                <small style="color: #6c757d; margin-left: 10px;">💡 Filters apply automatically when you select or change values</small>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchView('detail')">📋 Detail View</div>
+            <div class="tab" onclick="switchView('monthly')">📅 Monthly View</div>
+        </div>
+
+        <!-- Detail View -->
+        <div id="detailView" class="view-container active">
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-label">Total Records</div>
+                <div class="stat-value" id="totalRecords">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Hours</div>
+                <div class="stat-value" id="totalHours">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Unique Projects</div>
+                <div class="stat-value" id="uniqueProjects">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Unique Products</div>
+                <div class="stat-value" id="uniqueProducts">0</div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div id="loadingIndicator" class="loading">
+                <div class="spinner"></div>
+                <p>Loading MIT Time Tracking Dataset...</p>
+            </div>
+            <div id="noData" class="no-data" style="display: none;">
+                No data available.
+            </div>
+            <table id="dataTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th class="sortable" data-column="mainProduct" data-type="string">Main Product</th>
+                        <th class="sortable" data-column="customerProject" data-type="string">Customer:Project</th>
+                        <th class="sortable" data-column="name" data-type="string">Name</th>
+                        <th class="sortable" data-column="mtype2" data-type="string">Type</th>
+                        <th class="sortable" data-column="task" data-type="string">Task</th>
+                        <th class="sortable sort-desc" data-column="totalHours" data-type="number">Total Hours</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+                <tfoot id="tableFooter" style="display: none;">
+                    <tr style="background: #f8f9fa; font-weight: bold; border-top: 3px solid #667eea;">
+                        <td colspan="5" style="text-align: right; padding-right: 20px;">TOTAL:</td>
+                        <td id="totalHoursFooter">0.00</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        </div> <!-- End Detail View -->
+
+        <!-- Monthly View -->
+        <div id="monthlyView" class="view-container">
+
+            <div class="stats" id="statsMonthly" style="display: none;">
+                <div class="stat-card">
+                    <div class="stat-label">Total Months</div>
+                    <div class="stat-value" id="totalMonths">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Hours</div>
+                    <div class="stat-value" id="totalHoursMonthly">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Avg Hours/Month</div>
+                    <div class="stat-value" id="avgHoursMonthly">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Date Range</div>
+                    <div class="stat-value" id="dateRangeMonthly" style="font-size: 1em;">-</div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <div id="loadingIndicatorMonthly" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Processing monthly data...</p>
+                </div>
+                <div id="noDataMonthly" class="no-data" style="display: none;">
+                    No data available.
+                </div>
+                <div id="monthlyTablesContainer">
+                    <!-- Monthly tables will be dynamically inserted here -->
+                </div>
+            </div>
+
+        </div> <!-- End Monthly View -->
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="app.js"></script>
+</body>
+</html>

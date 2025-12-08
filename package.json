@@ -1,0 +1,36 @@
+{
+  "name": "netsuite-time-tracking-analyzer",
+  "version": "1.4.0",
+  "description": "Web-based application for viewing and analyzing NetSuite time tracking data with advanced filtering and aggregation capabilities",
+  "main": "index.html",
+  "scripts": {
+    "test": "node tests/run-tests.js",
+    "test:unit": "node tests/unit-tests.js",
+    "test:integration": "node tests/integration-tests.js",
+    "lint": "echo 'Running ESLint...' && eslint app.js tests/*.js || exit 0",
+    "validate": "node tests/validate-html.js",
+    "serve": "npx http-server -p 8080 -c-1",
+    "ci": "npm run validate && npm run test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/netsuite-time-tracking-analyzer.git"
+  },
+  "keywords": [
+    "netsuite",
+    "time-tracking",
+    "data-analysis",
+    "csv",
+    "pivot-table",
+    "olap"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "http-server": "^14.1.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
