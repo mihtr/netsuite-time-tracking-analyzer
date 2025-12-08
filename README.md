@@ -2,6 +2,12 @@
 
 A web-based application for viewing and analyzing NetSuite time tracking data with advanced filtering and aggregation capabilities.
 
+## 🚀 Live Demo
+
+**View the application:** https://mihtr.github.io/netsuite-time-tracking-analyzer/
+
+The application is automatically deployed to GitHub Pages via CI/CD pipeline on every push to main.
+
 ## Features
 
 ### 📊 Data Visualization
