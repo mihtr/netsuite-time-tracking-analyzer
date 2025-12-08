@@ -85,7 +85,7 @@ try {
 
     // Test 14: Has Flatpickr library
     test('Includes Flatpickr CSS', /flatpickr.*\.css/i.test(html));
-    test('Includes Flatpickr JS', /flatpickr.*\.js/i.test(html));
+    test('Includes Flatpickr JS', /flatpickr/i.test(html) && /<script.*flatpickr/i.test(html));
 
     // Test 15: Closed tags check (basic)
     const openDivs = (html.match(/<div/gi) || []).length;
