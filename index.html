@@ -231,12 +231,21 @@
 
         .pivot-table th.row-header {
             text-align: left;
-            background: #f8f9fa;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             font-weight: 600;
+            padding: 10px 12px;
             position: sticky;
             left: 0;
-            z-index: 3;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            top: 0;
+            z-index: 5;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            border-right: 2px solid #5568d3;
+        }
+
+        .pivot-table th.row-header:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #6639a3 100%);
+            cursor: pointer;
         }
 
         .pivot-table th.month-header {
@@ -251,6 +260,11 @@
             z-index: 4;
         }
 
+        .pivot-table th.month-header:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #6639a3 100%);
+            cursor: pointer;
+        }
+
         .pivot-table td {
             text-align: right;
             padding: 10px 12px;
@@ -261,9 +275,35 @@
             font-weight: 500;
             background: #f8f9fa;
             position: sticky;
-            left: 0;
             z-index: 2;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+            padding: 10px 12px;
+        }
+
+        /* Position each sticky column progressively */
+        .pivot-table td.row-label:nth-child(1),
+        .pivot-table th.row-header:nth-child(1) {
+            left: 0;
+        }
+
+        .pivot-table td.row-label:nth-child(2),
+        .pivot-table th.row-header:nth-child(2) {
+            left: 150px;
+        }
+
+        .pivot-table td.row-label:nth-child(3),
+        .pivot-table th.row-header:nth-child(3) {
+            left: 300px;
+        }
+
+        .pivot-table td.row-label:nth-child(4),
+        .pivot-table th.row-header:nth-child(4) {
+            left: 450px;
+        }
+
+        .pivot-table td.row-label:nth-child(5),
+        .pivot-table th.row-header:nth-child(5) {
+            left: 600px;
         }
 
         .pivot-table tr.total-row {
@@ -441,7 +481,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.4.0</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.4.1</span></p>
         </header>
 
         <div class="controls">
