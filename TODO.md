@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.4.0
+- **Current Version**: v1.4.1
 - **Last Updated**: 2025-12-08
 - **Status**: Active Development
 
@@ -247,6 +247,18 @@
 ---
 
 ## 🔄 Change Log
+
+### v1.4.1 (2025-12-08)
+- **UI Fix**: Improved monthly view header visibility
+  - Changed row headers to purple gradient matching month headers
+  - Added progressive left positioning for 5 sticky columns
+  - Increased z-index to ensure headers stay on top
+  - Added hover effects for all sortable headers
+- **CI/CD Fixes**:
+  - Removed npm cache requirement from GitHub Actions
+  - Updated all action versions to latest (v3→v4)
+  - Fixed Flatpickr test pattern
+- **Documentation**: Added SUGGESTED_IMPROVEMENTS.md with 28 improvement recommendations
 
 ### v1.4.0 (2025-12-08)
 - **Sorting Enhancements**: All columns in monthly pivot table are now sortable
