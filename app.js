@@ -110,15 +110,24 @@ function switchView(viewName) {
         aggregateMonthlyData();
         displayMonthlyData();
         updateMonthlyStats();
+    } else if (viewName === 'charts') {
+        document.getElementById('chartsView').classList.add('active');
+        updateCharts();
+    } else if (viewName === 'compare') {
+        document.getElementById('compareView').classList.add('active');
+        updateComparePeriods();
     } else if (viewName === 'insights') {
         document.getElementById('insightsView').classList.add('active');
         updateInsightsStats();
-        updateCharts();
-        updateComparePeriods();
         updateTimeDistribution();
         updateAdditionalAnalytics();
         updateSuggestedImprovements();
     }
+}
+
+// Scroll to top function
+function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // Setup column sorting for detail view
@@ -1076,14 +1085,9 @@ let topProjectsChartInstance = null;
 
 // Update all charts
 function updateCharts() {
-    const chartsSection = document.getElementById('chartsSection');
-
-    if (!chartsSection || filteredData.length === 0) {
-        if (chartsSection) chartsSection.style.display = 'none';
+    if (filteredData.length === 0) {
         return;
     }
-
-    chartsSection.style.display = 'block';
 
     updateTimeTrendChart();
     updateBillingPieChart();
@@ -1306,22 +1310,18 @@ function updateTopProjectsChart() {
 
 // Update Compare Periods section
 function updateComparePeriods() {
-    const compareSection = document.getElementById('comparePeriods');
-
-    if (!compareSection || filteredData.length === 0) {
-        if (compareSection) compareSection.style.display = 'none';
+    if (filteredData.length === 0) {
         return;
     }
 
-    compareSection.style.display = 'block';
-
-    // Setup date pickers for compare periods
-    if (!compareSection.dataset.initialized) {
+    // Setup date pickers for compare periods (only once)
+    const period1From = document.getElementById('comparePeriod1From');
+    if (period1From && !period1From.dataset.initialized) {
         flatpickr('#comparePeriod1From', { dateFormat: 'd/m/Y' });
         flatpickr('#comparePeriod1To', { dateFormat: 'd/m/Y' });
         flatpickr('#comparePeriod2From', { dateFormat: 'd/m/Y' });
         flatpickr('#comparePeriod2To', { dateFormat: 'd/m/Y' });
-        compareSection.dataset.initialized = 'true';
+        period1From.dataset.initialized = 'true';
     }
 }
 

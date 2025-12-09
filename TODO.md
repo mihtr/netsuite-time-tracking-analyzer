@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.7.0
+- **Current Version**: v1.7.1
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -25,6 +25,19 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.7.1 (2025-12-09)
+- [x] **Reorganized Charts and Compare into Separate Tabs** - Improved navigation and UX
+  - Charts moved to dedicated "📈 Charts" tab
+  - Compare Periods moved to dedicated "📊 Compare" tab
+  - Charts now displayed vertically (1 by 1) instead of grid layout
+  - Added quick navigation "Jump to" links at top of Charts view
+  - Added "⬆ Top" buttons on each chart for easy navigation
+  - Added scrollToTop() function with smooth scrolling
+  - Cleaner tab structure: Detail | Monthly | Charts | Compare | Insights
+  - Each chart now has more vertical space (300-400px height)
+  - Better visual separation and focus for each visualization
+  - Improved user workflow: separate tabs for different analysis tasks
 
 ### Version 1.7.0 (2025-12-09)
 - [x] **Charts and Visualizations** - Interactive charts using Chart.js 4.4.1
