@@ -550,13 +550,91 @@
             margin: 20px 30px;
             border-left: 4px solid #c3e6cb;
         }
+
+        /* Additional Analytics Styles */
+        .analytics-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 12px;
+        }
+
+        .analytics-card {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            border-left: 3px solid #667eea;
+        }
+
+        .analytics-title {
+            font-size: 0.75em;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .analytics-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .analytics-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85em;
+        }
+
+        .analytics-rank {
+            font-weight: 700;
+            color: #667eea;
+            min-width: 18px;
+        }
+
+        .analytics-name {
+            flex: 1;
+            color: #495057;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .analytics-value {
+            font-weight: 600;
+            color: #212529;
+            margin-right: 6px;
+        }
+
+        .analytics-percent {
+            font-size: 0.85em;
+            color: #6c757d;
+        }
+
+        .analytics-bar-container {
+            flex: 1;
+            height: 6px;
+            background: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+            max-width: 100px;
+        }
+
+        .analytics-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.4.6</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.4.7</span></p>
         </header>
 
         <div class="controls">
@@ -672,6 +750,11 @@
         <!-- Time Distribution Insights -->
         <div id="timeInsights" style="display: none; padding: 10px 30px; background: #f8f9fa; border-bottom: 1px solid #e9ecef;">
             <!-- Insights will be dynamically populated here -->
+        </div>
+
+        <!-- Additional Analytics Dashboard -->
+        <div id="additionalAnalytics" style="display: none; padding: 10px 30px; background: #f8f9fa; border-bottom: 1px solid #e9ecef;">
+            <!-- Additional analytics will be dynamically populated here -->
         </div>
 
         <div class="table-container">

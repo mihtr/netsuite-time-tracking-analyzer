@@ -24,7 +24,10 @@ const COLUMNS = {
     TASK: 22,                   // Task - Field #23
     DUR_DEC: 18,                // dur_dec - Field #19
     DATE: 19,                   // Date - Field #20
-    PROJECT_TYPE: 4             // Project Type - Field #5
+    PROJECT_TYPE: 4,            // Project Type - Field #5
+    DEPARTMENT: 15,             // Department - Field #16
+    EMPLOYEE: 26,               // Employee - Field #27
+    FULL_NAME: 50               // Full Name - Field #51
 };
 
 // Auto-load CSV file on page load
@@ -709,6 +712,9 @@ function updateStats() {
 
     // Update time distribution insights
     updateTimeDistribution();
+
+    // Update additional analytics
+    updateAdditionalAnalytics();
 }
 
 // Time Distribution Patterns Analytics
@@ -840,6 +846,142 @@ function updateTimeDistribution() {
     insightsHTML += '</div>';
 
     insightsDiv.innerHTML = insightsHTML;
+}
+
+// Additional Analytics Dashboard
+function updateAdditionalAnalytics() {
+    const analyticsDiv = document.getElementById('additionalAnalytics');
+
+    if (!analyticsDiv || filteredData.length === 0) {
+        if (analyticsDiv) analyticsDiv.style.display = 'none';
+        return;
+    }
+
+    analyticsDiv.style.display = 'block';
+
+    // Top Performers by Hours
+    const employeeHours = {};
+    filteredData.forEach(row => {
+        const fullName = row[COLUMNS.FULL_NAME] || row[COLUMNS.EMPLOYEE] || 'Unknown';
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+        employeeHours[fullName] = (employeeHours[fullName] || 0) + hours;
+    });
+    const topPerformers = Object.entries(employeeHours)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+    // Most Active Projects
+    const projectHours = {};
+    filteredData.forEach(row => {
+        const project = row[COLUMNS.CUSTOMER_PROJECT] || 'Unknown Project';
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+        projectHours[project] = (projectHours[project] || 0) + hours;
+    });
+    const topProjects = Object.entries(projectHours)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+    // Enhanced Billing Type Breakdown
+    const billingData = {};
+    let totalHours = 0;
+    filteredData.forEach(row => {
+        const billingType = row[COLUMNS.MTYPE2] || 'Unknown';
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+        billingData[billingType] = (billingData[billingType] || 0) + hours;
+        totalHours += hours;
+    });
+    const billingBreakdown = Object.entries(billingData)
+        .sort((a, b) => b[1] - a[1]);
+
+    // Department Utilization
+    const departmentHours = {};
+    filteredData.forEach(row => {
+        const dept = row[COLUMNS.DEPARTMENT] || 'Unknown Department';
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+        departmentHours[dept] = (departmentHours[dept] || 0) + hours;
+    });
+    const topDepartments = Object.entries(departmentHours)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+    // Build analytics HTML
+    let analyticsHTML = '<div class="analytics-section">';
+
+    // Top Performers
+    analyticsHTML += '<div class="analytics-card">';
+    analyticsHTML += '<h3 class="analytics-title">👥 Top 5 Performers by Hours</h3>';
+    analyticsHTML += '<div class="analytics-list">';
+    topPerformers.forEach(([name, hours], index) => {
+        const percent = totalHours > 0 ? (hours / totalHours * 100).toFixed(1) : 0;
+        analyticsHTML += `
+            <div class="analytics-item">
+                <div class="analytics-rank">#${index + 1}</div>
+                <div class="analytics-name">${escapeHtml(name)}</div>
+                <div class="analytics-value">${formatNumber(hours)} hrs</div>
+                <div class="analytics-bar-container">
+                    <div class="analytics-bar" style="width: ${percent}%"></div>
+                </div>
+            </div>`;
+    });
+    analyticsHTML += '</div></div>';
+
+    // Top Projects
+    analyticsHTML += '<div class="analytics-card">';
+    analyticsHTML += '<h3 class="analytics-title">📁 Top 5 Most Active Projects</h3>';
+    analyticsHTML += '<div class="analytics-list">';
+    topProjects.forEach(([project, hours], index) => {
+        const percent = totalHours > 0 ? (hours / totalHours * 100).toFixed(1) : 0;
+        analyticsHTML += `
+            <div class="analytics-item">
+                <div class="analytics-rank">#${index + 1}</div>
+                <div class="analytics-name">${escapeHtml(project)}</div>
+                <div class="analytics-value">${formatNumber(hours)} hrs</div>
+                <div class="analytics-bar-container">
+                    <div class="analytics-bar" style="width: ${percent}%"></div>
+                </div>
+            </div>`;
+    });
+    analyticsHTML += '</div></div>';
+
+    // Billing Breakdown
+    analyticsHTML += '<div class="analytics-card">';
+    analyticsHTML += '<h3 class="analytics-title">💰 Billing Type Breakdown</h3>';
+    analyticsHTML += '<div class="analytics-list">';
+    billingBreakdown.forEach(([type, hours]) => {
+        const percent = totalHours > 0 ? (hours / totalHours * 100).toFixed(1) : 0;
+        analyticsHTML += `
+            <div class="analytics-item">
+                <div class="analytics-name">${escapeHtml(type)}</div>
+                <div class="analytics-value">${formatNumber(hours)} hrs</div>
+                <div class="analytics-percent">${percent}%</div>
+                <div class="analytics-bar-container">
+                    <div class="analytics-bar" style="width: ${percent}%"></div>
+                </div>
+            </div>`;
+    });
+    analyticsHTML += '</div></div>';
+
+    // Department Utilization
+    analyticsHTML += '<div class="analytics-card">';
+    analyticsHTML += '<h3 class="analytics-title">🏢 Top 5 Departments by Hours</h3>';
+    analyticsHTML += '<div class="analytics-list">';
+    topDepartments.forEach(([dept, hours], index) => {
+        const percent = totalHours > 0 ? (hours / totalHours * 100).toFixed(1) : 0;
+        analyticsHTML += `
+            <div class="analytics-item">
+                <div class="analytics-rank">#${index + 1}</div>
+                <div class="analytics-name">${escapeHtml(dept)}</div>
+                <div class="analytics-value">${formatNumber(hours)} hrs</div>
+                <div class="analytics-bar-container">
+                    <div class="analytics-bar" style="width: ${percent}%"></div>
+                </div>
+            </div>`;
+    });
+    analyticsHTML += '</div></div>';
+
+    analyticsHTML += '</div>';
+
+    analyticsDiv.innerHTML = analyticsHTML;
 }
 
 // Reset filters

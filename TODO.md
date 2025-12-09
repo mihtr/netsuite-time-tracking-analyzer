@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.4.6
+- **Current Version**: v1.4.7
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -115,11 +115,11 @@
 - [x] **Add loading progress bar** - Show CSV parsing progress - **COMPLETED v1.4.2**
 - [x] **Save filter presets** - Allow users to save commonly used filter combinations - **COMPLETED v1.4.3**
 - [x] **Time distribution patterns** - Show weekday/weekend distribution, peak days, billing breakdown - **COMPLETED v1.4.3**
-- [ ] **Data insights dashboard** - Add more automated insights and analysis about the data
-  - [ ] Top performers by hours
-  - [ ] Most active projects
-  - [ ] Billing type breakdown (enhanced)
-  - [ ] Department utilization rates
+- [x] **Data insights dashboard** - Add more automated insights and analysis about the data - **COMPLETED v1.4.7**
+  - [x] Top performers by hours
+  - [x] Most active projects
+  - [x] Billing type breakdown (enhanced)
+  - [x] Department utilization rates
 - [ ] **Suggested improvements section** - Automated recommendations based on data patterns
   - [ ] Underutilized resources
   - [ ] Over-allocated projects
@@ -144,7 +144,13 @@
 - [ ] **Pagination** - Add pagination for large result sets (100/500/1000 rows per page)
 
 ### Long Term (Future)
-- [ ] **Charts and visualizations** - Add graphs for time distribution
+- [ ] **Charts and visualizations** - Add interactive graphs for time distribution
+  - [ ] Line charts for time trends
+  - [ ] Bar charts for comparative analysis
+  - [ ] Pie charts for distribution breakdown
+  - [ ] Stacked area charts for cumulative views
+  - [ ] Integration with Chart.js or similar library
+  - [ ] Exportable chart images
 - [ ] **Multi-level aggregation** - Allow users to choose aggregation levels
 - [ ] **Custom column selection** - Let users choose which columns to aggregate by
 - [ ] **Drill-down functionality** - Click on aggregated row to see detail records
@@ -271,6 +277,21 @@
 ---
 
 ## 🔄 Change Log
+
+### v1.4.7 (2025-12-09)
+- **Additional Analytics Dashboard**: Expanded data insights beyond time distribution
+  - Top 5 Performers by Hours - Lists employees with most hours worked
+  - Top 5 Most Active Projects - Shows projects by Customer:Project
+  - Enhanced Billing Type Breakdown - Complete analysis of all billing types
+  - Top 5 Departments by Hours - Department utilization ranking
+  - Visual bar graphs showing percentage breakdowns
+  - Responsive grid layout for analytics cards
+  - Integrated into main stats update flow
+- **UI Enhancement**: Added dedicated analytics section with consistent styling
+  - Analytics cards with gradient borders
+  - Progress bars for visual comparison
+  - Truncated text with ellipsis for long names
+  - Compact display to maximize data viewing space
 
 ### v1.4.6 (2025-12-09)
 - **Auto-load Default Preset**: "default" preset is now automatically applied on startup
