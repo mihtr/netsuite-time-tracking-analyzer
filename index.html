@@ -728,7 +728,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.10.0</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.11.0</span></p>
         </header>
 
         <div class="controls">
@@ -841,6 +841,7 @@
         <div class="tabs">
             <div class="tab active" onclick="switchView('detail')">📋 Detail View</div>
             <div class="tab" onclick="switchView('monthly')">📅 Monthly View</div>
+            <div class="tab" onclick="switchView('kenpbi1')">📊 Ken.PBI.1</div>
             <div class="tab" onclick="switchView('charts')">📈 Charts</div>
             <div class="tab" onclick="switchView('compare')">📊 Compare</div>
             <div class="tab" onclick="switchView('insights')">💡 Insights</div>
@@ -936,6 +937,41 @@
             </div>
 
         </div> <!-- End Monthly View -->
+
+        <!-- Ken.PBI.1 View -->
+        <div id="kenpbi1View" class="view-container">
+            <div class="stats" id="statsKenPBI1" style="display: none;">
+                <div class="stat-card">
+                    <div class="stat-label">Total Billing Types</div>
+                    <div class="stat-value" id="totalBillingTypes">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Hours</div>
+                    <div class="stat-value" id="totalHoursKenPBI1">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Records</div>
+                    <div class="stat-value" id="totalRecordsKenPBI1">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Projects</div>
+                    <div class="stat-value" id="totalProjectsKenPBI1">0</div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <div id="loadingIndicatorKenPBI1" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Processing Ken.PBI.1 data...</p>
+                </div>
+                <div id="noDataKenPBI1" class="no-data" style="display: none;">
+                    No data available.
+                </div>
+                <div id="kenPBI1TablesContainer">
+                    <!-- Ken.PBI.1 pivot table will be dynamically inserted here -->
+                </div>
+            </div>
+        </div> <!-- End Ken.PBI.1 View -->
 
         <!-- Insights View -->
         <div id="insightsView" class="view-container">

@@ -4,6 +4,7 @@ let filteredData = [];
 let aggregatedData = [];
 let monthlyAggregatedData = [];
 let monthlyDisplayedRows = 500; // Initial number of rows to display
+let kenPBI1AggregatedData = [];
 let currentView = 'detail';
 let currentSort = {
     column: 'totalHours',
@@ -112,6 +113,11 @@ async function switchView(viewName) {
         await aggregateMonthlyData();
         displayMonthlyData();
         updateMonthlyStats();
+    } else if (viewName === 'kenpbi1') {
+        document.getElementById('kenpbi1View').classList.add('active');
+        await aggregateKenPBI1Data();
+        displayKenPBI1Data();
+        updateKenPBI1Stats();
     } else if (viewName === 'charts') {
         document.getElementById('chartsView').classList.add('active');
         updateCharts();
@@ -790,6 +796,24 @@ function applyFilters() {
         updateTimeDistribution();
         updateAdditionalAnalytics();
         updateSuggestedImprovements();
+    }
+
+    // If currently on Ken.PBI.1 view, update it as well
+    if (currentView === 'kenpbi1') {
+        const loadingKenPBI1 = document.getElementById('loadingIndicatorKenPBI1');
+        if (loadingKenPBI1) loadingKenPBI1.style.display = 'block';
+
+        setTimeout(async () => {
+            try {
+                await aggregateKenPBI1Data();
+                displayKenPBI1Data();
+                updateKenPBI1Stats();
+            } catch (kenPBI1Error) {
+                console.error('Error updating Ken.PBI.1 view:', kenPBI1Error);
+            } finally {
+                if (loadingKenPBI1) loadingKenPBI1.style.display = 'none';
+            }
+        }, 10);
     }
 
     } catch (error) {
@@ -2688,6 +2712,235 @@ function updateMonthlyStats() {
     document.getElementById('totalHoursMonthly').textContent = formatNumber(totalHours);
     document.getElementById('avgHoursMonthly').textContent = formatNumber(avgHoursPerMonth);
     document.getElementById('dateRangeMonthly').textContent = dateRange;
+}
+
+// ========== KEN.PBI.1 VIEW FUNCTIONS ==========
+
+// Aggregate data by Main Product, Customer:Project with MTYPE2 as columns
+async function aggregateKenPBI1Data() {
+    const aggregationMap = new Map();
+    const chunkSize = 5000;
+    const totalRows = filteredData.length;
+
+    // Show loading indicator
+    const loading = document.getElementById('loadingIndicatorKenPBI1');
+    if (loading) {
+        loading.style.display = 'flex';
+        loading.innerHTML = `
+            <div class="spinner"></div>
+            <p>Aggregating Ken.PBI.1 data... <span id="kenPBI1AggProgress">0%</span></p>
+        `;
+    }
+
+    for (let i = 0; i < totalRows; i += chunkSize) {
+        const chunk = filteredData.slice(i, Math.min(i + chunkSize, totalRows));
+
+        chunk.forEach(row => {
+            const mainProduct = row[COLUMNS.MAIN_PRODUCT] || '(Empty)';
+            const customerProject = row[COLUMNS.CUSTOMER_PROJECT] || '(Empty)';
+            const mtype2 = row[COLUMNS.MTYPE2] || '(Empty)';
+            const durDec = parseDecimal(row[COLUMNS.DUR_DEC]);
+
+            // Create unique key for aggregation (without MTYPE2)
+            const key = `${mainProduct}|${customerProject}`;
+
+            if (!aggregationMap.has(key)) {
+                aggregationMap.set(key, {
+                    mainProduct,
+                    customerProject,
+                    billingTypes: {}
+                });
+            }
+
+            const entry = aggregationMap.get(key);
+            if (!entry.billingTypes[mtype2]) {
+                entry.billingTypes[mtype2] = 0;
+            }
+            entry.billingTypes[mtype2] += durDec;
+        });
+
+        // Update progress
+        const progress = Math.round(((i + chunk.length) / totalRows) * 100);
+        const progressSpan = document.getElementById('kenPBI1AggProgress');
+        if (progressSpan) {
+            progressSpan.textContent = `${progress}%`;
+        }
+
+        // Yield to browser
+        await new Promise(resolve => setTimeout(resolve, 0));
+    }
+
+    // Convert map to array
+    kenPBI1AggregatedData = Array.from(aggregationMap.values());
+
+    if (loading) {
+        loading.style.display = 'none';
+    }
+}
+
+// Display Ken.PBI.1 data as pivot table
+function displayKenPBI1Data() {
+    const container = document.getElementById('kenPBI1TablesContainer');
+    const noData = document.getElementById('noDataKenPBI1');
+    const loading = document.getElementById('loadingIndicatorKenPBI1');
+
+    loading.style.display = 'none';
+
+    if (kenPBI1AggregatedData.length === 0) {
+        container.innerHTML = '';
+        noData.style.display = 'block';
+        noData.textContent = 'No data matches the current filters.';
+        return;
+    }
+
+    noData.style.display = 'none';
+
+    // Get all unique billing types sorted
+    const billingTypesSet = new Set();
+    kenPBI1AggregatedData.forEach(item => {
+        Object.keys(item.billingTypes).forEach(type => billingTypesSet.add(type));
+    });
+    const sortedBillingTypes = Array.from(billingTypesSet).sort();
+
+    // Build pivot table
+    container.innerHTML = '';
+    const pivotContainer = document.createElement('div');
+    pivotContainer.className = 'pivot-table-container';
+
+    const table = document.createElement('table');
+    table.className = 'pivot-table';
+
+    // Header row with billing types
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+
+    // Add row headers
+    const labels = ['Main Product', 'Customer:Project'];
+    labels.forEach(label => {
+        const th = document.createElement('th');
+        th.className = 'row-header';
+        th.textContent = label;
+        headerRow.appendChild(th);
+    });
+
+    // Add billing type columns
+    sortedBillingTypes.forEach(billingType => {
+        const th = document.createElement('th');
+        th.className = 'month-header';
+        th.textContent = billingType;
+        headerRow.appendChild(th);
+    });
+
+    // Add total column
+    const totalHeader = document.createElement('th');
+    totalHeader.className = 'month-header';
+    totalHeader.textContent = 'Total';
+    headerRow.appendChild(totalHeader);
+
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    // Body rows
+    const tbody = document.createElement('tbody');
+    const billingTypeTotals = {};
+    sortedBillingTypes.forEach(type => billingTypeTotals[type] = 0);
+    let grandTotal = 0;
+
+    kenPBI1AggregatedData.forEach((rowData) => {
+        const tr = document.createElement('tr');
+
+        // Row labels
+        tr.innerHTML = `
+            <td class="row-label">${escapeHtml(rowData.mainProduct)}</td>
+            <td class="row-label">${escapeHtml(rowData.customerProject)}</td>
+        `;
+
+        // Billing type values
+        let rowTotal = 0;
+        sortedBillingTypes.forEach(billingType => {
+            const value = rowData.billingTypes[billingType] || 0;
+            rowTotal += value;
+            billingTypeTotals[billingType] += value;
+            grandTotal += value;
+
+            const td = document.createElement('td');
+            if (value === 0) {
+                td.className = 'zero';
+                td.textContent = '-';
+            } else {
+                td.className = 'has-value';
+                td.textContent = formatNumber(value);
+            }
+            tr.appendChild(td);
+        });
+
+        // Row total
+        const totalTd = document.createElement('td');
+        totalTd.className = 'has-value';
+        totalTd.style.fontWeight = 'bold';
+        totalTd.textContent = formatNumber(rowTotal);
+        tr.appendChild(totalTd);
+
+        tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+
+    // Footer with totals
+    const tfoot = document.createElement('tfoot');
+    const totalRow = document.createElement('tr');
+    totalRow.className = 'total-row';
+    totalRow.innerHTML = `
+        <td colspan="2" style="text-align: right; padding-right: 20px;">GRAND TOTAL:</td>
+    `;
+
+    sortedBillingTypes.forEach(billingType => {
+        const td = document.createElement('td');
+        td.textContent = formatNumber(billingTypeTotals[billingType]);
+        totalRow.appendChild(td);
+    });
+
+    // Grand total
+    const grandTotalTd = document.createElement('td');
+    grandTotalTd.style.fontWeight = 'bold';
+    grandTotalTd.textContent = formatNumber(grandTotal);
+    totalRow.appendChild(grandTotalTd);
+
+    tfoot.appendChild(totalRow);
+    table.appendChild(tfoot);
+
+    pivotContainer.appendChild(table);
+    container.appendChild(pivotContainer);
+}
+
+// Update Ken.PBI.1 statistics
+function updateKenPBI1Stats() {
+    const statsDiv = document.getElementById('statsKenPBI1');
+
+    if (kenPBI1AggregatedData.length === 0) {
+        statsDiv.style.display = 'none';
+        return;
+    }
+
+    statsDiv.style.display = 'grid';
+
+    // Calculate stats
+    const billingTypesSet = new Set();
+    let totalHours = 0;
+    const projectsSet = new Set();
+
+    kenPBI1AggregatedData.forEach(item => {
+        Object.keys(item.billingTypes).forEach(type => {
+            billingTypesSet.add(type);
+            totalHours += item.billingTypes[type];
+        });
+        projectsSet.add(item.customerProject);
+    });
+
+    document.getElementById('totalBillingTypes').textContent = billingTypesSet.size.toLocaleString();
+    document.getElementById('totalHoursKenPBI1').textContent = formatNumber(totalHours);
+    document.getElementById('totalRecordsKenPBI1').textContent = filteredData.length.toLocaleString();
+    document.getElementById('totalProjectsKenPBI1').textContent = projectsSet.size.toLocaleString();
 }
 
 // ========== CACHE FUNCTIONS ==========

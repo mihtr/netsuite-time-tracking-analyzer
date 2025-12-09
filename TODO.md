@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.10.0
+- **Current Version**: v1.11.0
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -25,6 +25,24 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.11.0 (2025-12-09)
+- [x] **Ken.PBI.1 View - Custom Pivot Table** - New view based on Power BI layout
+  - Custom pivot table with MTYPE2 (Billing Type) as columns instead of months
+  - Rows: Main Product and Customer:Project
+  - Columns: Bill, CAPEX, IFRS, and other billing types
+  - Shows hours aggregated by Main Product, Customer:Project, and Billing Type
+  - Grand Total row with totals for each billing type
+  - Row totals showing sum across all billing types
+  - Chunked async aggregation (5000 rows/chunk) for performance
+  - Progress indicator during data aggregation
+  - Responsive pivot table with horizontal scrolling
+  - Sticky column headers for Main Product and Customer:Project
+  - Statistics dashboard: Total Billing Types, Total Hours, Total Records, Total Projects
+  - Auto-updates when filters change
+  - Mirrors Power BI layout structure
+  - Reuses existing filter infrastructure (Date, Department, Product, Project Type)
+  - Tab navigation: Detail | Monthly | Ken.PBI.1 | Charts | Compare | Insights
 
 ### Version 1.10.0 (2025-12-09)
 - [x] **Major Monthly View Performance Optimization** - Fixed UI thread blocking with large datasets
