@@ -43,6 +43,12 @@ let virtualScroll = {
 let searchTerm = '';
 let aggregatedDataBeforeSearch = [];
 
+// Settings state
+let appSettings = {
+    darkMode: null, // null = follow system, true = force dark, false = force light
+    decimalSeparator: 'comma' // 'period' or 'comma'
+};
+
 // CSV Column indices (0-based, subtract 1 from FIELD_CATALOG.md numbers)
 const COLUMNS = {
     MAIN_PRODUCT: 31,           // EG - Main Product (Project Task Time Tracking) - Field #32
@@ -60,6 +66,9 @@ const COLUMNS = {
 
 // Auto-load CSV file on page load
 window.addEventListener('DOMContentLoaded', function() {
+    // Initialize settings first
+    initializeSettings();
+
     // Check if cached data exists
     const cachedData = loadFromCache();
     if (cachedData) {
@@ -3761,7 +3770,8 @@ function exportPivotTableToCSV() {
                 sortedColumns.forEach(col => {
                     const value = rowEntry.columns[col] || 0;
                     rowTotal += value;
-                    row.push(value === 0 ? '0,00' : value.toFixed(2).replace('.', ','));
+                    const formattedValue = formatNumberWithSeparator(value.toFixed(2));
+                    row.push(formattedValue);
                 });
             } else {
                 // No column pivot, just use total
@@ -3769,7 +3779,7 @@ function exportPivotTableToCSV() {
             }
 
             // Row total
-            row.push(rowTotal.toFixed(2).replace('.', ','));
+            row.push(formatNumberWithSeparator(rowTotal.toFixed(2)));
 
             csvContent += row.join(';') + '\n';
         });
@@ -3797,10 +3807,10 @@ function exportPivotTableToCSV() {
 
         if (config.column && sortedColumns.length > 0) {
             sortedColumns.forEach(col => {
-                grandTotalRow.push(columnTotals[col].toFixed(2).replace('.', ','));
+                grandTotalRow.push(formatNumberWithSeparator(columnTotals[col].toFixed(2)));
             });
         }
-        grandTotalRow.push(grandTotal.toFixed(2).replace('.', ','));
+        grandTotalRow.push(formatNumberWithSeparator(grandTotal.toFixed(2)));
 
         csvContent += grandTotalRow.join(';') + '\n';
 
@@ -4010,7 +4020,7 @@ function exportDrilldownToCSV() {
             const employee = escapeCSVField(row[COLUMNS.NAME] || '(Empty)');
             const type = escapeCSVField(row[COLUMNS.MTYPE2] || '(Empty)');
             const task = escapeCSVField(row[COLUMNS.TASK] || '(Empty)');
-            const duration = parseDecimal(row[COLUMNS.DUR_DEC]).toFixed(2).replace('.', ',');
+            const duration = formatNumberWithSeparator(parseDecimal(row[COLUMNS.DUR_DEC]).toFixed(2));
 
             csvContent += `${date};${mainProduct};${customerProject};${employee};${type};${task};${duration}\n`;
         });
@@ -4148,8 +4158,8 @@ function exportToCSV() {
             const mtype2 = escapeCSVField(item.mtype2);
             const task = escapeCSVField(item.task);
 
-            // Convert decimal separator from period to comma for European format
-            const totalHours = item.totalHours.toFixed(2).replace('.', ',');
+            // Format hours with user's decimal separator preference
+            const totalHours = formatNumberWithSeparator(item.totalHours.toFixed(2));
 
             csvContent += `${mainProduct};${customerProject};${name};${mtype2};${task};${totalHours}\n`;
         });
@@ -4199,4 +4209,148 @@ function escapeCSVField(field) {
     }
 
     return str;
+}
+
+// ============================================================================
+// Settings Functions
+// ============================================================================
+
+// Initialize settings on page load
+function initializeSettings() {
+    // Load settings from localStorage
+    const savedSettings = localStorage.getItem('appSettings');
+    if (savedSettings) {
+        try {
+            appSettings = JSON.parse(savedSettings);
+        } catch (e) {
+            console.error('Error loading settings:', e);
+        }
+    }
+
+    // Apply dark mode based on settings
+    applyDarkMode();
+
+    // Set decimal separator dropdown
+    const decimalSelect = document.getElementById('decimalSeparator');
+    if (decimalSelect) {
+        decimalSelect.value = appSettings.decimalSeparator || 'comma';
+    }
+
+    // Setup dark mode toggle based on current state
+    updateDarkModeToggle();
+
+    // Listen for system theme changes
+    if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            if (appSettings.darkMode === null) {
+                // Only auto-update if user hasn't manually set a preference
+                applyDarkMode();
+            }
+        });
+    }
+}
+
+// Open settings modal
+function openSettings() {
+    const modal = document.getElementById('settingsModal');
+    if (modal) {
+        modal.style.display = 'block';
+        // Update toggle to reflect current state
+        updateDarkModeToggle();
+    }
+}
+
+// Close settings modal
+function closeSettings() {
+    const modal = document.getElementById('settingsModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Close modal when clicking outside of it
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('settingsModal');
+    if (event.target === modal) {
+        closeSettings();
+    }
+});
+
+// Toggle dark mode
+function toggleDarkMode() {
+    const toggle = document.getElementById('darkModeToggle');
+
+    if (toggle.checked) {
+        // User manually enabled dark mode
+        appSettings.darkMode = true;
+    } else {
+        // User manually disabled dark mode
+        appSettings.darkMode = false;
+    }
+
+    // Save settings
+    localStorage.setItem('appSettings', JSON.stringify(appSettings));
+
+    // Apply dark mode
+    applyDarkMode();
+}
+
+// Apply dark mode based on settings and system preference
+function applyDarkMode() {
+    const body = document.body;
+    let shouldBeDark = false;
+
+    if (appSettings.darkMode === null) {
+        // Follow system preference
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            shouldBeDark = true;
+        }
+    } else {
+        // Use manual setting
+        shouldBeDark = appSettings.darkMode;
+    }
+
+    if (shouldBeDark) {
+        body.classList.add('dark-mode');
+    } else {
+        body.classList.remove('dark-mode');
+    }
+}
+
+// Update dark mode toggle to reflect current state
+function updateDarkModeToggle() {
+    const toggle = document.getElementById('darkModeToggle');
+    if (!toggle) return;
+
+    let shouldBeDark = false;
+
+    if (appSettings.darkMode === null) {
+        // Follow system preference
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            shouldBeDark = true;
+        }
+    } else {
+        // Use manual setting
+        shouldBeDark = appSettings.darkMode;
+    }
+
+    toggle.checked = shouldBeDark;
+}
+
+// Save decimal separator setting
+function saveDecimalSeparator() {
+    const select = document.getElementById('decimalSeparator');
+    if (select) {
+        appSettings.decimalSeparator = select.value;
+        localStorage.setItem('appSettings', JSON.stringify(appSettings));
+        showSuccess('Decimal separator setting saved. Will apply to future exports.');
+    }
+}
+
+// Format number based on decimal separator setting
+function formatNumberWithSeparator(number) {
+    if (appSettings.decimalSeparator === 'comma') {
+        return String(number).replace('.', ',');
+    }
+    return String(number);
 }
