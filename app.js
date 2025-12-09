@@ -909,12 +909,18 @@ function updateAdditionalAnalytics() {
     const projectHours = {};
     filteredData.forEach(row => {
         const project = row[COLUMNS.CUSTOMER_PROJECT] || 'Unknown Project';
+        const projectName = row[COLUMNS.NAME] || '';
         const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
-        projectHours[project] = (projectHours[project] || 0) + hours;
+
+        if (!projectHours[project]) {
+            projectHours[project] = { name: projectName, hours: 0 };
+        }
+        projectHours[project].hours += hours;
     });
     const topProjects = Object.entries(projectHours)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5);
+        .sort((a, b) => b[1].hours - a[1].hours)
+        .slice(0, 5)
+        .map(([project, data]) => [project, data.name, data.hours]);
 
     // Enhanced Billing Type Breakdown
     const billingData = {};
@@ -964,12 +970,13 @@ function updateAdditionalAnalytics() {
     analyticsHTML += '<div class="analytics-card">';
     analyticsHTML += '<h3 class="analytics-title">📁 Top 5 Most Active Projects</h3>';
     analyticsHTML += '<div class="analytics-list">';
-    topProjects.forEach(([project, hours], index) => {
+    topProjects.forEach(([project, projectName, hours], index) => {
         const percent = totalHours > 0 ? (hours / totalHours * 100).toFixed(1) : 0;
+        const displayText = projectName ? `${escapeHtml(project)} - ${escapeHtml(projectName)}` : escapeHtml(project);
         analyticsHTML += `
             <div class="analytics-item">
                 <div class="analytics-rank">#${index + 1}</div>
-                <div class="analytics-name">${escapeHtml(project)}</div>
+                <div class="analytics-name">${displayText}</div>
                 <div class="analytics-value">${formatNumber(hours)} hrs</div>
                 <div class="analytics-bar-container">
                     <div class="analytics-bar" style="width: ${percent}%"></div>
@@ -1059,19 +1066,24 @@ function updateSuggestedImprovements() {
     }
 
     // 2. Analyze Over-allocated Projects
-    const projectHours = {};
+    const projectHoursImprov = {};
     filteredData.forEach(row => {
         const project = row[COLUMNS.CUSTOMER_PROJECT] || 'Unknown';
+        const projectName = row[COLUMNS.NAME] || '';
         const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
-        projectHours[project] = (projectHours[project] || 0) + hours;
+
+        if (!projectHoursImprov[project]) {
+            projectHoursImprov[project] = { name: projectName, hours: 0 };
+        }
+        projectHoursImprov[project].hours += hours;
     });
 
-    const avgHoursPerProject = Object.values(projectHours).reduce((sum, h) => sum + h, 0) / Object.keys(projectHours).length;
+    const avgHoursPerProject = Object.values(projectHoursImprov).reduce((sum, data) => sum + data.hours, 0) / Object.keys(projectHoursImprov).length;
     const overallocatedThreshold = avgHoursPerProject * 2.5; // 250% of average
 
-    const overallocatedProjects = Object.entries(projectHours)
-        .filter(([proj, hours]) => hours > overallocatedThreshold)
-        .sort((a, b) => b[1] - a[1])
+    const overallocatedProjects = Object.entries(projectHoursImprov)
+        .filter(([proj, data]) => data.hours > overallocatedThreshold)
+        .sort((a, b) => b[1].hours - a[1].hours)
         .slice(0, 5);
 
     if (overallocatedProjects.length > 0) {
@@ -1080,25 +1092,30 @@ function updateSuggestedImprovements() {
             icon: '🔥',
             title: 'Over-allocated Projects',
             content: `${overallocatedProjects.length} project(s) have significantly more hours than average (${formatNumber(avgHoursPerProject)} hrs/project).`,
-            list: overallocatedProjects.map(([proj, hours]) =>
-                `${proj}: <span class="improvement-metric">${formatNumber(hours)} hrs</span> (${((hours / avgHoursPerProject) * 100).toFixed(0)}% of avg)`)
+            list: overallocatedProjects.map(([proj, data]) => {
+                const displayName = data.name ? `${proj} - ${data.name}` : proj;
+                return `${displayName}: <span class="improvement-metric">${formatNumber(data.hours)} hrs</span> (${((data.hours / avgHoursPerProject) * 100).toFixed(0)}% of avg)`;
+            })
         });
     }
 
     // 3. Analyze Billing Inconsistencies
     const projectBillingTypes = {};
+    const projectNames = {};
     filteredData.forEach(row => {
         const project = row[COLUMNS.CUSTOMER_PROJECT] || 'Unknown';
+        const projectName = row[COLUMNS.NAME] || '';
         const billingType = row[COLUMNS.MTYPE2] || 'Unknown';
         if (!projectBillingTypes[project]) {
             projectBillingTypes[project] = new Set();
+            projectNames[project] = projectName;
         }
         projectBillingTypes[project].add(billingType);
     });
 
     const mixedBillingProjects = Object.entries(projectBillingTypes)
         .filter(([proj, types]) => types.size > 2) // More than 2 different billing types
-        .map(([proj, types]) => ({ proj, count: types.size, types: Array.from(types) }))
+        .map(([proj, types]) => ({ proj, name: projectNames[proj], count: types.size, types: Array.from(types) }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
 
@@ -1108,8 +1125,10 @@ function updateSuggestedImprovements() {
             icon: '💰',
             title: 'Mixed Billing Types',
             content: `${mixedBillingProjects.length} project(s) have multiple billing types, which may indicate billing inconsistencies.`,
-            list: mixedBillingProjects.map(item =>
-                `${item.proj}: <span class="improvement-metric">${item.count} types</span> (${item.types.join(', ')})`)
+            list: mixedBillingProjects.map(item => {
+                const displayName = item.name ? `${item.proj} - ${item.name}` : item.proj;
+                return `${displayName}: <span class="improvement-metric">${item.count} types</span> (${item.types.join(', ')})`;
+            })
         });
     }
 

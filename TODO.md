@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.4.9
+- **Current Version**: v1.5.0
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -288,6 +288,14 @@
 ---
 
 ## 🔄 Change Log
+
+### v1.5.0 (2025-12-09)
+- **Enhanced Project Display with Names**: Added project names to analytics
+  - Top 5 Most Active Projects now shows "Project ID - Project Name" format
+  - Over-allocated Projects detection includes full project names
+  - Mixed Billing Types section displays project names for better clarity
+  - Format: "Customer:Project - Name" (e.g., "CUST001:PROJ123 - Website Redesign")
+  - Improves readability and identification of projects across all analytics
 
 ### v1.4.9 (2025-12-09)
 - **Suggested Improvements Section**: Automated data analysis with actionable recommendations
