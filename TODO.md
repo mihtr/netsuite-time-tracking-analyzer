@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.5.2
+- **Current Version**: v1.5.3
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -288,6 +288,29 @@
 ---
 
 ## 🔄 Change Log
+
+### v1.5.3 (2025-12-09)
+- **Insights Tab**: Separated analytics dashboard into dedicated tab
+  - Created new "💡 Insights" tab in navigation
+  - Moved Time Distribution Insights to Insights tab
+  - Moved Additional Analytics Dashboard to Insights tab (Top 5 Performers, Top 5 Projects, Billing Breakdown, Department Utilization)
+  - Moved Suggested Improvements Section to Insights tab
+  - Analytics no longer automatically displayed in Detail view
+  - User must explicitly navigate to Insights tab to view analytics
+- **Improved View Management**
+  - Updated switchView() function to handle insights view
+  - Created updateInsightsStats() function for insights-specific statistics
+  - Insights tab shows same summary stats as Detail view (Total Records, Total Hours, Unique Projects, Unique Products)
+  - Analytics refresh automatically when switching to Insights tab
+- **Better UI Organization**
+  - Cleaner Detail view focused on data table
+  - Dedicated space for analytics and recommendations
+  - Reduced information overload in main view
+  - Three-tab navigation: Detail View, Monthly View, Insights
+- **Performance Optimization**
+  - Analytics only calculated when Insights tab is active
+  - Reduced unnecessary computations in Detail view
+  - Faster initial data display
 
 ### v1.5.2 (2025-12-09)
 - **Import Statistics Tracking**: Comprehensive tracking of CSV import process

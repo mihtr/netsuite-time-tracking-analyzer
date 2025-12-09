@@ -98,6 +98,12 @@ function switchView(viewName) {
         aggregateMonthlyData();
         displayMonthlyData();
         updateMonthlyStats();
+    } else if (viewName === 'insights') {
+        document.getElementById('insightsView').classList.add('active');
+        updateInsightsStats();
+        updateTimeDistribution();
+        updateAdditionalAnalytics();
+        updateSuggestedImprovements();
     }
 }
 
@@ -899,15 +905,29 @@ function updateStats() {
     document.getElementById('totalHours').textContent = formatNumber(totalHours);
     document.getElementById('uniqueProjects').textContent = uniqueProjects.toLocaleString();
     document.getElementById('uniqueProducts').textContent = uniqueProducts.toLocaleString();
+}
 
-    // Update time distribution insights
-    updateTimeDistribution();
+// Update Insights view statistics
+function updateInsightsStats() {
+    const statsDiv = document.getElementById('statsInsights');
 
-    // Update additional analytics
-    updateAdditionalAnalytics();
+    if (filteredData.length === 0) {
+        statsDiv.style.display = 'none';
+        return;
+    }
 
-    // Update suggested improvements
-    updateSuggestedImprovements();
+    statsDiv.style.display = 'grid';
+
+    // Calculate stats
+    const totalRecords = aggregatedData.length;
+    const totalHours = aggregatedData.reduce((sum, item) => sum + item.totalHours, 0);
+    const uniqueProjects = new Set(filteredData.map(row => row[COLUMNS.CUSTOMER_PROJECT])).size;
+    const uniqueProducts = new Set(filteredData.map(row => row[COLUMNS.MAIN_PRODUCT]).filter(p => p)).size;
+
+    document.getElementById('totalRecordsInsights').textContent = totalRecords.toLocaleString();
+    document.getElementById('totalHoursInsights').textContent = formatNumber(totalHours);
+    document.getElementById('uniqueProjectsInsights').textContent = uniqueProjects.toLocaleString();
+    document.getElementById('uniqueProductsInsights').textContent = uniqueProducts.toLocaleString();
 }
 
 // Time Distribution Patterns Analytics

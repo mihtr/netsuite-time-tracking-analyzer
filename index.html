@@ -726,7 +726,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.5.2</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.5.3</span></p>
         </header>
 
         <div class="controls">
@@ -830,6 +830,7 @@
         <div class="tabs">
             <div class="tab active" onclick="switchView('detail')">📋 Detail View</div>
             <div class="tab" onclick="switchView('monthly')">📅 Monthly View</div>
+            <div class="tab" onclick="switchView('insights')">💡 Insights</div>
         </div>
 
         <!-- Detail View -->
@@ -852,21 +853,6 @@
                 <div class="stat-label">Unique Products</div>
                 <div class="stat-value" id="uniqueProducts">0</div>
             </div>
-        </div>
-
-        <!-- Time Distribution Insights -->
-        <div id="timeInsights" style="display: none; padding: 10px 30px; background: #f8f9fa; border-bottom: 1px solid #e9ecef;">
-            <!-- Insights will be dynamically populated here -->
-        </div>
-
-        <!-- Additional Analytics Dashboard -->
-        <div id="additionalAnalytics" style="display: none; padding: 10px 30px; background: #f8f9fa; border-bottom: 1px solid #e9ecef;">
-            <!-- Additional analytics will be dynamically populated here -->
-        </div>
-
-        <!-- Suggested Improvements Section -->
-        <div id="suggestedImprovements" style="display: none; padding: 10px 30px; background: #fff3cd; border-bottom: 1px solid #ffc107;">
-            <!-- Suggested improvements will be dynamically populated here -->
         </div>
 
         <div class="table-container">
@@ -938,6 +924,45 @@
             </div>
 
         </div> <!-- End Monthly View -->
+
+        <!-- Insights View -->
+        <div id="insightsView" class="view-container">
+
+            <div class="stats" id="statsInsights" style="display: none;">
+                <div class="stat-card">
+                    <div class="stat-label">Total Records</div>
+                    <div class="stat-value" id="totalRecordsInsights">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Hours</div>
+                    <div class="stat-value" id="totalHoursInsights">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Unique Projects</div>
+                    <div class="stat-value" id="uniqueProjectsInsights">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Unique Products</div>
+                    <div class="stat-value" id="uniqueProductsInsights">0</div>
+                </div>
+            </div>
+
+            <!-- Time Distribution Insights -->
+            <div id="timeInsights" style="display: none; padding: 10px 30px; background: #f8f9fa; border-bottom: 1px solid #e9ecef;">
+                <!-- Insights will be dynamically populated here -->
+            </div>
+
+            <!-- Additional Analytics Dashboard -->
+            <div id="additionalAnalytics" style="display: none; padding: 10px 30px; background: #f8f9fa; border-bottom: 1px solid #e9ecef;">
+                <!-- Additional analytics will be dynamically populated here -->
+            </div>
+
+            <!-- Suggested Improvements Section -->
+            <div id="suggestedImprovements" style="display: none; padding: 10px 30px; background: #fff3cd; border-bottom: 1px solid #ffc107;">
+                <!-- Suggested improvements will be dynamically populated here -->
+            </div>
+
+        </div> <!-- End Insights View -->
 
     </div>
 
