@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.4.5
+- **Current Version**: v1.4.6
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -271,6 +271,15 @@
 ---
 
 ## 🔄 Change Log
+
+### v1.4.6 (2025-12-09)
+- **Auto-load Default Preset**: "default" preset is now automatically applied on startup
+  - Added loadDefaultPreset() function
+  - Checks for "default" preset in localStorage on page load
+  - Applies "default" preset if it exists, otherwise shows all data
+  - Works for all three loading paths: cached data, URL load, and file upload
+  - Dropdown automatically selects "default" when auto-loaded
+  - Console log confirms auto-loading for debugging
 
 ### v1.4.5 (2025-12-09)
 - **Clear Individual Filters**: Added ✕ button next to each filter label

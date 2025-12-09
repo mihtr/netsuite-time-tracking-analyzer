@@ -36,7 +36,16 @@ window.addEventListener('DOMContentLoaded', function() {
         document.getElementById('fileName').textContent = 'Loaded from cache';
         document.getElementById('fileUploadSection').style.display = 'none';
         populateFilters();
-        applyFilters();
+        updatePresetDropdown();
+
+        // Try to load "default" preset, otherwise apply filters normally
+        const presets = getFilterPresets();
+        if (presets['default']) {
+            loadDefaultPreset();
+        } else {
+            applyFilters();
+        }
+
         showSuccess('Data loaded from cache (213 MB, ' + rawData.length.toLocaleString() + ' rows)');
     } else {
         loadCSVFromURL();
@@ -47,7 +56,6 @@ window.addEventListener('DOMContentLoaded', function() {
     setupMonthlySorting();
     setupDateFormatting();
     setupAutoFilterOnLeave();
-    updatePresetDropdown();
 });
 
 // Setup file upload as fallback
@@ -179,7 +187,15 @@ function loadCSVFromFile(file) {
             saveToCache(rawData); // Cache the parsed data
             showSuccess(`Successfully loaded ${rawData.length.toLocaleString()} records!`);
             populateFilters();
-            applyFilters();
+            updatePresetDropdown();
+
+            // Try to load "default" preset, otherwise apply filters normally
+            const presets = getFilterPresets();
+            if (presets['default']) {
+                loadDefaultPreset();
+            } else {
+                applyFilters();
+            }
         } catch (error) {
             hideProgress();
             showError('Error parsing CSV file: ' + error.message);
@@ -214,7 +230,15 @@ function loadCSVFromURL() {
                 document.getElementById('fileName').textContent = 'MIT Time Tracking Dataset (NewOrg).csv (auto-loaded)';
                 showSuccess(`Successfully loaded ${rawData.length.toLocaleString()} records!`);
                 populateFilters();
-                applyFilters();
+                updatePresetDropdown();
+
+                // Try to load "default" preset, otherwise apply filters normally
+                const presets = getFilterPresets();
+                if (presets['default']) {
+                    loadDefaultPreset();
+                } else {
+                    applyFilters();
+                }
             } catch (error) {
                 hideProgress();
                 showError('Error parsing CSV file: ' + error.message);
@@ -963,6 +987,19 @@ function updatePresetDropdown() {
         option.textContent = presetName;
         dropdown.appendChild(option);
     });
+}
+
+function loadDefaultPreset() {
+    const presets = getFilterPresets();
+    if (presets['default']) {
+        loadFilterPreset('default');
+        // Update dropdown to show "default" is selected
+        const dropdown = document.getElementById('presetSelector');
+        if (dropdown) {
+            dropdown.value = 'default';
+        }
+        console.log('Auto-loaded "default" filter preset');
+    }
 }
 
 // Utility functions
