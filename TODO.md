@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.13.0
+- **Current Version**: v1.14.0
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 

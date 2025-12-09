@@ -2340,10 +2340,16 @@ function escapeHtml(text) {
 }
 
 function formatNumber(num) {
-    return num.toLocaleString('en-US', {
+    const formatted = num.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
+
+    // Apply user's decimal separator preference
+    if (appSettings.decimalSeparator === 'comma') {
+        return formatted.replace(/\./g, ',');
+    }
+    return formatted;
 }
 
 // ========== MONTHLY VIEW FUNCTIONS ==========
