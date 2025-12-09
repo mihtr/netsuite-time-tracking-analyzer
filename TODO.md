@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.5.1
+- **Current Version**: v1.5.2
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -288,6 +288,33 @@
 ---
 
 ## 🔄 Change Log
+
+### v1.5.2 (2025-12-09)
+- **Import Statistics Tracking**: Comprehensive tracking of CSV import process
+  - Added global `importStats` object tracking:
+    - Total lines in CSV file
+    - Successfully imported records
+    - Rejected records with detailed breakdown
+    - Header row skipped
+    - Empty lines skipped
+    - Invalid rows (< 50 columns expected)
+  - Import summary displayed on successful load
+    - Shows imported record count
+    - Shows rejected record count with breakdown (header, empty lines, invalid rows)
+    - Format: "Successfully imported X records\n⚠️ Rejected: Y records (1 header row, N empty lines, M invalid rows)"
+  - Detailed console logging with `logImportStats()` function
+    - Grouped console output with import statistics
+    - Rejection details breakdown
+    - Import success rate percentage
+  - Enhanced data quality visibility
+    - Console warnings for invalid rows showing line numbers and column counts
+    - Helps identify data quality issues during import
+    - Provides transparency into what data is being skipped
+  - Row validation: Rejects rows with fewer than 50 columns (expected 56)
+- **UX Enhancement**: Improved data import transparency
+  - Users immediately see how many records were imported vs rejected
+  - Clear breakdown of why records were rejected
+  - Console provides detailed diagnostics for troubleshooting
 
 ### v1.5.1 (2025-12-09)
 - **Date Validation**: Comprehensive validation for date inputs with visual feedback

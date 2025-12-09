@@ -14,6 +14,14 @@ let monthlySortState = {
 };
 let currentPage = 1;
 let rowsPerPage = 500;
+let importStats = {
+    totalLines: 0,
+    headerSkipped: 0,
+    emptyLines: 0,
+    invalidLines: 0,
+    imported: 0,
+    rejected: 0
+};
 
 // CSV Column indices (0-based, subtract 1 from FIELD_CATALOG.md numbers)
 const COLUMNS = {
@@ -266,8 +274,9 @@ function loadCSVFromFile(file) {
             showProgress('Parsing CSV data...');
             await parseCSV(text, true); // Enable progress tracking
             hideProgress();
+            logImportStats(); // Log detailed import statistics
             saveToCache(rawData); // Cache the parsed data
-            showSuccess(`Successfully loaded ${rawData.length.toLocaleString()} records!`);
+            showSuccess(getImportSummary());
             populateFilters();
             updatePresetDropdown();
 
@@ -308,9 +317,10 @@ function loadCSVFromURL() {
                 showProgress('Parsing CSV data...');
                 await parseCSV(text, true); // Enable progress tracking
                 hideProgress();
+                logImportStats(); // Log detailed import statistics
                 saveToCache(rawData); // Cache the parsed data
                 document.getElementById('fileName').textContent = 'MIT Time Tracking Dataset (NewOrg).csv (auto-loaded)';
-                showSuccess(`Successfully loaded ${rawData.length.toLocaleString()} records!`);
+                showSuccess(getImportSummary());
                 populateFilters();
                 updatePresetDropdown();
 
@@ -388,6 +398,16 @@ function parseCSV(text, onProgress) {
             const lines = text.split(/\r?\n/);
             rawData = [];
 
+            // Reset import statistics
+            importStats = {
+                totalLines: lines.length,
+                headerSkipped: 1,
+                emptyLines: 0,
+                invalidLines: 0,
+                imported: 0,
+                rejected: 0
+            };
+
             const totalLines = lines.length;
             const chunkSize = 1000; // Process 1000 rows at a time
             let currentLine = 1; // Skip header row
@@ -397,12 +417,28 @@ function parseCSV(text, onProgress) {
                 const endLine = Math.min(currentLine + chunkSize, totalLines);
 
                 for (let i = currentLine; i < endLine; i++) {
-                    if (lines[i].trim() === '') continue;
+                    const line = lines[i].trim();
+
+                    // Track empty lines
+                    if (line === '') {
+                        importStats.emptyLines++;
+                        importStats.rejected++;
+                        continue;
+                    }
 
                     const row = parseCSVLine(lines[i]);
-                    if (row.length > 0) {
-                        rawData.push(row);
+
+                    // Validate row has minimum expected columns
+                    if (row.length < 50) {
+                        importStats.invalidLines++;
+                        importStats.rejected++;
+                        console.warn(`Line ${i + 1}: Invalid row with only ${row.length} columns (expected 56)`);
+                        continue;
                     }
+
+                    // Successfully imported
+                    rawData.push(row);
+                    importStats.imported++;
                 }
 
                 currentLine = endLine;
@@ -462,6 +498,49 @@ function parseCSVLine(line) {
     result.push(current.trim());
 
     return result;
+}
+
+// Generate import summary message
+function getImportSummary() {
+    const stats = importStats;
+    let message = `Successfully imported ${stats.imported.toLocaleString()} records`;
+
+    if (stats.rejected > 0) {
+        message += `\n⚠️ Rejected: ${stats.rejected.toLocaleString()} records`;
+        const details = [];
+        if (stats.headerSkipped > 0) details.push(`${stats.headerSkipped} header row`);
+        if (stats.emptyLines > 0) details.push(`${stats.emptyLines} empty lines`);
+        if (stats.invalidLines > 0) details.push(`${stats.invalidLines} invalid rows`);
+        if (details.length > 0) {
+            message += ` (${details.join(', ')})`;
+        }
+    }
+
+    return message;
+}
+
+// Log detailed import statistics to console
+function logImportStats() {
+    console.group('📊 Import Statistics');
+    console.log(`Total Lines: ${importStats.totalLines.toLocaleString()}`);
+    console.log(`✅ Imported: ${importStats.imported.toLocaleString()}`);
+    console.log(`❌ Rejected: ${importStats.rejected.toLocaleString()}`);
+    if (importStats.rejected > 0) {
+        console.group('Rejection Details:');
+        if (importStats.headerSkipped > 0) {
+            console.log(`  - Header row: ${importStats.headerSkipped}`);
+        }
+        if (importStats.emptyLines > 0) {
+            console.log(`  - Empty lines: ${importStats.emptyLines.toLocaleString()}`);
+        }
+        if (importStats.invalidLines > 0) {
+            console.log(`  - Invalid rows (< 50 columns): ${importStats.invalidLines.toLocaleString()}`);
+        }
+        console.groupEnd();
+    }
+    const successRate = ((importStats.imported / (importStats.totalLines - importStats.headerSkipped)) * 100).toFixed(2);
+    console.log(`Import Success Rate: ${successRate}%`);
+    console.groupEnd();
 }
 
 // Populate filter dropdowns
