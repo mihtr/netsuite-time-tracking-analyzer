@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.5.3
+- **Current Version**: v1.6.0
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -288,6 +288,36 @@
 ---
 
 ## 🔄 Change Log
+
+### v1.6.0 (2025-12-09)
+- **Virtual Scrolling**: Replaced pagination with smooth virtual scrolling for Detail view
+  - Removed pagination system (First/Prev/Next/Last buttons, rows per page selector)
+  - Implemented virtual scrolling that renders only visible rows
+  - Dramatically improved performance for large datasets
+  - Smooth scrolling experience with automatic row rendering
+  - Only renders ~30-40 visible rows at a time (viewport + buffer)
+  - Spacer rows maintain proper scroll height
+  - Debounced scroll handler for 60fps performance
+  - Automatic viewport height calculation based on window size
+- **Performance Optimization**
+  - Reduced DOM manipulation: only visible rows are in the DOM
+  - Lower memory footprint: hidden rows not rendered
+  - Faster initial render: displays data immediately
+  - Smooth scroll performance even with 300k+ records
+  - Scroll event debouncing prevents excessive re-renders
+- **Code Cleanup**
+  - Removed currentPage and rowsPerPage global variables
+  - Removed updatePaginationInfo(), goToPage(), changeRowsPerPage() functions
+  - Removed paginationInfo div from HTML
+  - Added virtualScroll state object for scroll management
+  - Added setupVirtualScrolling() for initialization
+  - Added handleVirtualScroll() for scroll event handling
+- **User Experience**
+  - Natural scrolling behavior like native applications
+  - No more clicking through pages
+  - Immediate access to any data via scroll
+  - Footer totals always visible and accurate
+  - All data accessible without pagination limits
 
 ### v1.5.3 (2025-12-09)
 - **Insights Tab**: Separated analytics dashboard into dedicated tab

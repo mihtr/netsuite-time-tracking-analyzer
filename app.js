@@ -12,8 +12,6 @@ let monthlySortState = {
     column: 'year',
     direction: 'desc'
 };
-let currentPage = 1;
-let rowsPerPage = 500;
 let importStats = {
     totalLines: 0,
     headerSkipped: 0,
@@ -21,6 +19,15 @@ let importStats = {
     invalidLines: 0,
     imported: 0,
     rejected: 0
+};
+
+// Virtual scrolling state
+let virtualScroll = {
+    rowHeight: 40, // Approximate row height in pixels
+    visibleRows: 20, // Number of rows visible in viewport
+    startIndex: 0,
+    endIndex: 20,
+    scrollTop: 0
 };
 
 // CSV Column indices (0-based, subtract 1 from FIELD_CATALOG.md numbers)
@@ -774,11 +781,10 @@ function sortData() {
 // Sort and display data (called when clicking column headers)
 function sortAndDisplayData() {
     sortData();
-    currentPage = 1; // Reset to first page when sorting
     displayData();
 }
 
-// Display aggregated data in table
+// Display aggregated data in table with virtual scrolling
 function displayData() {
     const tableBody = document.getElementById('tableBody');
     const table = document.getElementById('dataTable');
@@ -800,24 +806,40 @@ function displayData() {
     table.style.display = 'table';
     tableFooter.style.display = 'table-footer-group';
 
-    // Calculate pagination
+    // Initialize virtual scrolling on first load
+    if (!virtualScroll.initialized) {
+        setupVirtualScrolling();
+    }
+
+    // Calculate visible range
     const totalRows = aggregatedData.length;
-    const totalPages = Math.ceil(totalRows / rowsPerPage);
-    const startIndex = (currentPage - 1) * rowsPerPage;
-    const endIndex = Math.min(startIndex + rowsPerPage, totalRows);
-    const pageData = aggregatedData.slice(startIndex, endIndex);
+    const startIndex = virtualScroll.startIndex;
+    const endIndex = Math.min(virtualScroll.endIndex, totalRows);
+    const visibleData = aggregatedData.slice(startIndex, endIndex);
 
     // Clear existing rows
     tableBody.innerHTML = '';
 
-    // Calculate total hours for ALL data (not just current page)
+    // Calculate total hours for ALL data
     let totalHours = aggregatedData.reduce((sum, item) => sum + item.totalHours, 0);
+
+    // Create spacer rows for virtual scrolling
+    const topSpacerHeight = startIndex * virtualScroll.rowHeight;
+    const bottomSpacerHeight = (totalRows - endIndex) * virtualScroll.rowHeight;
+
+    // Add top spacer
+    if (topSpacerHeight > 0) {
+        const topSpacer = document.createElement('tr');
+        topSpacer.style.height = `${topSpacerHeight}px`;
+        topSpacer.innerHTML = '<td colspan="6"></td>';
+        tableBody.appendChild(topSpacer);
+    }
 
     // Use DocumentFragment for better performance
     const fragment = document.createDocumentFragment();
 
-    // Add rows for current page only
-    pageData.forEach(item => {
+    // Add visible rows only
+    visibleData.forEach(item => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${escapeHtml(item.mainProduct)}</td>
@@ -830,58 +852,64 @@ function displayData() {
         fragment.appendChild(row);
     });
 
-    // Append all rows at once
+    // Append visible rows
     tableBody.appendChild(fragment);
+
+    // Add bottom spacer
+    if (bottomSpacerHeight > 0) {
+        const bottomSpacer = document.createElement('tr');
+        bottomSpacer.style.height = `${bottomSpacerHeight}px`;
+        bottomSpacer.innerHTML = '<td colspan="6"></td>';
+        tableBody.appendChild(bottomSpacer);
+    }
 
     // Update footer total
     document.getElementById('totalHoursFooter').textContent = formatNumber(totalHours);
-
-    // Update pagination info
-    updatePaginationInfo(startIndex + 1, endIndex, totalRows, currentPage, totalPages);
 }
 
-// Pagination functions
-function updatePaginationInfo(startRow, endRow, totalRows, page, totalPages) {
-    const paginationDiv = document.getElementById('paginationInfo');
-    if (!paginationDiv) return;
+// Virtual scrolling setup
+function setupVirtualScrolling() {
+    const tableContainer = document.querySelector('.table-container');
+    if (!tableContainer) return;
 
-    paginationDiv.innerHTML = `
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; background: #f8f9fa; border-top: 1px solid #e9ecef;">
-            <div style="color: #6c757d; font-size: 0.9em;">
-                Showing <strong>${startRow.toLocaleString()}</strong> to <strong>${endRow.toLocaleString()}</strong> of <strong>${totalRows.toLocaleString()}</strong> rows
-            </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-                <button class="btn-secondary" onclick="goToPage(1)" ${page === 1 ? 'disabled' : ''} style="padding: 5px 10px; font-size: 0.85em;">⏮ First</button>
-                <button class="btn-secondary" onclick="goToPage(${page - 1})" ${page === 1 ? 'disabled' : ''} style="padding: 5px 10px; font-size: 0.85em;">◀ Prev</button>
-                <span style="color: #6c757d; font-size: 0.9em;">Page <strong>${page}</strong> of <strong>${totalPages}</strong></span>
-                <button class="btn-secondary" onclick="goToPage(${page + 1})" ${page === totalPages ? 'disabled' : ''} style="padding: 5px 10px; font-size: 0.85em;">Next ▶</button>
-                <button class="btn-secondary" onclick="goToPage(${totalPages})" ${page === totalPages ? 'disabled' : ''} style="padding: 5px 10px; font-size: 0.85em;">Last ⏭</button>
-                <select onchange="changeRowsPerPage(this.value)" style="padding: 5px; border-radius: 4px; border: 2px solid #dee2e6; font-size: 0.85em;">
-                    <option value="100" ${rowsPerPage === 100 ? 'selected' : ''}>100 rows</option>
-                    <option value="250" ${rowsPerPage === 250 ? 'selected' : ''}>250 rows</option>
-                    <option value="500" ${rowsPerPage === 500 ? 'selected' : ''}>500 rows</option>
-                    <option value="1000" ${rowsPerPage === 1000 ? 'selected' : ''}>1000 rows</option>
-                </select>
-            </div>
-        </div>
-    `;
+    // Calculate viewport height and visible rows
+    const viewportHeight = window.innerHeight - 300; // Subtract header/controls height
+    virtualScroll.visibleRows = Math.ceil(viewportHeight / virtualScroll.rowHeight) + 5; // Add buffer
+    virtualScroll.endIndex = virtualScroll.visibleRows;
+    virtualScroll.initialized = true;
+
+    // Add scroll event listener
+    let scrollTimeout;
+    window.addEventListener('scroll', function() {
+        if (currentView !== 'detail') return;
+        if (aggregatedData.length === 0) return;
+
+        // Debounce scroll event
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+            handleVirtualScroll();
+        }, 16); // ~60fps
+    });
 }
 
-function goToPage(page) {
-    const totalPages = Math.ceil(aggregatedData.length / rowsPerPage);
-    if (page < 1 || page > totalPages) return;
+function handleVirtualScroll() {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    const tableContainer = document.querySelector('.table-container');
+    if (!tableContainer) return;
 
-    currentPage = page;
-    displayData();
+    const tableTop = tableContainer.offsetTop;
+    const relativeScroll = Math.max(0, scrollTop - tableTop);
 
-    // Scroll to top of table
-    document.getElementById('dataTable').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
+    // Calculate which rows should be visible
+    const startIndex = Math.floor(relativeScroll / virtualScroll.rowHeight);
+    const endIndex = startIndex + virtualScroll.visibleRows;
 
-function changeRowsPerPage(newRowsPerPage) {
-    rowsPerPage = parseInt(newRowsPerPage);
-    currentPage = 1; // Reset to first page
-    displayData();
+    // Only update if the visible range has changed significantly
+    if (Math.abs(startIndex - virtualScroll.startIndex) > 5) {
+        virtualScroll.startIndex = Math.max(0, startIndex - 5); // Add buffer above
+        virtualScroll.endIndex = endIndex + 5; // Add buffer below
+        displayData();
+    }
 }
 
 // Update statistics
