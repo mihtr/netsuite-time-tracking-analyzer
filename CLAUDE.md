@@ -74,3 +74,24 @@ When analyzing this dataset:
 - Department/team resource allocation
 - JIRA issue time correlation
 - Product line workload distribution
+
+## Development Guidelines
+
+### Version Management
+**IMPORTANT: Always bump the version number when completing a task or feature.**
+
+When completing work:
+1. Update version in `index.html` (in the subtitle span)
+2. Update version in `TODO.md` (Project Information section)
+3. Add changelog entry in `TODO.md` (🔄 Change Log section)
+4. Commit with descriptive message
+
+Version numbering: `MAJOR.MINOR.PATCH`
+- MAJOR: Breaking changes or major feature releases
+- MINOR: New features, enhancements (e.g., 1.4.3 → 1.4.4)
+- PATCH: Bug fixes, minor tweaks
+
+### File Locations
+- Version display: `index.html` line ~530 in subtitle
+- Project info: `TODO.md` lines 3-6
+- Changelog: `TODO.md` starting around line 273

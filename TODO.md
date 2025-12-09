@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.4.3
+- **Current Version**: v1.4.4
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -271,6 +271,19 @@
 ---
 
 ## 🔄 Change Log
+
+### v1.4.4 (2025-12-09)
+- **Pagination System**: Dramatically improved performance for large datasets
+  - Displays 500 rows per page by default (configurable: 100, 250, 500, 1000)
+  - Only renders visible rows instead of all data at once
+  - First/Previous/Next/Last navigation buttons
+  - Page counter and row range indicator
+  - Auto-scroll to table top when changing pages
+  - Resets to page 1 when filtering or sorting
+- **Performance Optimization**: Using DocumentFragment for efficient DOM rendering
+- **Scrolling Behavior**: Changed to whole-page scroll instead of internal container scroll
+  - Table headers stick to viewport top when scrolling
+  - Filters and stats scroll out of view for maximum data visibility
 
 ### v1.4.3 (2025-12-09)
 - **Filter Presets**: Save and load filter combinations
