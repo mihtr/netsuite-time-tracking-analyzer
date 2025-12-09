@@ -87,7 +87,15 @@ try {
     test('Includes Flatpickr CSS', /flatpickr.*\.css/i.test(html));
     test('Includes Flatpickr JS', /flatpickr/i.test(html) && /<script.*flatpickr/i.test(html));
 
-    // Test 15: Closed tags check (basic)
+    // Test 15: Has progress bar elements
+    test('Has loading progress container', /id=["\']loadingProgress["\']/.test(html));
+    test('Has progress bar', /id=["\']progressBar["\']/.test(html));
+    test('Has progress percentage', /id=["\']progressPercent["\']/.test(html));
+    test('Has progress status', /id=["\']progressStatus["\']/.test(html));
+    test('Has progress rows counter', /id=["\']progressRows["\']/.test(html));
+    test('Has progress ETA', /id=["\']progressETA["\']/.test(html));
+
+    // Test 16: Closed tags check (basic)
     const openDivs = (html.match(/<div/gi) || []).length;
     const closeDivs = (html.match(/<\/div>/gi) || []).length;
     test('Balanced <div> tags', openDivs === closeDivs,

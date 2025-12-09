@@ -164,22 +164,27 @@ function setupAutoFilterOnLeave() {
 // Load CSV file from user upload
 function loadCSVFromFile(file) {
     showLoading();
+    showProgress('Reading file...');
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         try {
             const text = e.target.result;
-            parseCSV(text);
+            showProgress('Parsing CSV data...');
+            await parseCSV(text, true); // Enable progress tracking
+            hideProgress();
             saveToCache(rawData); // Cache the parsed data
             showSuccess(`Successfully loaded ${rawData.length.toLocaleString()} records!`);
             populateFilters();
             applyFilters();
         } catch (error) {
+            hideProgress();
             showError('Error parsing CSV file: ' + error.message);
             console.error(error);
         }
     };
     reader.onerror = function() {
+        hideProgress();
         showError('Error reading file');
     };
     reader.readAsText(file, 'UTF-8');
@@ -188,6 +193,7 @@ function loadCSVFromFile(file) {
 // Load CSV file from the same directory
 function loadCSVFromURL() {
     showLoading();
+    showProgress('Downloading CSV file...');
 
     fetch('MIT Time Tracking Dataset (NewOrg).csv')
         .then(response => {
@@ -196,21 +202,25 @@ function loadCSVFromURL() {
             }
             return response.text();
         })
-        .then(text => {
+        .then(async text => {
             try {
-                parseCSV(text);
+                showProgress('Parsing CSV data...');
+                await parseCSV(text, true); // Enable progress tracking
+                hideProgress();
                 saveToCache(rawData); // Cache the parsed data
                 document.getElementById('fileName').textContent = 'MIT Time Tracking Dataset (NewOrg).csv (auto-loaded)';
                 showSuccess(`Successfully loaded ${rawData.length.toLocaleString()} records!`);
                 populateFilters();
                 applyFilters();
             } catch (error) {
+                hideProgress();
                 showError('Error parsing CSV file: ' + error.message);
                 console.error(error);
             }
         })
         .catch(error => {
             // Auto-load failed, show file upload option
+            hideProgress();
             document.getElementById('fileName').textContent = 'Auto-load failed - please select the CSV file manually';
             document.getElementById('loadingIndicator').style.display = 'none';
             document.getElementById('noData').style.display = 'block';
@@ -220,22 +230,95 @@ function loadCSVFromURL() {
 }
 
 // Parse CSV with semicolon delimiter and handle European formatting
-function parseCSV(text) {
-    // Remove BOM if present
-    text = text.replace(/^\uFEFF/, '');
+// Progress tracking for CSV parsing
+function updateProgress(current, total, startTime) {
+    const percent = Math.round((current / total) * 100);
+    const elapsed = Date.now() - startTime;
+    const rate = current / elapsed; // rows per ms
+    const remaining = total - current;
+    const etaMs = remaining / rate;
+    const etaSec = Math.round(etaMs / 1000);
 
-    const lines = text.split(/\r?\n/);
-    rawData = [];
+    document.getElementById('progressBar').style.width = percent + '%';
+    document.getElementById('progressPercent').textContent = percent + '%';
+    document.getElementById('progressRows').textContent = `${current.toLocaleString()} / ${total.toLocaleString()} rows`;
 
-    // Skip header row
-    for (let i = 1; i < lines.length; i++) {
-        if (lines[i].trim() === '') continue;
-
-        const row = parseCSVLine(lines[i]);
-        if (row.length > 0) {
-            rawData.push(row);
+    if (etaSec > 0) {
+        const minutes = Math.floor(etaSec / 60);
+        const seconds = etaSec % 60;
+        if (minutes > 0) {
+            document.getElementById('progressETA').textContent = `ETA: ${minutes}m ${seconds}s`;
+        } else {
+            document.getElementById('progressETA').textContent = `ETA: ${seconds}s`;
         }
+    } else {
+        document.getElementById('progressETA').textContent = 'Almost done...';
     }
+}
+
+function showProgress(status = 'Loading CSV...') {
+    document.getElementById('loadingProgress').style.display = 'block';
+    document.getElementById('progressStatus').textContent = status;
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('progressPercent').textContent = '0%';
+    document.getElementById('progressRows').textContent = '0 / 0 rows';
+    document.getElementById('progressETA').textContent = 'Calculating...';
+}
+
+function hideProgress() {
+    document.getElementById('loadingProgress').style.display = 'none';
+}
+
+// Parse CSV with progress tracking and chunked processing
+function parseCSV(text, onProgress) {
+    return new Promise((resolve, reject) => {
+        try {
+            // Remove BOM if present
+            text = text.replace(/^\uFEFF/, '');
+
+            const lines = text.split(/\r?\n/);
+            rawData = [];
+
+            const totalLines = lines.length;
+            const chunkSize = 1000; // Process 1000 rows at a time
+            let currentLine = 1; // Skip header row
+            const startTime = Date.now();
+
+            function processChunk() {
+                const endLine = Math.min(currentLine + chunkSize, totalLines);
+
+                for (let i = currentLine; i < endLine; i++) {
+                    if (lines[i].trim() === '') continue;
+
+                    const row = parseCSVLine(lines[i]);
+                    if (row.length > 0) {
+                        rawData.push(row);
+                    }
+                }
+
+                currentLine = endLine;
+
+                // Update progress
+                if (onProgress) {
+                    updateProgress(currentLine, totalLines, startTime);
+                }
+
+                // Continue processing or finish
+                if (currentLine < totalLines) {
+                    // Schedule next chunk (use setTimeout to allow UI updates)
+                    setTimeout(processChunk, 0);
+                } else {
+                    resolve(rawData);
+                }
+            }
+
+            // Start processing
+            processChunk();
+
+        } catch (error) {
+            reject(error);
+        }
+    });
 }
 
 // Parse a single CSV line with quoted fields
