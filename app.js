@@ -19,6 +19,8 @@ let pivotBuilderSortState = {
     direction: 'desc'
 };
 let pivotDrilldownData = new Map(); // Store detail records for drill-down
+let drilldownRecords = []; // Current drilldown records for sorting/export
+let drilldownSortState = { column: null, direction: 'asc' };
 let importStats = {
     totalLines: 0,
     headerSkipped: 0,
@@ -3464,7 +3466,10 @@ function savePivotPreset() {
         row3: document.getElementById('pivotRow3').value,
         column: document.getElementById('pivotColumn').value,
         measureField: document.getElementById('pivotMeasureField').value,
-        aggregation: document.getElementById('pivotAggregation').value
+        aggregation: document.getElementById('pivotAggregation').value,
+        // Save sort state
+        sortColumn: pivotBuilderSortState.column,
+        sortDirection: pivotBuilderSortState.direction
     };
 
     try {
@@ -3521,6 +3526,16 @@ function loadPivotPreset() {
             document.getElementById('pivotMeasureField').value = config.measureField || 'durDec';
             document.getElementById('pivotAggregation').value = config.aggregation || 'sum';
             document.getElementById('pivotPresetName').value = presetName;
+
+            // Restore sort state
+            if (config.sortColumn !== undefined) {
+                pivotBuilderSortState.column = config.sortColumn;
+                pivotBuilderSortState.direction = config.sortDirection || 'desc';
+            } else {
+                // Reset sort state if not saved in preset
+                pivotBuilderSortState.column = null;
+                pivotBuilderSortState.direction = 'desc';
+            }
         }
     } catch (error) {
         console.error('Error loading pivot preset:', error);
@@ -3621,6 +3636,10 @@ function loadQuickPivot(type) {
         document.getElementById('pivotColumn').value = config.column || '';
         document.getElementById('pivotMeasureField').value = config.measureField || 'durDec';
         document.getElementById('pivotAggregation').value = config.aggregation || 'sum';
+
+        // Reset sort state for quick presets
+        pivotBuilderSortState.column = null;
+        pivotBuilderSortState.direction = 'desc';
     }
 }
 
@@ -3808,31 +3827,109 @@ function showDrilldownModal(detailRecords, cellInfo) {
         return;
     }
 
-    // Build summary
-    let summary = `<div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;">`;
-    summary += `<h3 style="margin-top: 0;">Cell Information</h3>`;
-    summary += `<p><strong>Rows:</strong> ${cellInfo.rows}</p>`;
-    if (cellInfo.column) {
-        summary += `<p><strong>Column:</strong> ${cellInfo.column}</p>`;
+    // Store records globally for sorting and export
+    drilldownRecords = [...detailRecords];
+    drilldownSortState = { column: null, direction: 'asc' };
+
+    renderDrilldownTable(cellInfo);
+    modal.style.display = 'block';
+}
+
+// Render drill-down table with current sort state
+function renderDrilldownTable(cellInfo) {
+    const content = document.getElementById('drilldownContent');
+
+    // Apply sorting if a column is selected
+    if (drilldownSortState.column !== null) {
+        const column = drilldownSortState.column;
+        const direction = drilldownSortState.direction;
+
+        drilldownRecords.sort((a, b) => {
+            let aValue, bValue;
+
+            switch (column) {
+                case 'date':
+                    aValue = parseDate(a[COLUMNS.DATE]) || new Date(0);
+                    bValue = parseDate(b[COLUMNS.DATE]) || new Date(0);
+                    break;
+                case 'mainProduct':
+                    aValue = (a[COLUMNS.MAIN_PRODUCT] || '').toLowerCase();
+                    bValue = (b[COLUMNS.MAIN_PRODUCT] || '').toLowerCase();
+                    break;
+                case 'customerProject':
+                    aValue = (a[COLUMNS.CUSTOMER_PROJECT] || '').toLowerCase();
+                    bValue = (b[COLUMNS.CUSTOMER_PROJECT] || '').toLowerCase();
+                    break;
+                case 'employee':
+                    aValue = (a[COLUMNS.NAME] || '').toLowerCase();
+                    bValue = (b[COLUMNS.NAME] || '').toLowerCase();
+                    break;
+                case 'type':
+                    aValue = (a[COLUMNS.MTYPE2] || '').toLowerCase();
+                    bValue = (b[COLUMNS.MTYPE2] || '').toLowerCase();
+                    break;
+                case 'task':
+                    aValue = (a[COLUMNS.TASK] || '').toLowerCase();
+                    bValue = (b[COLUMNS.TASK] || '').toLowerCase();
+                    break;
+                case 'duration':
+                    aValue = parseDecimal(a[COLUMNS.DUR_DEC]);
+                    bValue = parseDecimal(b[COLUMNS.DUR_DEC]);
+                    break;
+            }
+
+            if (aValue instanceof Date && bValue instanceof Date) {
+                return direction === 'asc' ? aValue - bValue : bValue - aValue;
+            } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+                return direction === 'asc' ? aValue - bValue : bValue - aValue;
+            } else {
+                const comparison = String(aValue).localeCompare(String(bValue));
+                return direction === 'asc' ? comparison : -comparison;
+            }
+        });
     }
-    summary += `<p><strong>Record Count:</strong> ${detailRecords.length.toLocaleString()}</p>`;
+
+    // Build summary with export button
+    let summary = `<div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;">`;
+    summary += `<div style="display: flex; justify-content: space-between; align-items: center;">`;
+    summary += `<div>`;
+    summary += `<h3 style="margin: 0 0 10px 0;">Cell Information</h3>`;
+    summary += `<p style="margin: 5px 0;"><strong>Rows:</strong> ${cellInfo.rows}</p>`;
+    if (cellInfo.column) {
+        summary += `<p style="margin: 5px 0;"><strong>Column:</strong> ${cellInfo.column}</p>`;
+    }
+    summary += `<p style="margin: 5px 0;"><strong>Record Count:</strong> ${drilldownRecords.length.toLocaleString()}</p>`;
+    summary += `</div>`;
+    summary += `<button onclick="exportDrilldownToCSV()" class="btn-secondary" style="padding: 10px 20px; white-space: nowrap;">📥 Export to CSV</button>`;
+    summary += `</div>`;
     summary += `</div>`;
 
-    // Build detail table
+    // Build detail table with sortable headers
     let tableHTML = `<div style="max-height: 600px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px;">`;
     tableHTML += `<table class="data-table" style="margin: 0;">`;
     tableHTML += `<thead><tr>`;
-    tableHTML += `<th>Date</th>`;
-    tableHTML += `<th>Main Product</th>`;
-    tableHTML += `<th>Customer:Project</th>`;
-    tableHTML += `<th>Employee</th>`;
-    tableHTML += `<th>Type</th>`;
-    tableHTML += `<th>Task</th>`;
-    tableHTML += `<th>Duration (Hours)</th>`;
+
+    const columns = [
+        { name: 'date', label: 'Date', type: 'date' },
+        { name: 'mainProduct', label: 'Main Product', type: 'text' },
+        { name: 'customerProject', label: 'Customer:Project', type: 'text' },
+        { name: 'employee', label: 'Employee', type: 'text' },
+        { name: 'type', label: 'Type', type: 'text' },
+        { name: 'task', label: 'Task', type: 'text' },
+        { name: 'duration', label: 'Duration (Hours)', type: 'number' }
+    ];
+
+    columns.forEach(col => {
+        const sortIndicator = drilldownSortState.column === col.name
+            ? (drilldownSortState.direction === 'asc' ? ' ▲' : ' ▼')
+            : '';
+        tableHTML += `<th class="sortable" style="cursor: pointer;" onclick="sortDrilldownTable('${col.name}')">${col.label}${sortIndicator}</th>`;
+    });
+
     tableHTML += `</tr></thead>`;
     tableHTML += `<tbody>`;
 
-    detailRecords.forEach(row => {
+    drilldownRecords.forEach(row => {
         tableHTML += `<tr>`;
         tableHTML += `<td>${escapeHtml(row[COLUMNS.DATE] || '')}</td>`;
         tableHTML += `<td>${escapeHtml(row[COLUMNS.MAIN_PRODUCT] || '(Empty)')}</td>`;
@@ -3847,7 +3944,87 @@ function showDrilldownModal(detailRecords, cellInfo) {
     tableHTML += `</tbody></table></div>`;
 
     content.innerHTML = summary + tableHTML;
-    modal.style.display = 'block';
+}
+
+// Sort drill-down table
+function sortDrilldownTable(column) {
+    // Toggle sort direction
+    if (drilldownSortState.column === column) {
+        drilldownSortState.direction = drilldownSortState.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        drilldownSortState.column = column;
+        drilldownSortState.direction = 'asc';
+    }
+
+    // Get cellInfo from current display
+    const content = document.getElementById('drilldownContent');
+    const rowsText = content.querySelector('p strong').nextSibling.textContent.trim();
+    const columnText = content.querySelectorAll('p')[1] ? content.querySelectorAll('p')[1].querySelector('strong') : null;
+
+    const cellInfo = {
+        rows: rowsText,
+        column: columnText ? columnText.nextSibling.textContent.trim() : null
+    };
+
+    renderDrilldownTable(cellInfo);
+}
+
+// Export drill-down records to CSV
+function exportDrilldownToCSV() {
+    if (drilldownRecords.length === 0) {
+        alert('No records to export');
+        return;
+    }
+
+    try {
+        // Generate CSV content with European format
+        let csvContent = '';
+
+        // Add header row
+        csvContent += 'Date;Main Product;Customer:Project;Employee;Type;Task;Duration (Hours)\n';
+
+        // Add data rows
+        drilldownRecords.forEach(row => {
+            const date = escapeCSVField(row[COLUMNS.DATE] || '');
+            const mainProduct = escapeCSVField(row[COLUMNS.MAIN_PRODUCT] || '(Empty)');
+            const customerProject = escapeCSVField(row[COLUMNS.CUSTOMER_PROJECT] || '(Empty)');
+            const employee = escapeCSVField(row[COLUMNS.NAME] || '(Empty)');
+            const type = escapeCSVField(row[COLUMNS.MTYPE2] || '(Empty)');
+            const task = escapeCSVField(row[COLUMNS.TASK] || '(Empty)');
+            const duration = parseDecimal(row[COLUMNS.DUR_DEC]).toFixed(2).replace('.', ',');
+
+            csvContent += `${date};${mainProduct};${customerProject};${employee};${type};${task};${duration}\n`;
+        });
+
+        // Create blob with UTF-8 BOM for Excel compatibility
+        const BOM = '\uFEFF';
+        const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+
+        // Generate filename with timestamp
+        const now = new Date();
+        const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const filename = `pivot_drilldown_${timestamp}.csv`;
+
+        // Trigger download
+        const link = document.createElement('a');
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            alert(`✓ Exported ${drilldownRecords.length.toLocaleString()} records to ${filename}`);
+        } else {
+            alert('Your browser does not support file downloads');
+        }
+    } catch (error) {
+        alert('Error exporting data: ' + error.message);
+        console.error('Export error:', error);
+    }
 }
 
 // Close drill-down modal
