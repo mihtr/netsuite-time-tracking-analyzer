@@ -18,15 +18,14 @@
             min-height: 100vh;
             padding: 0;
             margin: 0;
-            overflow: hidden;
+            overflow-y: auto;
         }
 
         .container {
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             background: white;
-            overflow: hidden;
         }
 
         header {
@@ -250,8 +249,6 @@
 
         .view-container {
             display: none;
-            flex: 1;
-            overflow: auto;
         }
 
         .view-container.active {
@@ -260,8 +257,6 @@
         }
 
         .table-container {
-            flex: 1;
-            overflow: auto;
             padding: 0;
         }
 
