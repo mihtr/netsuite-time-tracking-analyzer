@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.9.0
+- **Current Version**: v1.9.1
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -25,6 +25,17 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.9.1 (2025-12-09)
+- [x] **Fixed Monthly View Horizontal Scrolling** - Fixed issue where wide monthly pivot tables cut off columns
+  - Added `overflow-x: auto` to `.pivot-table-container` CSS class
+  - Added `overflow-y: visible` to prevent vertical scroll issues
+  - Monthly pivot tables with many months now scroll horizontally
+  - Sticky columns (Main Product, Customer:Project, Name, Type, Task) remain fixed while scrolling
+  - Month columns scroll horizontally when table width exceeds viewport
+  - Fixes user-reported issue: "there somthing wrong with the scaling horizonly. the month af jan 2025 is not visible"
+  - All months now accessible via horizontal scroll
+  - Maintains table functionality including sorting and hover effects
 
 ### Version 1.9.0 (2025-12-09)
 - [x] **Compare Periods Chart Visualization** - Added interactive chart to Compare Periods tab
