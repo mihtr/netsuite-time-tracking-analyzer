@@ -1321,125 +1321,184 @@ function updateComparePeriods() {
         flatpickr('#comparePeriod1To', { dateFormat: 'd/m/Y' });
         flatpickr('#comparePeriod2From', { dateFormat: 'd/m/Y' });
         flatpickr('#comparePeriod2To', { dateFormat: 'd/m/Y' });
+        flatpickr('#comparePeriod3From', { dateFormat: 'd/m/Y' });
+        flatpickr('#comparePeriod3To', { dateFormat: 'd/m/Y' });
+        flatpickr('#comparePeriod4From', { dateFormat: 'd/m/Y' });
+        flatpickr('#comparePeriod4To', { dateFormat: 'd/m/Y' });
         period1From.dataset.initialized = 'true';
     }
 }
 
-// Compare two periods
-function comparePeriods() {
-    const period1From = document.getElementById('comparePeriod1From').value;
-    const period1To = document.getElementById('comparePeriod1To').value;
-    const period2From = document.getElementById('comparePeriod2From').value;
-    const period2To = document.getElementById('comparePeriod2To').value;
-
-    if (!period1From || !period1To || !period2From || !period2To) {
-        showError('Please enter all date fields for both periods');
-        return;
+// Set quick period for date range shortcuts
+function setQuickPeriod(periodNum, rangeType) {
+    // Get target period from dropdown if periodNum is 1
+    if (periodNum === 1) {
+        const target = document.getElementById('quickFilterTarget');
+        if (target) {
+            periodNum = parseInt(target.value);
+        }
     }
 
-    const p1From = parseDate(period1From);
-    const p1To = parseDate(period1To);
-    const p2From = parseDate(period2From);
-    const p2To = parseDate(period2To);
+    const now = new Date();
+    let fromDate, toDate;
 
-    if (!p1From || !p1To || !p2From || !p2To) {
-        showError('Invalid date format. Please use DD/MM/YYYY');
-        return;
+    switch (rangeType) {
+        case 'thisMonth':
+            fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            break;
+        case 'lastMonth':
+            fromDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            toDate = new Date(now.getFullYear(), now.getMonth(), 0);
+            break;
+        case 'thisQuarter':
+            const currentQuarter = Math.floor(now.getMonth() / 3);
+            fromDate = new Date(now.getFullYear(), currentQuarter * 3, 1);
+            toDate = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0);
+            break;
+        case 'lastQuarter':
+            const lastQuarter = Math.floor(now.getMonth() / 3) - 1;
+            const year = lastQuarter < 0 ? now.getFullYear() - 1 : now.getFullYear();
+            const quarter = lastQuarter < 0 ? 3 : lastQuarter;
+            fromDate = new Date(year, quarter * 3, 1);
+            toDate = new Date(year, (quarter + 1) * 3, 0);
+            break;
+        case 'thisYear':
+            fromDate = new Date(now.getFullYear(), 0, 1);
+            toDate = new Date(now.getFullYear(), 11, 31);
+            break;
+        case 'lastYear':
+            fromDate = new Date(now.getFullYear() - 1, 0, 1);
+            toDate = new Date(now.getFullYear() - 1, 11, 31);
+            break;
+        case 'last7Days':
+            toDate = new Date(now);
+            fromDate = new Date(now);
+            fromDate.setDate(now.getDate() - 6);
+            break;
+        case 'last30Days':
+            toDate = new Date(now);
+            fromDate = new Date(now);
+            fromDate.setDate(now.getDate() - 29);
+            break;
+        case 'last90Days':
+            toDate = new Date(now);
+            fromDate = new Date(now);
+            fromDate.setDate(now.getDate() - 89);
+            break;
+        default:
+            return;
     }
 
-    // Filter data for each period
-    const period1Data = filteredData.filter(row => {
-        const rowDate = parseDate(row[COLUMNS.DATE]);
-        return rowDate && rowDate >= p1From && rowDate <= p1To;
-    });
-
-    const period2Data = filteredData.filter(row => {
-        const rowDate = parseDate(row[COLUMNS.DATE]);
-        return rowDate && rowDate >= p2From && rowDate <= p2To;
-    });
-
-    // Calculate metrics for each period
-    const p1Hours = period1Data.reduce((sum, row) => sum + parseDecimal(row[COLUMNS.DUR_DEC]), 0);
-    const p2Hours = period2Data.reduce((sum, row) => sum + parseDecimal(row[COLUMNS.DUR_DEC]), 0);
-
-    const p1Records = period1Data.length;
-    const p2Records = period2Data.length;
-
-    const p1Projects = new Set(period1Data.map(row => row[COLUMNS.CUSTOMER_PROJECT])).size;
-    const p2Projects = new Set(period2Data.map(row => row[COLUMNS.CUSTOMER_PROJECT])).size;
-
-    const p1Employees = new Set(period1Data.map(row => row[COLUMNS.NAME])).size;
-    const p2Employees = new Set(period2Data.map(row => row[COLUMNS.NAME])).size;
-
-    // Calculate deltas
-    const hoursDelta = p2Hours - p1Hours;
-    const hoursPercentChange = p1Hours > 0 ? ((hoursDelta / p1Hours) * 100).toFixed(1) : 0;
-    const recordsDelta = p2Records - p1Records;
-    const recordsPercentChange = p1Records > 0 ? ((recordsDelta / p1Records) * 100).toFixed(1) : 0;
-
-    // Format delta with color
-    const formatDelta = (delta, percent) => {
-        const color = delta > 0 ? '#28a745' : delta < 0 ? '#dc3545' : '#6c757d';
-        const arrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
-        const sign = delta > 0 ? '+' : '';
-        return `<span style="color: ${color}; font-weight: bold;">${arrow} ${sign}${delta.toFixed(1)} (${sign}${percent}%)</span>`;
+    // Format dates as DD/MM/YYYY
+    const formatDate = (date) => {
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
     };
 
-    // Display results
+    // Set the date inputs
+    const fromInput = document.getElementById(`comparePeriod${periodNum}From`);
+    const toInput = document.getElementById(`comparePeriod${periodNum}To`);
+
+    if (fromInput && toInput) {
+        fromInput.value = formatDate(fromDate);
+        toInput.value = formatDate(toDate);
+    }
+}
+
+// Compare up to 4 periods
+function comparePeriods() {
+    // Collect period data
+    const periods = [];
+    for (let i = 1; i <= 4; i++) {
+        const fromValue = document.getElementById(`comparePeriod${i}From`).value;
+        const toValue = document.getElementById(`comparePeriod${i}To`).value;
+
+        if (fromValue && toValue) {
+            const fromDate = parseDate(fromValue);
+            const toDate = parseDate(toValue);
+
+            if (!fromDate || !toDate) {
+                showError(`Invalid date format in Period ${i}. Please use DD/MM/YYYY`);
+                return;
+            }
+
+            periods.push({
+                num: i,
+                fromStr: fromValue,
+                toStr: toValue,
+                fromDate: fromDate,
+                toDate: toDate
+            });
+        }
+    }
+
+    if (periods.length < 2) {
+        showError('Please enter at least 2 periods to compare');
+        return;
+    }
+
+    // Calculate metrics for each period
+    const periodMetrics = periods.map(period => {
+        const data = filteredData.filter(row => {
+            const rowDate = parseDate(row[COLUMNS.DATE]);
+            return rowDate && rowDate >= period.fromDate && rowDate <= period.toDate;
+        });
+
+        return {
+            num: period.num,
+            fromStr: period.fromStr,
+            toStr: period.toStr,
+            hours: data.reduce((sum, row) => sum + parseDecimal(row[COLUMNS.DUR_DEC]), 0),
+            records: data.length,
+            projects: new Set(data.map(row => row[COLUMNS.CUSTOMER_PROJECT])).size,
+            employees: new Set(data.map(row => row[COLUMNS.NAME])).size
+        };
+    });
+
+    // Build result HTML
     const resultsDiv = document.getElementById('compareResults');
     resultsDiv.style.display = 'block';
+
+    // Build table headers
+    let headersHTML = '<th style="padding: 10px; text-align: left; color: #495057;">Metric</th>';
+    periodMetrics.forEach(pm => {
+        headersHTML += `<th style="padding: 10px; text-align: right; color: #495057;">Period ${pm.num}<br><span style="font-size: 0.8em; font-weight: normal;">${pm.fromStr} - ${pm.toStr}</span></th>`;
+    });
+
+    // Build table rows
+    const buildRow = (label, getValue) => {
+        let rowHTML = `<td style="padding: 10px; font-weight: 500;">${label}</td>`;
+        periodMetrics.forEach(pm => {
+            rowHTML += `<td style="padding: 10px; text-align: right;">${getValue(pm)}</td>`;
+        });
+        return `<tr style="border-bottom: 1px solid #dee2e6;">${rowHTML}</tr>`;
+    };
+
+    const rows = [
+        buildRow('Total Hours', pm => pm.hours.toFixed(1)),
+        buildRow('Total Records', pm => pm.records.toLocaleString()),
+        buildRow('Active Projects', pm => pm.projects),
+        buildRow('Active Employees', pm => pm.employees)
+    ];
+
     resultsDiv.innerHTML = `
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 10px;">
-            <div style="text-align: center;">
-                <h4 style="color: #495057; margin-bottom: 10px;">Period 1</h4>
-                <p style="font-size: 0.9em; color: #6c757d; margin-bottom: 10px;">${period1From} - ${period1To}</p>
+        <div style="background: white; padding: 15px; border-radius: 8px; margin-top: 15px;">
+            <h3 style="margin-bottom: 15px; color: #495057;">Comparison Results</h3>
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #dee2e6;">
+                            ${headersHTML}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.join('')}
+                    </tbody>
+                </table>
             </div>
-            <div style="text-align: center;">
-                <h4 style="color: #495057; margin-bottom: 10px;">Change</h4>
-                <p style="font-size: 0.9em; color: #6c757d; margin-bottom: 10px;">&nbsp;</p>
-            </div>
-            <div style="text-align: center;">
-                <h4 style="color: #495057; margin-bottom: 10px;">Period 2</h4>
-                <p style="font-size: 0.9em; color: #6c757d; margin-bottom: 10px;">${period2From} - ${period2To}</p>
-            </div>
-        </div>
-        <div style="background: white; padding: 15px; border-radius: 8px; margin-top: 10px;">
-            <table style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr style="border-bottom: 2px solid #dee2e6;">
-                        <th style="padding: 10px; text-align: left; color: #495057;">Metric</th>
-                        <th style="padding: 10px; text-align: right; color: #495057;">Period 1</th>
-                        <th style="padding: 10px; text-align: center; color: #495057;">Change</th>
-                        <th style="padding: 10px; text-align: right; color: #495057;">Period 2</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr style="border-bottom: 1px solid #dee2e6;">
-                        <td style="padding: 10px; font-weight: 500;">Total Hours</td>
-                        <td style="padding: 10px; text-align: right;">${p1Hours.toFixed(1)}</td>
-                        <td style="padding: 10px; text-align: center;">${formatDelta(hoursDelta, hoursPercentChange)}</td>
-                        <td style="padding: 10px; text-align: right;">${p2Hours.toFixed(1)}</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #dee2e6;">
-                        <td style="padding: 10px; font-weight: 500;">Total Records</td>
-                        <td style="padding: 10px; text-align: right;">${p1Records.toLocaleString()}</td>
-                        <td style="padding: 10px; text-align: center;">${formatDelta(recordsDelta, recordsPercentChange)}</td>
-                        <td style="padding: 10px; text-align: right;">${p2Records.toLocaleString()}</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #dee2e6;">
-                        <td style="padding: 10px; font-weight: 500;">Active Projects</td>
-                        <td style="padding: 10px; text-align: right;">${p1Projects}</td>
-                        <td style="padding: 10px; text-align: center; color: #6c757d;">${p2Projects - p1Projects > 0 ? '+' : ''}${p2Projects - p1Projects}</td>
-                        <td style="padding: 10px; text-align: right;">${p2Projects}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 10px; font-weight: 500;">Active Employees</td>
-                        <td style="padding: 10px; text-align: right;">${p1Employees}</td>
-                        <td style="padding: 10px; text-align: center; color: #6c757d;">${p2Employees - p1Employees > 0 ? '+' : ''}${p2Employees - p1Employees}</td>
-                        <td style="padding: 10px; text-align: right;">${p2Employees}</td>
-                    </tr>
-                </tbody>
-            </table>
         </div>
     `;
 }

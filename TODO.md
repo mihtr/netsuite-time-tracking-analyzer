@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.7.1
+- **Current Version**: v1.8.0
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -25,6 +25,20 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.8.0 (2025-12-09)
+- [x] **Enhanced Compare Periods - Up to 4 Periods** - Major upgrade to comparison functionality
+  - Expanded from 2 to 4 periods comparison
+  - Quick date filter buttons: This Month, Last Month, This Quarter, Last Quarter, This Year, Last Year, Last 7/30/90 Days
+  - Dropdown selector to apply quick filters to any period (1-4)
+  - Automatic date calculation for common date ranges
+  - New setQuickPeriod() function with 9 predefined date ranges
+  - Updated table layout to show all selected periods side-by-side
+  - Horizontal scrolling support for 4-period comparison
+  - Dynamic column generation based on selected periods
+  - Shows Total Hours, Total Records, Active Projects, Active Employees for each period
+  - Cleaner comparison results with period dates in column headers
+  - Minimum 2 periods required, supports up to 4 periods
 
 ### Version 1.7.1 (2025-12-09)
 - [x] **Reorganized Charts and Compare into Separate Tabs** - Improved navigation and UX

@@ -726,7 +726,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.7.1</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.8.0</span></p>
         </header>
 
         <div class="controls">
@@ -1023,10 +1023,37 @@
         <div id="compareView" class="view-container">
             <div style="padding: 20px 30px; background: #e7f3ff;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h2 style="color: #1976D2;">📊 Compare Periods</h2>
+                    <h2 style="color: #1976D2;">📊 Compare Periods (Up to 4)</h2>
                     <button onclick="scrollToTop()" class="btn-primary" style="padding: 8px 15px;">⬆ Back to Top</button>
                 </div>
 
+                <!-- Quick Date Filters -->
+                <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 10px; color: #495057; font-size: 1em;">⚡ Quick Filters</h3>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        <button onclick="setQuickPeriod(1, 'thisMonth')" class="btn-secondary" style="padding: 6px 12px; font-size: 0.9em;">This Month</button>
+                        <button onclick="setQuickPeriod(1, 'lastMonth')" class="btn-secondary" style="padding: 6px 12px; font-size: 0.9em;">Last Month</button>
+                        <button onclick="setQuickPeriod(1, 'thisQuarter')" class="btn-secondary" style="padding: 6px 12px; font-size: 0.9em;">This Quarter</button>
+                        <button onclick="setQuickPeriod(1, 'lastQuarter')" class="btn-secondary" style="padding: 6px 12px; font-size: 0.9em;">Last Quarter</button>
+                        <button onclick="setQuickPeriod(1, 'thisYear')" class="btn-secondary" style="padding: 6px 12px; font-size: 0.9em;">This Year</button>
+                        <button onclick="setQuickPeriod(1, 'lastYear')" class="btn-secondary" style="padding: 6px 12px; font-size: 0.9em;">Last Year</button>
+                        <button onclick="setQuickPeriod(1, 'last7Days')" class="btn-secondary" style="padding: 6px 12px; font-size: 0.9em;">Last 7 Days</button>
+                        <button onclick="setQuickPeriod(1, 'last30Days')" class="btn-secondary" style="padding: 6px 12px; font-size: 0.9em;">Last 30 Days</button>
+                        <button onclick="setQuickPeriod(1, 'last90Days')" class="btn-secondary" style="padding: 6px 12px; font-size: 0.9em;">Last 90 Days</button>
+                    </div>
+                    <p style="margin-top: 10px; font-size: 0.85em; color: #6c757d;">💡 Click any button to set Period 1. Change the dropdown to set Period 2, 3, or 4.</p>
+                    <div style="margin-top: 10px;">
+                        <label style="font-size: 0.9em; margin-right: 8px;">Apply to:</label>
+                        <select id="quickFilterTarget" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ced4da;">
+                            <option value="1">Period 1</option>
+                            <option value="2">Period 2</option>
+                            <option value="3">Period 3</option>
+                            <option value="4">Period 4</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Period Selection -->
                 <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <h3 style="margin-bottom: 15px; color: #495057;">Select Date Ranges</h3>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
@@ -1039,6 +1066,16 @@
                             <label style="display: block; font-weight: bold; margin-bottom: 5px;">Period 2:</label>
                             <input type="text" id="comparePeriod2From" placeholder="DD/MM/YYYY" style="width: 48%; padding: 8px; margin-right: 4%;">
                             <input type="text" id="comparePeriod2To" placeholder="DD/MM/YYYY" style="width: 48%; padding: 8px;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Period 3:</label>
+                            <input type="text" id="comparePeriod3From" placeholder="DD/MM/YYYY" style="width: 48%; padding: 8px; margin-right: 4%;">
+                            <input type="text" id="comparePeriod3To" placeholder="DD/MM/YYYY" style="width: 48%; padding: 8px;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Period 4:</label>
+                            <input type="text" id="comparePeriod4From" placeholder="DD/MM/YYYY" style="width: 48%; padding: 8px; margin-right: 4%;">
+                            <input type="text" id="comparePeriod4To" placeholder="DD/MM/YYYY" style="width: 48%; padding: 8px;">
                         </div>
                     </div>
                     <button class="btn-primary" onclick="comparePeriods()" style="margin-bottom: 15px;">Compare Periods</button>
