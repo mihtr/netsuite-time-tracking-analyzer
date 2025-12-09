@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.6.2
+- **Current Version**: v1.6.3
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -19,11 +19,22 @@
 ### Low Priority
 - [x] No validation on date input format (accepts invalid dates) - **RESOLVED** in v1.5.1
 - [x] No way to export filtered results - **RESOLVED** in v1.6.1
+- [x] Monthly view doesn't update when filters change / Timeline not reflecting selection - **RESOLVED** in v1.6.3
 - [ ] Empty/null values show as "(Empty)" in table - could be more elegant
 
 ---
 
 ## ✅ Completed Features
+
+### Version 1.6.3 (2025-12-09)
+- [x] **Monthly View Auto-Update** - Fixed performance issue where monthly view didn't update on filter changes
+  - Monthly view now automatically updates when date filters change
+  - Added loading indicator during monthly aggregation
+  - Async processing prevents UI freezing
+  - 10ms setTimeout allows UI to show loading state before processing
+  - Also auto-updates Insights view when filters change
+  - Fixes issue where "timeline is not reflecting the selection"
+  - Significantly improves user experience on monthly view
 
 ### Version 1.6.2 (2025-12-09)
 - [x] **Global Search** - Search across all data fields in real-time

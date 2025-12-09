@@ -749,6 +749,33 @@ function applyFilters() {
     displayData();
     updateStats();
 
+    // If currently on monthly view, update it as well
+    if (currentView === 'monthly') {
+        const loadingMonthly = document.getElementById('loadingIndicatorMonthly');
+        if (loadingMonthly) loadingMonthly.style.display = 'block';
+
+        // Use setTimeout to allow UI to update with loading indicator
+        setTimeout(() => {
+            try {
+                aggregateMonthlyData();
+                displayMonthlyData();
+                updateMonthlyStats();
+            } catch (monthlyError) {
+                console.error('Error updating monthly view:', monthlyError);
+            } finally {
+                if (loadingMonthly) loadingMonthly.style.display = 'none';
+            }
+        }, 10);
+    }
+
+    // If currently on insights view, update it as well
+    if (currentView === 'insights') {
+        updateInsightsStats();
+        updateTimeDistribution();
+        updateAdditionalAnalytics();
+        updateSuggestedImprovements();
+    }
+
     } catch (error) {
         console.error('Error applying filters:', error);
         alert('Error applying filters: ' + error.message + '\n\nPlease check the console for details.');
