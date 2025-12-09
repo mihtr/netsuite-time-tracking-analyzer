@@ -728,7 +728,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.11.0</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.12.0</span></p>
         </header>
 
         <div class="controls">
@@ -842,6 +842,7 @@
             <div class="tab active" onclick="switchView('detail')">📋 Detail View</div>
             <div class="tab" onclick="switchView('monthly')">📅 Monthly View</div>
             <div class="tab" onclick="switchView('kenpbi1')">📊 Ken.PBI.1</div>
+            <div class="tab" onclick="switchView('pivotbuilder')">🔧 Pivot Builder</div>
             <div class="tab" onclick="switchView('charts')">📈 Charts</div>
             <div class="tab" onclick="switchView('compare')">📊 Compare</div>
             <div class="tab" onclick="switchView('insights')">💡 Insights</div>
@@ -972,6 +973,138 @@
                 </div>
             </div>
         </div> <!-- End Ken.PBI.1 View -->
+
+        <!-- Pivot Builder View -->
+        <div id="pivotbuilderView" class="view-container">
+            <div style="padding: 20px 30px; background: white;">
+                <h2 style="color: #495057; margin-bottom: 20px;">🔧 Pivot Builder - Create Custom Pivot Tables</h2>
+
+                <!-- Configuration Panel -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+
+                    <!-- Rows Configuration -->
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 2px solid #dee2e6;">
+                        <h3 style="color: #495057; margin-bottom: 10px; font-size: 1em;">📊 Rows (Multi-level grouping)</h3>
+                        <p style="font-size: 0.85em; color: #6c757d; margin-bottom: 10px;">Select fields to group data by rows</p>
+
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Row Field 1:</label>
+                        <select id="pivotRow1" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ced4da;">
+                            <option value="">-- None --</option>
+                            <option value="mainProduct">Main Product</option>
+                            <option value="customerProject">Customer:Project</option>
+                            <option value="name">Name (Employee)</option>
+                            <option value="mtype2">Type (MTYPE2)</option>
+                            <option value="task">Task</option>
+                            <option value="department">Department</option>
+                            <option value="projectType">Project Type</option>
+                        </select>
+
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Row Field 2:</label>
+                        <select id="pivotRow2" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ced4da;">
+                            <option value="">-- None --</option>
+                            <option value="mainProduct">Main Product</option>
+                            <option value="customerProject">Customer:Project</option>
+                            <option value="name">Name (Employee)</option>
+                            <option value="mtype2">Type (MTYPE2)</option>
+                            <option value="task">Task</option>
+                            <option value="department">Department</option>
+                            <option value="projectType">Project Type</option>
+                        </select>
+
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Row Field 3:</label>
+                        <select id="pivotRow3" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ced4da;">
+                            <option value="">-- None --</option>
+                            <option value="mainProduct">Main Product</option>
+                            <option value="customerProject">Customer:Project</option>
+                            <option value="name">Name (Employee)</option>
+                            <option value="mtype2">Type (MTYPE2)</option>
+                            <option value="task">Task</option>
+                            <option value="department">Department</option>
+                            <option value="projectType">Project Type</option>
+                        </select>
+                    </div>
+
+                    <!-- Columns Configuration -->
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 2px solid #dee2e6;">
+                        <h3 style="color: #495057; margin-bottom: 10px; font-size: 1em;">📋 Columns (Cross-tabulation)</h3>
+                        <p style="font-size: 0.85em; color: #6c757d; margin-bottom: 10px;">Select field to pivot as columns</p>
+
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Column Field:</label>
+                        <select id="pivotColumn" style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #ced4da;">
+                            <option value="">-- None (No columns) --</option>
+                            <option value="month">Date (Month)</option>
+                            <option value="mtype2">Type (MTYPE2)</option>
+                            <option value="projectType">Project Type</option>
+                            <option value="department">Department</option>
+                            <option value="mainProduct">Main Product</option>
+                        </select>
+
+                        <h3 style="color: #495057; margin-top: 20px; margin-bottom: 10px; font-size: 1em;">📈 Values (Measure)</h3>
+                        <p style="font-size: 0.85em; color: #6c757d; margin-bottom: 10px;">Select what to calculate</p>
+
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Measure Field:</label>
+                        <select id="pivotMeasureField" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ced4da;">
+                            <option value="durDec">Duration Hours (dur_dec)</option>
+                            <option value="count">Record Count</option>
+                        </select>
+
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Aggregation:</label>
+                        <select id="pivotAggregation" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ced4da;">
+                            <option value="sum">Sum</option>
+                            <option value="avg">Average</option>
+                            <option value="count">Count</option>
+                            <option value="min">Minimum</option>
+                            <option value="max">Maximum</option>
+                        </select>
+                    </div>
+
+                    <!-- Presets Configuration -->
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 2px solid #dee2e6;">
+                        <h3 style="color: #495057; margin-bottom: 10px; font-size: 1em;">💾 Pivot Presets</h3>
+                        <p style="font-size: 0.85em; color: #6c757d; margin-bottom: 10px;">Save and load configurations</p>
+
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Load Preset:</label>
+                        <select id="pivotPresetSelector" onchange="loadPivotPreset()" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ced4da;">
+                            <option value="">-- Select Preset --</option>
+                        </select>
+
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Preset Name:</label>
+                        <input type="text" id="pivotPresetName" placeholder="My Pivot Config" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ced4da;">
+
+                        <div style="display: flex; gap: 5px; margin-bottom: 15px;">
+                            <button onclick="savePivotPreset()" class="btn-secondary" style="flex: 1; padding: 8px; font-size: 0.9em;">💾 Save</button>
+                            <button onclick="deletePivotPreset()" class="btn-secondary" style="flex: 1; padding: 8px; font-size: 0.9em;">🗑️ Delete</button>
+                        </div>
+
+                        <hr style="margin: 15px 0; border: none; border-top: 1px solid #dee2e6;">
+
+                        <h4 style="color: #495057; margin-bottom: 10px; font-size: 0.95em;">Quick Presets</h4>
+                        <button onclick="loadQuickPivot('monthlyByProduct')" class="btn-secondary" style="width: 100%; padding: 6px; font-size: 0.85em; margin-bottom: 5px;">📅 Monthly by Product</button>
+                        <button onclick="loadQuickPivot('billingByProject')" class="btn-secondary" style="width: 100%; padding: 6px; font-size: 0.85em; margin-bottom: 5px;">💰 Billing by Project</button>
+                        <button onclick="loadQuickPivot('employeeByMonth')" class="btn-secondary" style="width: 100%; padding: 6px; font-size: 0.85em;">👤 Employee by Month</button>
+                    </div>
+                </div>
+
+                <!-- Build Button -->
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <button onclick="buildPivotTable()" class="btn-primary" style="padding: 12px 40px; font-size: 1.1em;">
+                        🔧 Build Pivot Table
+                    </button>
+                    <p style="font-size: 0.85em; color: #6c757d; margin-top: 10px;">Configure rows, columns, and values above, then click to generate your custom pivot table</p>
+                </div>
+
+                <!-- Loading Indicator -->
+                <div id="loadingIndicatorPivotBuilder" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Building pivot table...</p>
+                </div>
+
+                <!-- Results Area -->
+                <div id="pivotBuilderResults" style="display: none;">
+                    <!-- Pivot table will be dynamically inserted here -->
+                </div>
+            </div>
+        </div> <!-- End Pivot Builder View -->
 
         <!-- Insights View -->
         <div id="insightsView" class="view-container">

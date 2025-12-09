@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.11.0
+- **Current Version**: v1.12.0
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -25,6 +25,51 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.12.0 (2025-12-09)
+- [x] **Dynamic Pivot Builder - Custom Pivot Table Configuration** - Interactive pivot builder with save/load functionality
+  - New "🔧 Pivot Builder" tab in navigation (between Ken.PBI.1 and Charts)
+  - 3-column configuration layout for flexible pivot setup:
+    - **Rows Configuration**: Up to 3 fields for multi-level grouping (Row 1, Row 2, Row 3)
+    - **Columns Configuration**: Optional cross-tabulation field
+    - **Values Configuration**: Select measure field and aggregation type
+  - 8 available fields for rows/columns: Main Product, Customer:Project, Employee (Name), Billing Type (MTYPE2), Task, Department, Project Type, Month
+  - 2 available measure fields: Duration (Decimal), Count of Records
+  - 5 aggregation types: Sum, Average, Count, Min, Max
+  - **Pivot Preset Management**:
+    - Save current configuration with custom name to localStorage
+    - Load saved presets from dropdown selector
+    - Delete unwanted presets
+    - Preset name input with save/delete buttons
+  - **Quick Preset Shortcuts**: 3 predefined pivot configurations
+    - 📅 Monthly by Product - Products by month with duration sum
+    - 💰 Billing by Project - Projects by billing type with hours
+    - 👤 Employee by Month - Employees by month with hours
+  - **Dynamic Pivot Table Rendering**:
+    - Automatically generates pivot table based on configuration
+    - Supports 1-3 row fields (hierarchical grouping)
+    - Optional column field for cross-tabulation
+    - Grand Total row showing totals for each column
+    - Row totals column showing sum across all columns
+    - Empty cells show "-" for better readability
+  - **Performance Optimized**:
+    - Chunked async aggregation (5000 rows/chunk) prevents UI blocking
+    - Map-based aggregation for efficient data processing
+    - Progress indicator during aggregation
+    - Yields to browser between chunks for responsive UI
+  - **Flexible Data Aggregation**:
+    - Dynamic field extraction from raw data rows
+    - Measure calculation (duration decimal or count)
+    - Aggregation key generation for grouping
+    - Sum, count, min, max calculations per cell
+    - Average calculated from sum/count
+  - **Statistics Dashboard**: Shows Total Rows, Total Cells, Total Columns, Total Values
+  - Auto-initializes presets dropdown on page load
+  - Reuses existing pivot-table CSS classes for consistent styling
+  - Integrates with global filteredData for filtered results
+  - Tab navigation: Detail | Monthly | Ken.PBI.1 | 🔧 Pivot Builder | Charts | Compare | Insights
+  - Replaces need for hardcoded views with fully configurable system
+  - Similar to Power BI matrix visual or Excel PivotTable functionality
 
 ### Version 1.11.0 (2025-12-09)
 - [x] **Ken.PBI.1 View - Custom Pivot Table** - New view based on Power BI layout
@@ -363,17 +408,18 @@
 - [x] **Pagination** - Add pagination for large result sets (100/500/1000 rows per page) - **COMPLETED v1.4.4**
 
 ### Long Term (Future)
-- [ ] **Dynamic Pivot Table Builder** - Interactive pivot table with drag-and-drop interface
-  - [ ] Drag fields to Rows area (multi-level grouping)
-  - [ ] Drag fields to Columns area (cross-tabulation)
-  - [ ] Drag measures to Values area (sum, avg, count, min, max)
-  - [ ] Save custom pivot configurations
+- [x] **Dynamic Pivot Table Builder** - Interactive pivot table configuration - **COMPLETED v1.12.0**
+  - [x] Select fields for Rows area (multi-level grouping up to 3 fields) - **COMPLETED v1.12.0**
+  - [x] Select field for Columns area (cross-tabulation) - **COMPLETED v1.12.0**
+  - [x] Select measures for Values area (sum, avg, count, min, max) - **COMPLETED v1.12.0**
+  - [x] Save custom pivot configurations - **COMPLETED v1.12.0**
+  - [x] Grand totals and row totals - **COMPLETED v1.12.0**
+  - [x] Quick preset shortcuts for common configurations - **COMPLETED v1.12.0**
   - [ ] Export pivot table views
   - [ ] Drill-down from aggregated cells to detail records
   - [ ] Conditional formatting for pivot cells
-  - [ ] Grand totals and subtotals
-  - [ ] Field sorting and filtering within pivot
-  - [ ] Similar to Excel PivotTable or Power BI matrix visual
+  - [ ] Field sorting within pivot
+  - [ ] Drag-and-drop interface (currently uses dropdown selectors)
 - [x] **Charts and visualizations** - Add interactive graphs for time distribution - **COMPLETED v1.7.0**
   - [x] Line charts for time trends
   - [x] Bar charts for comparative analysis

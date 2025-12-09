@@ -118,6 +118,9 @@ async function switchView(viewName) {
         await aggregateKenPBI1Data();
         displayKenPBI1Data();
         updateKenPBI1Stats();
+    } else if (viewName === 'pivotbuilder') {
+        document.getElementById('pivotbuilderView').classList.add('active');
+        initializePivotBuilder();
     } else if (viewName === 'charts') {
         document.getElementById('chartsView').classList.add('active');
         updateCharts();
@@ -2941,6 +2944,496 @@ function updateKenPBI1Stats() {
     document.getElementById('totalHoursKenPBI1').textContent = formatNumber(totalHours);
     document.getElementById('totalRecordsKenPBI1').textContent = filteredData.length.toLocaleString();
     document.getElementById('totalProjectsKenPBI1').textContent = projectsSet.size.toLocaleString();
+}
+
+// ========== PIVOT BUILDER FUNCTIONS ==========
+
+// Initialize Pivot Builder view
+function initializePivotBuilder() {
+    loadPivotPresetsIntoDropdown();
+}
+
+// Build custom pivot table based on user configuration
+async function buildPivotTable() {
+    const loading = document.getElementById('loadingIndicatorPivotBuilder');
+    const resultsDiv = document.getElementById('pivotBuilderResults');
+
+    // Get configuration
+    const config = {
+        rows: [
+            document.getElementById('pivotRow1').value,
+            document.getElementById('pivotRow2').value,
+            document.getElementById('pivotRow3').value
+        ].filter(r => r !== ''), // Remove empty selections
+        column: document.getElementById('pivotColumn').value,
+        measureField: document.getElementById('pivotMeasureField').value,
+        aggregation: document.getElementById('pivotAggregation').value
+    };
+
+    // Validate configuration
+    if (config.rows.length === 0) {
+        alert('Please select at least one Row field');
+        return;
+    }
+
+    // Show loading
+    loading.style.display = 'flex';
+    resultsDiv.style.display = 'none';
+
+    try {
+        // Aggregate data
+        const aggregatedData = await aggregatePivotData(config);
+
+        // Render pivot table
+        renderPivotTable(aggregatedData, config);
+
+        // Show results
+        resultsDiv.style.display = 'block';
+    } catch (error) {
+        console.error('Error building pivot table:', error);
+        alert('Error building pivot table: ' + error.message);
+    } finally {
+        loading.style.display = 'none';
+    }
+}
+
+// Aggregate data based on pivot configuration
+async function aggregatePivotData(config) {
+    const aggregationMap = new Map();
+    const chunkSize = 5000;
+    const totalRows = filteredData.length;
+
+    for (let i = 0; i < totalRows; i += chunkSize) {
+        const chunk = filteredData.slice(i, Math.min(i + chunkSize, totalRows));
+
+        chunk.forEach(row => {
+            // Get row field values
+            const rowValues = config.rows.map(field => getFieldValue(row, field));
+            const rowKey = rowValues.join('|');
+
+            // Get column field value (if any)
+            const columnValue = config.column ? getFieldValue(row, config.column) : null;
+
+            // Get measure value
+            const measureValue = getMeasureValue(row, config.measureField);
+
+            // Create aggregation key
+            const fullKey = columnValue ? `${rowKey}|${columnValue}` : rowKey;
+
+            if (!aggregationMap.has(fullKey)) {
+                aggregationMap.set(fullKey, {
+                    rowValues: rowValues,
+                    columnValue: columnValue,
+                    values: [],
+                    sum: 0,
+                    count: 0,
+                    min: Infinity,
+                    max: -Infinity
+                });
+            }
+
+            const entry = aggregationMap.get(fullKey);
+            entry.values.push(measureValue);
+            entry.sum += measureValue;
+            entry.count++;
+            entry.min = Math.min(entry.min, measureValue);
+            entry.max = Math.max(entry.max, measureValue);
+        });
+
+        // Yield to browser
+        await new Promise(resolve => setTimeout(resolve, 0));
+    }
+
+    return Array.from(aggregationMap.values());
+}
+
+// Get field value from row
+function getFieldValue(row, field) {
+    const fieldMap = {
+        'mainProduct': row[COLUMNS.MAIN_PRODUCT] || '(Empty)',
+        'customerProject': row[COLUMNS.CUSTOMER_PROJECT] || '(Empty)',
+        'name': row[COLUMNS.NAME] || '(Empty)',
+        'mtype2': row[COLUMNS.MTYPE2] || '(Empty)',
+        'task': row[COLUMNS.TASK] || '(Empty)',
+        'department': row[COLUMNS.DEPARTMENT] || '(Empty)',
+        'projectType': row[COLUMNS.PROJECT_TYPE] || '(Empty)',
+        'month': (() => {
+            const dateStr = row[COLUMNS.DATE];
+            const rowDate = parseDate(dateStr);
+            if (rowDate) {
+                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                return `${monthNames[rowDate.getMonth()]} ${rowDate.getFullYear()}`;
+            }
+            return '(Unknown)';
+        })()
+    };
+
+    return fieldMap[field] || '(Unknown)';
+}
+
+// Get measure value from row
+function getMeasureValue(row, measureField) {
+    if (measureField === 'count') {
+        return 1; // Each row counts as 1
+    } else if (measureField === 'durDec') {
+        return parseDecimal(row[COLUMNS.DUR_DEC]);
+    }
+    return 0;
+}
+
+// Render pivot table
+function renderPivotTable(aggregatedData, config) {
+    const resultsDiv = document.getElementById('pivotBuilderResults');
+
+    if (aggregatedData.length === 0) {
+        resultsDiv.innerHTML = '<p style="padding: 20px; text-align: center; color: #6c757d;">No data to display. Try adjusting your filters.</p>';
+        return;
+    }
+
+    // Group data by rows and columns
+    const rowsMap = new Map();
+    const columnsSet = new Set();
+
+    aggregatedData.forEach(item => {
+        const rowKey = item.rowValues.join('|');
+        if (!rowsMap.has(rowKey)) {
+            rowsMap.set(rowKey, {
+                rowValues: item.rowValues,
+                columns: {}
+            });
+        }
+
+        const rowEntry = rowsMap.get(rowKey);
+        const columnKey = item.columnValue || '_total';
+
+        if (item.columnValue) {
+            columnsSet.add(item.columnValue);
+        }
+
+        // Calculate aggregated value based on aggregation type
+        let aggregatedValue = 0;
+        switch (config.aggregation) {
+            case 'sum':
+                aggregatedValue = item.sum;
+                break;
+            case 'avg':
+                aggregatedValue = item.count > 0 ? item.sum / item.count : 0;
+                break;
+            case 'count':
+                aggregatedValue = item.count;
+                break;
+            case 'min':
+                aggregatedValue = item.min !== Infinity ? item.min : 0;
+                break;
+            case 'max':
+                aggregatedValue = item.max !== -Infinity ? item.max : 0;
+                break;
+        }
+
+        rowEntry.columns[columnKey] = aggregatedValue;
+    });
+
+    const sortedColumns = config.column ? Array.from(columnsSet).sort() : [];
+
+    // Build HTML
+    const pivotContainer = document.createElement('div');
+    pivotContainer.className = 'pivot-table-container';
+    pivotContainer.style.marginTop = '20px';
+
+    const table = document.createElement('table');
+    table.className = 'pivot-table';
+
+    // Header row
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+
+    // Row field headers
+    const rowFieldLabels = {
+        'mainProduct': 'Main Product',
+        'customerProject': 'Customer:Project',
+        'name': 'Name (Employee)',
+        'mtype2': 'Type (MTYPE2)',
+        'task': 'Task',
+        'department': 'Department',
+        'projectType': 'Project Type'
+    };
+
+    config.rows.forEach(field => {
+        const th = document.createElement('th');
+        th.className = 'row-header';
+        th.textContent = rowFieldLabels[field] || field;
+        headerRow.appendChild(th);
+    });
+
+    // Column headers (if pivot by column)
+    if (config.column && sortedColumns.length > 0) {
+        sortedColumns.forEach(col => {
+            const th = document.createElement('th');
+            th.className = 'month-header';
+            th.textContent = col;
+            headerRow.appendChild(th);
+        });
+    }
+
+    // Total column
+    const totalHeader = document.createElement('th');
+    totalHeader.className = 'month-header';
+    totalHeader.textContent = 'Total';
+    headerRow.appendChild(totalHeader);
+
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    // Body rows
+    const tbody = document.createElement('tbody');
+    const columnTotals = {};
+    sortedColumns.forEach(col => columnTotals[col] = 0);
+    let grandTotal = 0;
+
+    rowsMap.forEach((rowEntry) => {
+        const tr = document.createElement('tr');
+
+        // Row values
+        rowEntry.rowValues.forEach(value => {
+            const td = document.createElement('td');
+            td.className = 'row-label';
+            td.textContent = value;
+            tr.appendChild(td);
+        });
+
+        // Column values
+        let rowTotal = 0;
+        if (config.column && sortedColumns.length > 0) {
+            sortedColumns.forEach(col => {
+                const value = rowEntry.columns[col] || 0;
+                rowTotal += value;
+                columnTotals[col] += value;
+
+                const td = document.createElement('td');
+                if (value === 0) {
+                    td.className = 'zero';
+                    td.textContent = '-';
+                } else {
+                    td.className = 'has-value';
+                    td.textContent = formatNumber(value);
+                }
+                tr.appendChild(td);
+            });
+        } else {
+            // No column pivot, just use total
+            rowTotal = rowEntry.columns['_total'] || 0;
+        }
+
+        grandTotal += rowTotal;
+
+        // Row total
+        const totalTd = document.createElement('td');
+        totalTd.className = 'has-value';
+        totalTd.style.fontWeight = 'bold';
+        totalTd.textContent = formatNumber(rowTotal);
+        tr.appendChild(totalTd);
+
+        tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+
+    // Footer with totals
+    if (config.column && sortedColumns.length > 0) {
+        const tfoot = document.createElement('tfoot');
+        const totalRow = document.createElement('tr');
+        totalRow.className = 'total-row';
+
+        const totalLabelTd = document.createElement('td');
+        totalLabelTd.colSpan = config.rows.length;
+        totalLabelTd.style.textAlign = 'right';
+        totalLabelTd.style.paddingRight = '20px';
+        totalLabelTd.textContent = 'GRAND TOTAL:';
+        totalRow.appendChild(totalLabelTd);
+
+        sortedColumns.forEach(col => {
+            const td = document.createElement('td');
+            td.textContent = formatNumber(columnTotals[col]);
+            totalRow.appendChild(td);
+        });
+
+        const grandTotalTd = document.createElement('td');
+        grandTotalTd.style.fontWeight = 'bold';
+        grandTotalTd.textContent = formatNumber(grandTotal);
+        totalRow.appendChild(grandTotalTd);
+
+        tfoot.appendChild(totalRow);
+        table.appendChild(tfoot);
+    }
+
+    pivotContainer.appendChild(table);
+
+    // Add summary info
+    const summaryDiv = document.createElement('div');
+    summaryDiv.style.cssText = 'margin-top: 15px; padding: 15px; background: #d4edda; border-radius: 8px;';
+    summaryDiv.innerHTML = `
+        <p style="margin: 0; color: #155724;">
+            <strong>✓ Pivot table generated</strong><br>
+            Rows: ${rowsMap.size.toLocaleString()} |
+            ${config.column ? `Columns: ${sortedColumns.length} | ` : ''}
+            Aggregation: ${config.aggregation.toUpperCase()} |
+            Grand Total: ${formatNumber(grandTotal)}
+        </p>
+    `;
+
+    resultsDiv.innerHTML = '';
+    resultsDiv.appendChild(summaryDiv);
+    resultsDiv.appendChild(pivotContainer);
+}
+
+// Save pivot preset to localStorage
+function savePivotPreset() {
+    const presetName = document.getElementById('pivotPresetName').value.trim();
+
+    if (!presetName) {
+        alert('Please enter a preset name');
+        return;
+    }
+
+    const config = {
+        row1: document.getElementById('pivotRow1').value,
+        row2: document.getElementById('pivotRow2').value,
+        row3: document.getElementById('pivotRow3').value,
+        column: document.getElementById('pivotColumn').value,
+        measureField: document.getElementById('pivotMeasureField').value,
+        aggregation: document.getElementById('pivotAggregation').value
+    };
+
+    try {
+        const presets = JSON.parse(localStorage.getItem('pivotPresets') || '{}');
+        presets[presetName] = config;
+        localStorage.setItem('pivotPresets', JSON.stringify(presets));
+
+        alert(`✓ Preset "${presetName}" saved successfully`);
+        loadPivotPresetsIntoDropdown();
+    } catch (error) {
+        console.error('Error saving pivot preset:', error);
+        alert('Error saving preset: ' + error.message);
+    }
+}
+
+// Load pivot presets into dropdown
+function loadPivotPresetsIntoDropdown() {
+    const selector = document.getElementById('pivotPresetSelector');
+
+    try {
+        const presets = JSON.parse(localStorage.getItem('pivotPresets') || '{}');
+        const presetNames = Object.keys(presets).sort();
+
+        // Clear existing options except first
+        selector.innerHTML = '<option value="">-- Select Preset --</option>';
+
+        presetNames.forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            selector.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading pivot presets:', error);
+    }
+}
+
+// Load selected pivot preset
+function loadPivotPreset() {
+    const selector = document.getElementById('pivotPresetSelector');
+    const presetName = selector.value;
+
+    if (!presetName) return;
+
+    try {
+        const presets = JSON.parse(localStorage.getItem('pivotPresets') || '{}');
+        const config = presets[presetName];
+
+        if (config) {
+            document.getElementById('pivotRow1').value = config.row1 || '';
+            document.getElementById('pivotRow2').value = config.row2 || '';
+            document.getElementById('pivotRow3').value = config.row3 || '';
+            document.getElementById('pivotColumn').value = config.column || '';
+            document.getElementById('pivotMeasureField').value = config.measureField || 'durDec';
+            document.getElementById('pivotAggregation').value = config.aggregation || 'sum';
+            document.getElementById('pivotPresetName').value = presetName;
+        }
+    } catch (error) {
+        console.error('Error loading pivot preset:', error);
+        alert('Error loading preset: ' + error.message);
+    }
+}
+
+// Delete selected pivot preset
+function deletePivotPreset() {
+    const selector = document.getElementById('pivotPresetSelector');
+    const presetName = selector.value;
+
+    if (!presetName) {
+        alert('Please select a preset to delete');
+        return;
+    }
+
+    if (!confirm(`Delete preset "${presetName}"?`)) {
+        return;
+    }
+
+    try {
+        const presets = JSON.parse(localStorage.getItem('pivotPresets') || '{}');
+        delete presets[presetName];
+        localStorage.setItem('pivotPresets', JSON.stringify(presets));
+
+        alert(`✓ Preset "${presetName}" deleted`);
+        loadPivotPresetsIntoDropdown();
+
+        // Clear form
+        document.getElementById('pivotPresetName').value = '';
+        selector.value = '';
+    } catch (error) {
+        console.error('Error deleting pivot preset:', error);
+        alert('Error deleting preset: ' + error.message);
+    }
+}
+
+// Load quick pivot configurations
+function loadQuickPivot(type) {
+    const configs = {
+        'monthlyByProduct': {
+            row1: 'mainProduct',
+            row2: 'customerProject',
+            row3: '',
+            column: 'month',
+            measureField: 'durDec',
+            aggregation: 'sum'
+        },
+        'billingByProject': {
+            row1: 'mainProduct',
+            row2: 'customerProject',
+            row3: '',
+            column: 'mtype2',
+            measureField: 'durDec',
+            aggregation: 'sum'
+        },
+        'employeeByMonth': {
+            row1: 'name',
+            row2: 'customerProject',
+            row3: '',
+            column: 'month',
+            measureField: 'durDec',
+            aggregation: 'sum'
+        }
+    };
+
+    const config = configs[type];
+    if (config) {
+        document.getElementById('pivotRow1').value = config.row1 || '';
+        document.getElementById('pivotRow2').value = config.row2 || '';
+        document.getElementById('pivotRow3').value = config.row3 || '';
+        document.getElementById('pivotColumn').value = config.column || '';
+        document.getElementById('pivotMeasureField').value = config.measureField || 'durDec';
+        document.getElementById('pivotAggregation').value = config.aggregation || 'sum';
+    }
 }
 
 // ========== CACHE FUNCTIONS ==========
