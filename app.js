@@ -146,17 +146,90 @@ function setupDateFormatting() {
     });
 }
 
+// Date validation functions
+function validateDateFormat(dateString) {
+    if (!dateString || dateString.trim() === '') {
+        return { valid: true, message: '' }; // Empty is valid
+    }
+
+    // Check format DD/MM/YYYY or DD.MM.YYYY
+    const dateRegex = /^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{4})$/;
+    const match = dateString.match(dateRegex);
+
+    if (!match) {
+        return { valid: false, message: 'Invalid format. Use DD/MM/YYYY' };
+    }
+
+    const day = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    const year = parseInt(match[3], 10);
+
+    // Check valid ranges
+    if (month < 1 || month > 12) {
+        return { valid: false, message: 'Invalid month (1-12)' };
+    }
+
+    if (day < 1 || day > 31) {
+        return { valid: false, message: 'Invalid day (1-31)' };
+    }
+
+    if (year < 1900 || year > 2100) {
+        return { valid: false, message: 'Invalid year (1900-2100)' };
+    }
+
+    // Check if date is valid (e.g., not Feb 31)
+    const testDate = new Date(year, month - 1, day);
+    if (testDate.getMonth() !== month - 1 || testDate.getDate() !== day) {
+        return { valid: false, message: 'Invalid date (e.g., Feb 31)' };
+    }
+
+    return { valid: true, message: '' };
+}
+
+function validateDateInput(inputId, errorId) {
+    const input = document.getElementById(inputId);
+    const errorDiv = document.getElementById(errorId);
+    const value = input.value.trim();
+
+    const result = validateDateFormat(value);
+
+    if (!result.valid) {
+        input.classList.add('invalid-date');
+        input.classList.remove('valid-date');
+        errorDiv.textContent = result.message;
+        errorDiv.classList.add('show');
+        return false;
+    } else {
+        input.classList.remove('invalid-date');
+        if (value !== '') {
+            input.classList.add('valid-date');
+        } else {
+            input.classList.remove('valid-date');
+        }
+        errorDiv.classList.remove('show');
+        return true;
+    }
+}
+
+function validateAllDates() {
+    const dateFromValid = validateDateInput('dateFrom', 'dateFromError');
+    const dateToValid = validateDateInput('dateTo', 'dateToError');
+    return dateFromValid && dateToValid;
+}
+
 // Setup auto-apply filter on field leave
 function setupAutoFilterOnLeave() {
     // Apply filters when date inputs lose focus
     document.getElementById('dateFrom').addEventListener('blur', function() {
-        if (rawData.length > 0) {
+        validateDateInput('dateFrom', 'dateFromError');
+        if (rawData.length > 0 && validateAllDates()) {
             applyFilters();
         }
     });
 
     document.getElementById('dateTo').addEventListener('blur', function() {
-        if (rawData.length > 0) {
+        validateDateInput('dateTo', 'dateToError');
+        if (rawData.length > 0 && validateAllDates()) {
             applyFilters();
         }
     });
@@ -461,6 +534,12 @@ function applyFilters() {
     try {
         if (rawData.length === 0) {
             console.log('No data loaded yet');
+            return;
+        }
+
+        // Validate date inputs before applying filters
+        if (!validateAllDates()) {
+            console.log('Invalid date format detected. Please correct dates before filtering.');
             return;
         }
 
@@ -1200,8 +1279,15 @@ function updateSuggestedImprovements() {
 
 // Reset filters
 function resetFilters() {
-    document.getElementById('dateFrom').value = '';
-    document.getElementById('dateTo').value = '';
+    // Clear date inputs and validation state
+    const dateFromInput = document.getElementById('dateFrom');
+    const dateToInput = document.getElementById('dateTo');
+    dateFromInput.value = '';
+    dateToInput.value = '';
+    dateFromInput.classList.remove('invalid-date', 'valid-date');
+    dateToInput.classList.remove('invalid-date', 'valid-date');
+    document.getElementById('dateFromError').classList.remove('show');
+    document.getElementById('dateToError').classList.remove('show');
 
     // Clear multi-select filters
     const productFilterElement = document.getElementById('productFilter');
@@ -1226,14 +1312,22 @@ function resetFilters() {
 
 // Clear individual filters
 function clearDateFrom() {
-    document.getElementById('dateFrom').value = '';
+    const input = document.getElementById('dateFrom');
+    const errorDiv = document.getElementById('dateFromError');
+    input.value = '';
+    input.classList.remove('invalid-date', 'valid-date');
+    errorDiv.classList.remove('show');
     if (rawData.length > 0) {
         applyFilters();
     }
 }
 
 function clearDateTo() {
-    document.getElementById('dateTo').value = '';
+    const input = document.getElementById('dateTo');
+    const errorDiv = document.getElementById('dateToError');
+    input.value = '';
+    input.classList.remove('invalid-date', 'valid-date');
+    errorDiv.classList.remove('show');
     if (rawData.length > 0) {
         applyFilters();
     }

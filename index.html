@@ -695,13 +695,38 @@
             font-weight: 600;
             color: #212529;
         }
+
+        /* Date Validation Styles */
+        .date-input-wrapper {
+            position: relative;
+        }
+
+        .date-error {
+            color: #dc3545;
+            font-size: 0.7em;
+            margin-top: 3px;
+            display: none;
+        }
+
+        .date-error.show {
+            display: block;
+        }
+
+        input.invalid-date {
+            border-color: #dc3545 !important;
+            background-color: #fff5f5;
+        }
+
+        input.valid-date {
+            border-color: #28a745 !important;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.5.0</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.5.1</span></p>
         </header>
 
         <div class="controls">
@@ -717,14 +742,20 @@
                         <label for="dateFrom">Date From (DD/MM/YYYY)</label>
                         <button class="clear-filter-btn" onclick="clearDateFrom()" title="Clear date from">✕</button>
                     </div>
-                    <input type="text" id="dateFrom" placeholder="DD/MM/YYYY" maxlength="10">
+                    <div class="date-input-wrapper">
+                        <input type="text" id="dateFrom" placeholder="DD/MM/YYYY" maxlength="10">
+                        <div class="date-error" id="dateFromError">Invalid date format. Use DD/MM/YYYY</div>
+                    </div>
                 </div>
                 <div class="filter-group">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <label for="dateTo">Date To (DD/MM/YYYY)</label>
                         <button class="clear-filter-btn" onclick="clearDateTo()" title="Clear date to">✕</button>
                     </div>
-                    <input type="text" id="dateTo" placeholder="DD/MM/YYYY" maxlength="10">
+                    <div class="date-input-wrapper">
+                        <input type="text" id="dateTo" placeholder="DD/MM/YYYY" maxlength="10">
+                        <div class="date-error" id="dateToError">Invalid date format. Use DD/MM/YYYY</div>
+                    </div>
                 </div>
             </div>
 

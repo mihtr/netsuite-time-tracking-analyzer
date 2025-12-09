@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.5.0
+- **Current Version**: v1.5.1
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -17,7 +17,7 @@
 - [x] No loading progress indicator during CSV parse - **RESOLVED** in v1.4.2
 
 ### Low Priority
-- [ ] No validation on date input format (accepts invalid dates)
+- [x] No validation on date input format (accepts invalid dates) - **RESOLVED** in v1.5.1
 - [ ] Empty/null values show as "(Empty)" in table - could be more elegant
 - [ ] No way to export filtered results
 
@@ -128,7 +128,7 @@
 
 ### Short Term (Sprint 2)
 - [ ] **Export functionality** - Export filtered results to CSV
-- [ ] **Date validation** - Validate date inputs and show error for invalid dates
+- [x] **Date validation** - Validate date inputs and show error for invalid dates - **COMPLETED v1.5.1**
 - [ ] **Performance optimization** - Optimize for large datasets (consider virtual scrolling)
 - [x] **Clear individual filters** - Add X button to clear each filter separately - **COMPLETED v1.4.5**
 
@@ -288,6 +288,25 @@
 ---
 
 ## 🔄 Change Log
+
+### v1.5.1 (2025-12-09)
+- **Date Validation**: Comprehensive validation for date inputs with visual feedback
+  - Real-time format validation supporting DD/MM/YYYY and DD.MM.YYYY formats
+  - Range validation: month (1-12), day (1-31), year (1900-2100)
+  - Calendar validity check: rejects invalid dates like Feb 31, Apr 31, etc.
+  - Visual feedback system:
+    - Red border and pink background (#fff5f5) for invalid dates
+    - Green border for valid dates
+    - Error messages displayed below inputs with specific validation failures
+  - Validation on blur events: checks dates when user leaves input field
+  - Prevents filtering when dates are invalid
+  - Clear validation states when clearing or resetting filters
+  - Error messages provide specific guidance (e.g., "Invalid month (1-12)", "Invalid date (e.g., Feb 31)")
+  - Empty dates are considered valid (optional filtering)
+- **UX Enhancement**: Improved date input reliability and user guidance
+  - Users immediately see when they've entered an invalid date
+  - Clear error messages explain what's wrong
+  - Visual cues (colors) make validation state obvious at a glance
 
 ### v1.5.0 (2025-12-09)
 - **Enhanced Project Display with Names**: Added project names to analytics
