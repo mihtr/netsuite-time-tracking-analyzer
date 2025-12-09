@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.6.1
+- **Current Version**: v1.6.2
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -18,12 +18,97 @@
 
 ### Low Priority
 - [x] No validation on date input format (accepts invalid dates) - **RESOLVED** in v1.5.1
+- [x] No way to export filtered results - **RESOLVED** in v1.6.1
 - [ ] Empty/null values show as "(Empty)" in table - could be more elegant
-- [ ] No way to export filtered results
 
 ---
 
 ## ✅ Completed Features
+
+### Version 1.6.2 (2025-12-09)
+- [x] **Global Search** - Search across all data fields in real-time
+  - Full-text search across all columns (Main Product, Customer:Project, Name, Type, Task, Total Hours)
+  - Case-insensitive matching
+  - Debounced input for performance (300ms delay)
+  - Clear search button (✕) for quick reset
+  - Enter key for immediate search
+  - Search filters aggregated data without re-running full aggregation
+  - Maintains sorting and filtering while searching
+
+### Version 1.6.1 (2025-12-09)
+- [x] **CSV Export** - Export filtered results to CSV format
+  - European CSV format (semicolon delimiter, comma decimal separator)
+  - UTF-8 BOM encoding for Excel compatibility
+  - Proper field escaping (handles quotes, newlines, delimiters)
+  - Timestamped filenames for organization
+  - Exports currently filtered/aggregated data
+  - One-click download with success notification
+
+### Version 1.6.0 (2025-12-09)
+- [x] **Virtual Scrolling** - Replaced pagination with smooth virtual scrolling
+  - Renders only ~30-40 visible rows at a time
+  - Smooth 60fps scrolling even with 300k+ records
+  - Top and bottom spacer rows maintain scroll position
+  - Auto-calculates visible rows based on viewport height
+  - Debounced scroll handler (16ms / 60fps)
+  - Applied to all tabs (Detail, Monthly, Insights)
+
+### Version 1.5.3 (2025-12-09)
+- [x] **Insights Tab** - Dedicated tab for analytics and insights
+  - Moved Time Distribution, Additional Analytics, and Suggested Improvements to separate tab
+  - Clean separation of data views and analytics
+  - 💡 Insights icon for easy identification
+  - Dedicated statistics dashboard for insights view
+  - Better UI organization and user experience
+
+### Version 1.5.2 (2025-12-09)
+- [x] **Import Statistics** - Detailed tracking of CSV import process
+  - Shows rejected records count with breakdown
+  - Tracks empty lines, invalid rows (< 50 columns), header row
+  - Console logging of import statistics
+  - Success rate calculation
+  - User feedback on import quality
+
+### Version 1.5.1 (2025-12-09)
+- [x] **Date Validation** - Comprehensive date input validation
+  - Real-time validation with error messages
+  - Validates DD/MM/YYYY format
+  - Red border and error text for invalid dates
+  - Prevents filtering with invalid dates
+  - Clear error messages for user guidance
+
+### Version 1.4.9 (2025-12-09)
+- [x] **Suggested Improvements** - Automated recommendations based on data patterns
+  - Underutilized resources detection
+  - Over-allocated projects identification
+  - Billing inconsistencies flagging
+  - Time tracking gaps analysis
+
+### Version 1.4.8 (2025-12-09)
+- [x] **Department Filter** - Multi-select department filter
+  - Filter by one or multiple departments
+  - Integrates with existing filter system
+  - Auto-populates from data
+
+### Version 1.4.7 (2025-12-09)
+- [x] **Additional Analytics** - Expanded data insights
+  - Top 5 performers by hours
+  - Top 5 most active projects
+  - Enhanced billing type breakdown
+  - Department utilization rates
+
+### Version 1.4.5 (2025-12-09)
+- [x] **Clear Individual Filters** - Clear button (✕) for each filter
+  - Individual clear buttons for date filters, multi-selects
+  - Quick reset without clearing all filters
+  - Improved user control
+
+### Version 1.4.4 (2025-12-09)
+- [x] **Pagination** - Navigate large result sets
+  - Configurable rows per page (100/500/1000)
+  - Page navigation controls
+  - Shows current page and total pages
+  - **NOTE**: Replaced with virtual scrolling in v1.6.0
 
 ### Version 1.4.3 (2025-12-09)
 - [x] **Save Filter Presets** - Users can now save and reuse filter combinations
@@ -139,7 +224,7 @@
   - [ ] Billing type (MTYPE2) filter
   - [ ] Customer filter
   - [ ] Hours range filter (min/max)
-- [ ] **Search functionality** - Global search across all fields
+- [x] **Search functionality** - Global search across all fields - **COMPLETED v1.6.2**
 - [ ] **Column visibility toggle** - Show/hide columns
 - [x] **Pagination** - Add pagination for large result sets (100/500/1000 rows per page) - **COMPLETED v1.4.4**
 

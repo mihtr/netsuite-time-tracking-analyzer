@@ -726,7 +726,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.6.1</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.6.2</span></p>
         </header>
 
         <div class="controls">
@@ -737,6 +737,14 @@
             </div>
 
             <div class="filter-section">
+                <div class="filter-group" style="grid-column: 1 / -1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <label for="searchBox">🔍 Search (across all fields)</label>
+                        <button class="clear-filter-btn" onclick="clearSearch()" title="Clear search">✕</button>
+                    </div>
+                    <input type="text" id="searchBox" placeholder="Search in all columns..." style="width: 100%;">
+                </div>
+
                 <div class="filter-group">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <label for="dateFrom">Date From (DD/MM/YYYY)</label>

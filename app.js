@@ -30,6 +30,10 @@ let virtualScroll = {
     scrollTop: 0
 };
 
+// Search state
+let searchTerm = '';
+let aggregatedDataBeforeSearch = [];
+
 // CSV Column indices (0-based, subtract 1 from FIELD_CATALOG.md numbers)
 const COLUMNS = {
     MAIN_PRODUCT: 31,           // EG - Main Product (Project Task Time Tracking) - Field #32
@@ -74,6 +78,7 @@ window.addEventListener('DOMContentLoaded', function() {
     setupMonthlySorting();
     setupDateFormatting();
     setupAutoFilterOnLeave();
+    setupSearch();
 });
 
 // Setup file upload as fallback
@@ -271,6 +276,35 @@ function setupAutoFilterOnLeave() {
     document.getElementById('departmentFilter').addEventListener('change', function() {
         if (rawData.length > 0) {
             applyFilters();
+        }
+    });
+}
+
+// Setup search functionality
+function setupSearch() {
+    const searchBox = document.getElementById('searchBox');
+    if (!searchBox) return;
+
+    // Add input event listener with debouncing for better performance
+    let searchTimeout;
+    searchBox.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            if (aggregatedDataBeforeSearch.length > 0) {
+                applySearch();
+                displayData();
+                updateStats();
+            }
+        }, 300); // 300ms debounce
+    });
+
+    // Also handle Enter key for immediate search
+    searchBox.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && aggregatedDataBeforeSearch.length > 0) {
+            clearTimeout(searchTimeout);
+            applySearch();
+            displayData();
+            updateStats();
         }
     });
 }
@@ -705,6 +739,9 @@ function applyFilters() {
     // Aggregate data
     aggregateData();
 
+    // Apply search filter to aggregated data
+    applySearch();
+
     // Reset to first page when filters change
     currentPage = 1;
 
@@ -750,6 +787,9 @@ function aggregateData() {
     // Convert map to array
     aggregatedData = Array.from(aggregationMap.values());
 
+    // Save full aggregated data before search filtering
+    aggregatedDataBeforeSearch = [...aggregatedData];
+
     // Apply current sort
     sortData();
 }
@@ -776,6 +816,48 @@ function sortData() {
             return direction === 'asc' ? comparison : -comparison;
         }
     });
+}
+
+// Apply search filter to aggregated data
+function applySearch() {
+    // Get search term from input
+    const searchBox = document.getElementById('searchBox');
+    if (searchBox) {
+        searchTerm = searchBox.value.trim().toLowerCase();
+    }
+
+    // If no search term, use all aggregated data
+    if (!searchTerm) {
+        aggregatedData = [...aggregatedDataBeforeSearch];
+        return;
+    }
+
+    // Filter aggregated data based on search term
+    aggregatedData = aggregatedDataBeforeSearch.filter(item => {
+        // Search across all visible columns
+        const searchableText = [
+            item.mainProduct,
+            item.customerProject,
+            item.name,
+            item.mtype2,
+            item.task,
+            item.totalHours.toString()
+        ].join(' ').toLowerCase();
+
+        return searchableText.includes(searchTerm);
+    });
+}
+
+// Clear search and refresh display
+function clearSearch() {
+    const searchBox = document.getElementById('searchBox');
+    if (searchBox) {
+        searchBox.value = '';
+        searchTerm = '';
+    }
+    applySearch();
+    displayData();
+    updateStats();
 }
 
 // Sort and display data (called when clicking column headers)
