@@ -12,6 +12,8 @@ let monthlySortState = {
     column: 'year',
     direction: 'desc'
 };
+let currentPage = 1;
+let rowsPerPage = 500;
 
 // CSV Column indices (0-based, subtract 1 from FIELD_CATALOG.md numbers)
 const COLUMNS = {
@@ -473,6 +475,9 @@ function applyFilters() {
     // Aggregate data
     aggregateData();
 
+    // Reset to first page when filters change
+    currentPage = 1;
+
     // Display results
     displayData();
     updateStats();
@@ -546,6 +551,7 @@ function sortData() {
 // Sort and display data (called when clicking column headers)
 function sortAndDisplayData() {
     sortData();
+    currentPage = 1; // Reset to first page when sorting
     displayData();
 }
 
@@ -571,15 +577,24 @@ function displayData() {
     table.style.display = 'table';
     tableFooter.style.display = 'table-footer-group';
 
+    // Calculate pagination
+    const totalRows = aggregatedData.length;
+    const totalPages = Math.ceil(totalRows / rowsPerPage);
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = Math.min(startIndex + rowsPerPage, totalRows);
+    const pageData = aggregatedData.slice(startIndex, endIndex);
+
     // Clear existing rows
     tableBody.innerHTML = '';
 
-    // Calculate total hours
-    let totalHours = 0;
+    // Calculate total hours for ALL data (not just current page)
+    let totalHours = aggregatedData.reduce((sum, item) => sum + item.totalHours, 0);
 
-    // Add rows
-    aggregatedData.forEach(item => {
-        totalHours += item.totalHours;
+    // Use DocumentFragment for better performance
+    const fragment = document.createDocumentFragment();
+
+    // Add rows for current page only
+    pageData.forEach(item => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${escapeHtml(item.mainProduct)}</td>
@@ -589,11 +604,61 @@ function displayData() {
             <td>${escapeHtml(item.task)}</td>
             <td>${formatNumber(item.totalHours)}</td>
         `;
-        tableBody.appendChild(row);
+        fragment.appendChild(row);
     });
+
+    // Append all rows at once
+    tableBody.appendChild(fragment);
 
     // Update footer total
     document.getElementById('totalHoursFooter').textContent = formatNumber(totalHours);
+
+    // Update pagination info
+    updatePaginationInfo(startIndex + 1, endIndex, totalRows, currentPage, totalPages);
+}
+
+// Pagination functions
+function updatePaginationInfo(startRow, endRow, totalRows, page, totalPages) {
+    const paginationDiv = document.getElementById('paginationInfo');
+    if (!paginationDiv) return;
+
+    paginationDiv.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; background: #f8f9fa; border-top: 1px solid #e9ecef;">
+            <div style="color: #6c757d; font-size: 0.9em;">
+                Showing <strong>${startRow.toLocaleString()}</strong> to <strong>${endRow.toLocaleString()}</strong> of <strong>${totalRows.toLocaleString()}</strong> rows
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <button class="btn-secondary" onclick="goToPage(1)" ${page === 1 ? 'disabled' : ''} style="padding: 5px 10px; font-size: 0.85em;">⏮ First</button>
+                <button class="btn-secondary" onclick="goToPage(${page - 1})" ${page === 1 ? 'disabled' : ''} style="padding: 5px 10px; font-size: 0.85em;">◀ Prev</button>
+                <span style="color: #6c757d; font-size: 0.9em;">Page <strong>${page}</strong> of <strong>${totalPages}</strong></span>
+                <button class="btn-secondary" onclick="goToPage(${page + 1})" ${page === totalPages ? 'disabled' : ''} style="padding: 5px 10px; font-size: 0.85em;">Next ▶</button>
+                <button class="btn-secondary" onclick="goToPage(${totalPages})" ${page === totalPages ? 'disabled' : ''} style="padding: 5px 10px; font-size: 0.85em;">Last ⏭</button>
+                <select onchange="changeRowsPerPage(this.value)" style="padding: 5px; border-radius: 4px; border: 2px solid #dee2e6; font-size: 0.85em;">
+                    <option value="100" ${rowsPerPage === 100 ? 'selected' : ''}>100 rows</option>
+                    <option value="250" ${rowsPerPage === 250 ? 'selected' : ''}>250 rows</option>
+                    <option value="500" ${rowsPerPage === 500 ? 'selected' : ''}>500 rows</option>
+                    <option value="1000" ${rowsPerPage === 1000 ? 'selected' : ''}>1000 rows</option>
+                </select>
+            </div>
+        </div>
+    `;
+}
+
+function goToPage(page) {
+    const totalPages = Math.ceil(aggregatedData.length / rowsPerPage);
+    if (page < 1 || page > totalPages) return;
+
+    currentPage = page;
+    displayData();
+
+    // Scroll to top of table
+    document.getElementById('dataTable').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function changeRowsPerPage(newRowsPerPage) {
+    rowsPerPage = parseInt(newRowsPerPage);
+    currentPage = 1; // Reset to first page
+    displayData();
 }
 
 // Update statistics
