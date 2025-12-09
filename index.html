@@ -628,13 +628,80 @@
             border-radius: 3px;
             transition: width 0.3s ease;
         }
+
+        /* Suggested Improvements Styles */
+        .improvements-header {
+            font-size: 0.85em;
+            font-weight: 700;
+            color: #856404;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .improvements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 12px;
+        }
+
+        .improvement-card {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            border-left: 4px solid #ffc107;
+        }
+
+        .improvement-card.warning {
+            border-left-color: #ff9800;
+        }
+
+        .improvement-card.alert {
+            border-left-color: #f44336;
+        }
+
+        .improvement-title {
+            font-size: 0.85em;
+            font-weight: 700;
+            color: #856404;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .improvement-icon {
+            font-size: 1.2em;
+        }
+
+        .improvement-content {
+            font-size: 0.8em;
+            color: #6c757d;
+            line-height: 1.5;
+        }
+
+        .improvement-list {
+            margin: 6px 0 0 0;
+            padding-left: 20px;
+        }
+
+        .improvement-list li {
+            margin: 4px 0;
+            color: #495057;
+        }
+
+        .improvement-metric {
+            font-weight: 600;
+            color: #212529;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.4.8</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.4.9</span></p>
         </header>
 
         <div class="controls">
@@ -764,6 +831,11 @@
         <!-- Additional Analytics Dashboard -->
         <div id="additionalAnalytics" style="display: none; padding: 10px 30px; background: #f8f9fa; border-bottom: 1px solid #e9ecef;">
             <!-- Additional analytics will be dynamically populated here -->
+        </div>
+
+        <!-- Suggested Improvements Section -->
+        <div id="suggestedImprovements" style="display: none; padding: 10px 30px; background: #fff3cd; border-bottom: 1px solid #ffc107;">
+            <!-- Suggested improvements will be dynamically populated here -->
         </div>
 
         <div class="table-container">

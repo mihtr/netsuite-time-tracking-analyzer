@@ -747,6 +747,9 @@ function updateStats() {
 
     // Update additional analytics
     updateAdditionalAnalytics();
+
+    // Update suggested improvements
+    updateSuggestedImprovements();
 }
 
 // Time Distribution Patterns Analytics
@@ -1014,6 +1017,166 @@ function updateAdditionalAnalytics() {
     analyticsHTML += '</div>';
 
     analyticsDiv.innerHTML = analyticsHTML;
+}
+
+// Suggested Improvements Analysis
+function updateSuggestedImprovements() {
+    const improvementsDiv = document.getElementById('suggestedImprovements');
+
+    if (!improvementsDiv || filteredData.length === 0) {
+        if (improvementsDiv) improvementsDiv.style.display = 'none';
+        return;
+    }
+
+    const improvements = [];
+
+    // 1. Analyze Underutilized Resources
+    const employeeHours = {};
+    filteredData.forEach(row => {
+        const fullName = row[COLUMNS.FULL_NAME] || row[COLUMNS.EMPLOYEE] || 'Unknown';
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+        employeeHours[fullName] = (employeeHours[fullName] || 0) + hours;
+    });
+
+    const totalEmployees = Object.keys(employeeHours).length;
+    const avgHoursPerEmployee = Object.values(employeeHours).reduce((sum, h) => sum + h, 0) / totalEmployees;
+    const underutilizedThreshold = avgHoursPerEmployee * 0.3; // 30% of average
+
+    const underutilizedEmployees = Object.entries(employeeHours)
+        .filter(([name, hours]) => hours < underutilizedThreshold && hours > 0)
+        .sort((a, b) => a[1] - b[1])
+        .slice(0, 5);
+
+    if (underutilizedEmployees.length > 0) {
+        improvements.push({
+            type: 'warning',
+            icon: '⚠️',
+            title: 'Underutilized Resources',
+            content: `${underutilizedEmployees.length} employee(s) have significantly fewer hours than average (${formatNumber(avgHoursPerEmployee)} hrs/person).`,
+            list: underutilizedEmployees.map(([name, hours]) =>
+                `${name}: <span class="improvement-metric">${formatNumber(hours)} hrs</span> (${((hours / avgHoursPerEmployee) * 100).toFixed(0)}% of avg)`)
+        });
+    }
+
+    // 2. Analyze Over-allocated Projects
+    const projectHours = {};
+    filteredData.forEach(row => {
+        const project = row[COLUMNS.CUSTOMER_PROJECT] || 'Unknown';
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+        projectHours[project] = (projectHours[project] || 0) + hours;
+    });
+
+    const avgHoursPerProject = Object.values(projectHours).reduce((sum, h) => sum + h, 0) / Object.keys(projectHours).length;
+    const overallocatedThreshold = avgHoursPerProject * 2.5; // 250% of average
+
+    const overallocatedProjects = Object.entries(projectHours)
+        .filter(([proj, hours]) => hours > overallocatedThreshold)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+    if (overallocatedProjects.length > 0) {
+        improvements.push({
+            type: 'alert',
+            icon: '🔥',
+            title: 'Over-allocated Projects',
+            content: `${overallocatedProjects.length} project(s) have significantly more hours than average (${formatNumber(avgHoursPerProject)} hrs/project).`,
+            list: overallocatedProjects.map(([proj, hours]) =>
+                `${proj}: <span class="improvement-metric">${formatNumber(hours)} hrs</span> (${((hours / avgHoursPerProject) * 100).toFixed(0)}% of avg)`)
+        });
+    }
+
+    // 3. Analyze Billing Inconsistencies
+    const projectBillingTypes = {};
+    filteredData.forEach(row => {
+        const project = row[COLUMNS.CUSTOMER_PROJECT] || 'Unknown';
+        const billingType = row[COLUMNS.MTYPE2] || 'Unknown';
+        if (!projectBillingTypes[project]) {
+            projectBillingTypes[project] = new Set();
+        }
+        projectBillingTypes[project].add(billingType);
+    });
+
+    const mixedBillingProjects = Object.entries(projectBillingTypes)
+        .filter(([proj, types]) => types.size > 2) // More than 2 different billing types
+        .map(([proj, types]) => ({ proj, count: types.size, types: Array.from(types) }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+    if (mixedBillingProjects.length > 0) {
+        improvements.push({
+            type: 'warning',
+            icon: '💰',
+            title: 'Mixed Billing Types',
+            content: `${mixedBillingProjects.length} project(s) have multiple billing types, which may indicate billing inconsistencies.`,
+            list: mixedBillingProjects.map(item =>
+                `${item.proj}: <span class="improvement-metric">${item.count} types</span> (${item.types.join(', ')})`)
+        });
+    }
+
+    // 4. Analyze Time Tracking Gaps
+    const dateHours = {};
+    filteredData.forEach(row => {
+        const dateStr = row[COLUMNS.DATE];
+        if (!dateStr) return;
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+        dateHours[dateStr] = (dateHours[dateStr] || 0) + hours;
+    });
+
+    const dates = Object.keys(dateHours).sort();
+    if (dates.length > 0) {
+        const firstDate = parseDate(dates[0]);
+        const lastDate = parseDate(dates[dates.length - 1]);
+
+        if (firstDate && lastDate) {
+            const daysDiff = Math.floor((lastDate - firstDate) / (1000 * 60 * 60 * 24)) + 1;
+            const daysWithData = dates.length;
+            const coveragePercent = ((daysWithData / daysDiff) * 100).toFixed(1);
+
+            if (coveragePercent < 80) {
+                const missingDays = daysDiff - daysWithData;
+                improvements.push({
+                    type: 'warning',
+                    icon: '📅',
+                    title: 'Time Tracking Gaps',
+                    content: `Only ${coveragePercent}% of days have time entries. There are ${missingDays} days without any recorded hours.`,
+                    list: [`Date range: ${dates[0]} to ${dates[dates.length - 1]}`, `Days with data: ${daysWithData} / ${daysDiff} days`]
+                });
+            }
+        }
+    }
+
+    // Display improvements or hide section
+    if (improvements.length === 0) {
+        improvementsDiv.style.display = 'none';
+        return;
+    }
+
+    improvementsDiv.style.display = 'block';
+
+    let improvementsHTML = '<div class="improvements-header">💡 Suggested Improvements & Insights</div>';
+    improvementsHTML += '<div class="improvements-grid">';
+
+    improvements.forEach(improvement => {
+        improvementsHTML += `<div class="improvement-card ${improvement.type}">`;
+        improvementsHTML += `<div class="improvement-title">`;
+        improvementsHTML += `<span class="improvement-icon">${improvement.icon}</span>`;
+        improvementsHTML += `${improvement.title}`;
+        improvementsHTML += `</div>`;
+        improvementsHTML += `<div class="improvement-content">`;
+        improvementsHTML += improvement.content;
+        if (improvement.list && improvement.list.length > 0) {
+            improvementsHTML += '<ul class="improvement-list">';
+            improvement.list.forEach(item => {
+                improvementsHTML += `<li>${item}</li>`;
+            });
+            improvementsHTML += '</ul>';
+        }
+        improvementsHTML += `</div>`;
+        improvementsHTML += `</div>`;
+    });
+
+    improvementsHTML += '</div>';
+    improvementsDiv.innerHTML = improvementsHTML;
 }
 
 // Reset filters
