@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.12.0
+- **Current Version**: v1.13.0
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -25,6 +25,36 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.13.0 (2025-12-09)
+- [x] **Pivot Builder: Export to CSV** - Export pivot table results to CSV file
+  - European CSV format (semicolon delimiter, comma decimal separator)
+  - UTF-8 BOM encoding for Excel compatibility
+  - Includes all row fields, column headers, values, and grand total row
+  - Timestamped filename: `pivot_table_YYYY-MM-DDTHH-mm-ss.csv`
+  - Export button next to Build Pivot Table button
+  - Proper CSV field escaping for special characters
+  - Success message shows row count exported
+- [x] **Pivot Builder: Drill-down to Details** - Click cells to see underlying detail records
+  - Click any value cell or row total to see detail records
+  - Modal dialog shows all records that make up the aggregated value
+  - Cell information summary: row fields, column value (if any), record count
+  - Scrollable detail table with 7 columns: Date, Main Product, Customer:Project, Employee, Type, Task, Duration
+  - Close button (✕) and click outside to dismiss
+  - Hover shows "Click to see detail records" tooltip
+  - Cursor changes to pointer on clickable cells
+  - Stores full detail records during aggregation for drill-down
+- [x] **Pivot Builder: Conditional Formatting** - Color-coded cells based on values
+  - 5-level green color scale based on percentage of maximum value
+  - 80%+: Dark green (#28a745) with white text
+  - 60-80%: Medium-dark green (#5cb85c) with white text
+  - 40-60%: Medium green (#8fce8f) with black text
+  - 20-40%: Light green (#c3e6c3) with black text
+  - <20%: Very light green (#e7f4e7) with black text
+  - Applied to both column values and row totals
+  - Automatic contrast adjustment for readability
+  - Visual heatmap makes patterns and outliers easy to spot
+  - Max value calculated across all cells for consistent scale
 
 ### Version 1.12.0 (2025-12-09)
 - [x] **Dynamic Pivot Builder - Custom Pivot Table Configuration** - Interactive pivot builder with save/load functionality
@@ -416,9 +446,9 @@
   - [x] Grand totals and row totals - **COMPLETED v1.12.0**
   - [x] Quick preset shortcuts for common configurations - **COMPLETED v1.12.0**
   - [x] Field sorting within pivot - **COMPLETED v1.12.0+**
-  - [ ] Export pivot table views
-  - [ ] Drill-down from aggregated cells to detail records
-  - [ ] Conditional formatting for pivot cells
+  - [x] Export pivot table views - **COMPLETED v1.13.0**
+  - [x] Drill-down from aggregated cells to detail records - **COMPLETED v1.13.0**
+  - [x] Conditional formatting for pivot cells - **COMPLETED v1.13.0**
   - [ ] Drag-and-drop interface (currently uses dropdown selectors)
 - [x] **Charts and visualizations** - Add interactive graphs for time distribution - **COMPLETED v1.7.0**
   - [x] Line charts for time trends

@@ -18,6 +18,7 @@ let pivotBuilderSortState = {
     column: null,
     direction: 'desc'
 };
+let pivotDrilldownData = new Map(); // Store detail records for drill-down
 let importStats = {
     totalLines: 0,
     headerSkipped: 0,
@@ -3033,6 +3034,7 @@ async function aggregatePivotData(config) {
                     rowValues: rowValues,
                     columnValue: columnValue,
                     values: [],
+                    detailRecords: [], // Store full records for drill-down
                     sum: 0,
                     count: 0,
                     min: Infinity,
@@ -3042,6 +3044,7 @@ async function aggregatePivotData(config) {
 
             const entry = aggregationMap.get(fullKey);
             entry.values.push(measureValue);
+            entry.detailRecords.push(row); // Store the full row
             entry.sum += measureValue;
             entry.count++;
             entry.min = Math.min(entry.min, measureValue);
@@ -3089,6 +3092,33 @@ function getMeasureValue(row, measureField) {
     return 0;
 }
 
+// Get conditional formatting color based on value
+function getConditionalFormattingColor(value, maxValue) {
+    if (value === 0 || maxValue === 0) {
+        return { background: 'transparent', color: '#212529' };
+    }
+
+    const percentage = (value / maxValue) * 100;
+
+    // Color scale: light green to dark green
+    if (percentage >= 80) {
+        // Very high values: dark green with white text
+        return { background: '#28a745', color: 'white' };
+    } else if (percentage >= 60) {
+        // High values: medium-dark green
+        return { background: '#5cb85c', color: 'white' };
+    } else if (percentage >= 40) {
+        // Medium values: medium green
+        return { background: '#8fce8f', color: '#212529' };
+    } else if (percentage >= 20) {
+        // Low values: light green
+        return { background: '#c3e6c3', color: '#212529' };
+    } else {
+        // Very low values: very light green
+        return { background: '#e7f4e7', color: '#212529' };
+    }
+}
+
 // Render pivot table
 function renderPivotTable(aggregatedData, config) {
     const resultsDiv = document.getElementById('pivotBuilderResults');
@@ -3097,6 +3127,9 @@ function renderPivotTable(aggregatedData, config) {
         resultsDiv.innerHTML = '<p style="padding: 20px; text-align: center; color: #6c757d;">No data to display. Try adjusting your filters.</p>';
         return;
     }
+
+    // Clear previous drill-down data
+    pivotDrilldownData.clear();
 
     // Group data by rows and columns
     const rowsMap = new Map();
@@ -3139,6 +3172,14 @@ function renderPivotTable(aggregatedData, config) {
         }
 
         rowEntry.columns[columnKey] = aggregatedValue;
+
+        // Store detail records for drill-down
+        const drilldownKey = `${rowKey}|${columnKey}`;
+        pivotDrilldownData.set(drilldownKey, {
+            rowValues: item.rowValues,
+            columnValue: item.columnValue,
+            detailRecords: item.detailRecords || []
+        });
     });
 
     const sortedColumns = config.column ? Array.from(columnsSet).sort() : [];
@@ -3252,6 +3293,14 @@ function renderPivotTable(aggregatedData, config) {
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
+    // Calculate max value for conditional formatting
+    let maxValue = 0;
+    rowsArray.forEach((rowEntry) => {
+        Object.values(rowEntry.columns).forEach(val => {
+            if (val > maxValue) maxValue = val;
+        });
+    });
+
     // Body rows
     const tbody = document.createElement('tbody');
     const columnTotals = {};
@@ -3282,8 +3331,29 @@ function renderPivotTable(aggregatedData, config) {
                     td.className = 'zero';
                     td.textContent = '-';
                 } else {
-                    td.className = 'has-value';
+                    td.className = 'has-value clickable-cell';
                     td.textContent = formatNumber(value);
+                    td.style.cursor = 'pointer';
+                    td.title = 'Click to see detail records';
+
+                    // Apply conditional formatting
+                    const colors = getConditionalFormattingColor(value, maxValue);
+                    td.style.backgroundColor = colors.background;
+                    td.style.color = colors.color;
+
+                    // Add click handler for drill-down
+                    const rowKey = rowEntry.rowValues.join('|');
+                    const drilldownKey = `${rowKey}|${col}`;
+                    td.onclick = function() {
+                        const drilldownInfo = pivotDrilldownData.get(drilldownKey);
+                        if (drilldownInfo) {
+                            const cellInfo = {
+                                rows: rowEntry.rowValues.join(' → '),
+                                column: col
+                            };
+                            showDrilldownModal(drilldownInfo.detailRecords, cellInfo);
+                        }
+                    };
                 }
                 tr.appendChild(td);
             });
@@ -3296,9 +3366,31 @@ function renderPivotTable(aggregatedData, config) {
 
         // Row total
         const totalTd = document.createElement('td');
-        totalTd.className = 'has-value';
+        totalTd.className = 'has-value clickable-cell';
         totalTd.style.fontWeight = 'bold';
+        totalTd.style.cursor = 'pointer';
+        totalTd.title = 'Click to see all detail records for this row';
         totalTd.textContent = formatNumber(rowTotal);
+
+        // Apply conditional formatting to row total
+        const colors = getConditionalFormattingColor(rowTotal, maxValue);
+        totalTd.style.backgroundColor = colors.background;
+        totalTd.style.color = colors.color;
+
+        // Add click handler for row total drill-down
+        const rowKey = rowEntry.rowValues.join('|');
+        const drilldownKey = `${rowKey}|_total`;
+        totalTd.onclick = function() {
+            const drilldownInfo = pivotDrilldownData.get(drilldownKey);
+            if (drilldownInfo) {
+                const cellInfo = {
+                    rows: rowEntry.rowValues.join(' → '),
+                    column: null
+                };
+                showDrilldownModal(drilldownInfo.detailRecords, cellInfo);
+            }
+        };
+
         tr.appendChild(totalTd);
 
         tbody.appendChild(tr);
@@ -3530,6 +3622,238 @@ function loadQuickPivot(type) {
         document.getElementById('pivotMeasureField').value = config.measureField || 'durDec';
         document.getElementById('pivotAggregation').value = config.aggregation || 'sum';
     }
+}
+
+// Export pivot table to CSV
+function exportPivotTableToCSV() {
+    const config = window.lastPivotConfig;
+    const aggregatedData = window.lastPivotData;
+
+    if (!config || !aggregatedData || aggregatedData.length === 0) {
+        alert('Please build a pivot table first before exporting');
+        return;
+    }
+
+    try {
+        // Group data by rows and columns (same logic as renderPivotTable)
+        const rowsMap = new Map();
+        const columnsSet = new Set();
+
+        aggregatedData.forEach(item => {
+            const rowKey = item.rowValues.join('|');
+            if (!rowsMap.has(rowKey)) {
+                rowsMap.set(rowKey, {
+                    rowValues: item.rowValues,
+                    columns: {}
+                });
+            }
+
+            const rowEntry = rowsMap.get(rowKey);
+            const columnKey = item.columnValue || '_total';
+
+            if (item.columnValue) {
+                columnsSet.add(item.columnValue);
+            }
+
+            // Calculate aggregated value based on aggregation type
+            let aggregatedValue = 0;
+            switch (config.aggregation) {
+                case 'sum':
+                    aggregatedValue = item.sum;
+                    break;
+                case 'avg':
+                    aggregatedValue = item.count > 0 ? item.sum / item.count : 0;
+                    break;
+                case 'count':
+                    aggregatedValue = item.count;
+                    break;
+                case 'min':
+                    aggregatedValue = item.min !== Infinity ? item.min : 0;
+                    break;
+                case 'max':
+                    aggregatedValue = item.max !== -Infinity ? item.max : 0;
+                    break;
+            }
+
+            rowEntry.columns[columnKey] = aggregatedValue;
+        });
+
+        const sortedColumns = config.column ? Array.from(columnsSet).sort() : [];
+
+        // Generate CSV content with European format (semicolon delimiter, comma decimals)
+        let csvContent = '';
+
+        // Row field labels
+        const rowFieldLabels = {
+            'mainProduct': 'Main Product',
+            'customerProject': 'Customer:Project',
+            'name': 'Name (Employee)',
+            'mtype2': 'Type (MTYPE2)',
+            'task': 'Task',
+            'department': 'Department',
+            'projectType': 'Project Type',
+            'month': 'Month'
+        };
+
+        // Add header row
+        const headers = [];
+        config.rows.forEach(field => {
+            headers.push(rowFieldLabels[field] || field);
+        });
+
+        if (config.column && sortedColumns.length > 0) {
+            sortedColumns.forEach(col => headers.push(col));
+        }
+        headers.push('Total');
+
+        csvContent += headers.join(';') + '\n';
+
+        // Add data rows
+        rowsMap.forEach((rowEntry) => {
+            const row = [];
+
+            // Row values
+            rowEntry.rowValues.forEach(value => {
+                row.push(escapeCSVField(value));
+            });
+
+            // Column values
+            let rowTotal = 0;
+            if (config.column && sortedColumns.length > 0) {
+                sortedColumns.forEach(col => {
+                    const value = rowEntry.columns[col] || 0;
+                    rowTotal += value;
+                    row.push(value === 0 ? '0,00' : value.toFixed(2).replace('.', ','));
+                });
+            } else {
+                // No column pivot, just use total
+                rowTotal = rowEntry.columns['_total'] || 0;
+            }
+
+            // Row total
+            row.push(rowTotal.toFixed(2).replace('.', ','));
+
+            csvContent += row.join(';') + '\n';
+        });
+
+        // Add GRAND TOTAL row
+        const grandTotalRow = [];
+        config.rows.forEach(() => grandTotalRow.push('')); // Empty cells for row fields
+        grandTotalRow[config.rows.length - 1] = 'GRAND TOTAL';
+
+        const columnTotals = {};
+        sortedColumns.forEach(col => columnTotals[col] = 0);
+        let grandTotal = 0;
+
+        rowsMap.forEach((rowEntry) => {
+            if (config.column && sortedColumns.length > 0) {
+                sortedColumns.forEach(col => {
+                    const value = rowEntry.columns[col] || 0;
+                    columnTotals[col] += value;
+                    grandTotal += value;
+                });
+            } else {
+                grandTotal += rowEntry.columns['_total'] || 0;
+            }
+        });
+
+        if (config.column && sortedColumns.length > 0) {
+            sortedColumns.forEach(col => {
+                grandTotalRow.push(columnTotals[col].toFixed(2).replace('.', ','));
+            });
+        }
+        grandTotalRow.push(grandTotal.toFixed(2).replace('.', ','));
+
+        csvContent += grandTotalRow.join(';') + '\n';
+
+        // Create blob with UTF-8 BOM for Excel compatibility
+        const BOM = '\uFEFF';
+        const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+
+        // Generate filename with timestamp
+        const now = new Date();
+        const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const filename = `pivot_table_${timestamp}.csv`;
+
+        // Trigger download
+        const link = document.createElement('a');
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            alert(`✓ Exported pivot table (${rowsMap.size.toLocaleString()} rows) to ${filename}`);
+        } else {
+            alert('Your browser does not support file downloads');
+        }
+    } catch (error) {
+        alert('Error exporting pivot table: ' + error.message);
+        console.error('Export error:', error);
+    }
+}
+
+// Show drill-down modal with detail records
+function showDrilldownModal(detailRecords, cellInfo) {
+    const modal = document.getElementById('drilldownModal');
+    const content = document.getElementById('drilldownContent');
+
+    if (detailRecords.length === 0) {
+        content.innerHTML = '<p style="color: #6c757d; text-align: center;">No detail records found.</p>';
+        modal.style.display = 'block';
+        return;
+    }
+
+    // Build summary
+    let summary = `<div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;">`;
+    summary += `<h3 style="margin-top: 0;">Cell Information</h3>`;
+    summary += `<p><strong>Rows:</strong> ${cellInfo.rows}</p>`;
+    if (cellInfo.column) {
+        summary += `<p><strong>Column:</strong> ${cellInfo.column}</p>`;
+    }
+    summary += `<p><strong>Record Count:</strong> ${detailRecords.length.toLocaleString()}</p>`;
+    summary += `</div>`;
+
+    // Build detail table
+    let tableHTML = `<div style="max-height: 600px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px;">`;
+    tableHTML += `<table class="data-table" style="margin: 0;">`;
+    tableHTML += `<thead><tr>`;
+    tableHTML += `<th>Date</th>`;
+    tableHTML += `<th>Main Product</th>`;
+    tableHTML += `<th>Customer:Project</th>`;
+    tableHTML += `<th>Employee</th>`;
+    tableHTML += `<th>Type</th>`;
+    tableHTML += `<th>Task</th>`;
+    tableHTML += `<th>Duration (Hours)</th>`;
+    tableHTML += `</tr></thead>`;
+    tableHTML += `<tbody>`;
+
+    detailRecords.forEach(row => {
+        tableHTML += `<tr>`;
+        tableHTML += `<td>${escapeHtml(row[COLUMNS.DATE] || '')}</td>`;
+        tableHTML += `<td>${escapeHtml(row[COLUMNS.MAIN_PRODUCT] || '(Empty)')}</td>`;
+        tableHTML += `<td>${escapeHtml(row[COLUMNS.CUSTOMER_PROJECT] || '(Empty)')}</td>`;
+        tableHTML += `<td>${escapeHtml(row[COLUMNS.NAME] || '(Empty)')}</td>`;
+        tableHTML += `<td>${escapeHtml(row[COLUMNS.MTYPE2] || '(Empty)')}</td>`;
+        tableHTML += `<td>${escapeHtml(row[COLUMNS.TASK] || '(Empty)')}</td>`;
+        tableHTML += `<td>${formatNumber(parseDecimal(row[COLUMNS.DUR_DEC]))}</td>`;
+        tableHTML += `</tr>`;
+    });
+
+    tableHTML += `</tbody></table></div>`;
+
+    content.innerHTML = summary + tableHTML;
+    modal.style.display = 'block';
+}
+
+// Close drill-down modal
+function closeDrilldownModal() {
+    const modal = document.getElementById('drilldownModal');
+    modal.style.display = 'none';
 }
 
 // ========== CACHE FUNCTIONS ==========

@@ -728,7 +728,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.12.0</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.13.0</span></p>
         </header>
 
         <div class="controls">
@@ -1090,7 +1090,10 @@
                     <button onclick="buildPivotTable()" class="btn-primary" style="padding: 12px 40px; font-size: 1.1em;">
                         🔧 Build Pivot Table
                     </button>
-                    <p style="font-size: 0.85em; color: #6c757d; margin-top: 10px;">Configure rows, columns, and values above, then click to generate your custom pivot table</p>
+                    <button onclick="exportPivotTableToCSV()" class="btn-secondary" style="padding: 12px 30px; font-size: 1.0em; margin-left: 15px;">
+                        📥 Export to CSV
+                    </button>
+                    <p style="font-size: 0.85em; color: #6c757d; margin-top: 10px;">Configure rows, columns, and values above, then click to generate your custom pivot table. Export to save results as CSV.</p>
                 </div>
 
                 <!-- Loading Indicator -->
@@ -1102,6 +1105,15 @@
                 <!-- Results Area -->
                 <div id="pivotBuilderResults" style="display: none;">
                     <!-- Pivot table will be dynamically inserted here -->
+                </div>
+
+                <!-- Drill-down Modal -->
+                <div id="drilldownModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 10000; overflow: auto;">
+                    <div style="position: relative; margin: 50px auto; max-width: 1200px; background: white; border-radius: 12px; padding: 30px; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
+                        <button onclick="closeDrilldownModal()" style="position: absolute; top: 15px; right: 15px; background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 1.1em;">✕ Close</button>
+                        <h2 style="margin-top: 0;">📋 Detail Records</h2>
+                        <div id="drilldownContent"></div>
+                    </div>
                 </div>
             </div>
         </div> <!-- End Pivot Builder View -->
