@@ -14,6 +14,10 @@ let monthlySortState = {
     column: 'year',
     direction: 'desc'
 };
+let pivotBuilderSortState = {
+    column: null,
+    direction: 'desc'
+};
 let importStats = {
     totalLines: 0,
     headerSkipped: 0,
@@ -2984,6 +2988,10 @@ async function buildPivotTable() {
         // Aggregate data
         const aggregatedData = await aggregatePivotData(config);
 
+        // Store config and data for sorting
+        window.lastPivotConfig = config;
+        window.lastPivotData = aggregatedData;
+
         // Render pivot table
         renderPivotTable(aggregatedData, config);
 
@@ -3135,6 +3143,44 @@ function renderPivotTable(aggregatedData, config) {
 
     const sortedColumns = config.column ? Array.from(columnsSet).sort() : [];
 
+    // Convert rowsMap to array for sorting
+    let rowsArray = Array.from(rowsMap.values());
+
+    // Apply sorting if a sort column is set
+    if (pivotBuilderSortState.column !== null) {
+        const sortColumn = pivotBuilderSortState.column;
+        const sortDirection = pivotBuilderSortState.direction;
+
+        rowsArray.sort((a, b) => {
+            let aValue, bValue;
+
+            // Check if sorting by a column or by a row field
+            if (sortColumn.startsWith('col_')) {
+                // Sorting by a column value
+                const colName = sortColumn.substring(4); // Remove 'col_' prefix
+                aValue = a.columns[colName] || 0;
+                bValue = b.columns[colName] || 0;
+            } else if (sortColumn === 'total') {
+                // Sorting by row total
+                aValue = Object.values(a.columns).reduce((sum, val) => sum + val, 0);
+                bValue = Object.values(b.columns).reduce((sum, val) => sum + val, 0);
+            } else {
+                // Sorting by row field (row0, row1, row2)
+                const rowIndex = parseInt(sortColumn.replace('row', ''));
+                aValue = a.rowValues[rowIndex] || '';
+                bValue = b.rowValues[rowIndex] || '';
+            }
+
+            // Compare based on type
+            if (typeof aValue === 'number' && typeof bValue === 'number') {
+                return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+            } else {
+                const comparison = String(aValue).localeCompare(String(bValue));
+                return sortDirection === 'asc' ? comparison : -comparison;
+            }
+        });
+    }
+
     // Build HTML
     const pivotContainer = document.createElement('div');
     pivotContainer.className = 'pivot-table-container';
@@ -3158,10 +3204,18 @@ function renderPivotTable(aggregatedData, config) {
         'projectType': 'Project Type'
     };
 
-    config.rows.forEach(field => {
+    config.rows.forEach((field, index) => {
         const th = document.createElement('th');
-        th.className = 'row-header';
-        th.textContent = rowFieldLabels[field] || field;
+        th.className = 'row-header sortable';
+        th.dataset.column = `row${index}`;
+        th.dataset.type = 'text';
+
+        const label = rowFieldLabels[field] || field;
+        const sortIndicator = pivotBuilderSortState.column === `row${index}`
+            ? (pivotBuilderSortState.direction === 'asc' ? ' ▲' : ' ▼')
+            : '';
+        th.textContent = label + sortIndicator;
+
         headerRow.appendChild(th);
     });
 
@@ -3169,16 +3223,30 @@ function renderPivotTable(aggregatedData, config) {
     if (config.column && sortedColumns.length > 0) {
         sortedColumns.forEach(col => {
             const th = document.createElement('th');
-            th.className = 'month-header';
-            th.textContent = col;
+            th.className = 'month-header sortable';
+            th.dataset.column = `col_${col}`;
+            th.dataset.type = 'number';
+
+            const sortIndicator = pivotBuilderSortState.column === `col_${col}`
+                ? (pivotBuilderSortState.direction === 'asc' ? ' ▲' : ' ▼')
+                : '';
+            th.textContent = col + sortIndicator;
+
             headerRow.appendChild(th);
         });
     }
 
     // Total column
     const totalHeader = document.createElement('th');
-    totalHeader.className = 'month-header';
-    totalHeader.textContent = 'Total';
+    totalHeader.className = 'month-header sortable';
+    totalHeader.dataset.column = 'total';
+    totalHeader.dataset.type = 'number';
+
+    const totalSortIndicator = pivotBuilderSortState.column === 'total'
+        ? (pivotBuilderSortState.direction === 'asc' ? ' ▲' : ' ▼')
+        : '';
+    totalHeader.textContent = 'Total' + totalSortIndicator;
+
     headerRow.appendChild(totalHeader);
 
     thead.appendChild(headerRow);
@@ -3190,7 +3258,7 @@ function renderPivotTable(aggregatedData, config) {
     sortedColumns.forEach(col => columnTotals[col] = 0);
     let grandTotal = 0;
 
-    rowsMap.forEach((rowEntry) => {
+    rowsArray.forEach((rowEntry) => {
         const tr = document.createElement('tr');
 
         // Row values
@@ -3274,7 +3342,7 @@ function renderPivotTable(aggregatedData, config) {
     summaryDiv.innerHTML = `
         <p style="margin: 0; color: #155724;">
             <strong>✓ Pivot table generated</strong><br>
-            Rows: ${rowsMap.size.toLocaleString()} |
+            Rows: ${rowsArray.length.toLocaleString()} |
             ${config.column ? `Columns: ${sortedColumns.length} | ` : ''}
             Aggregation: ${config.aggregation.toUpperCase()} |
             Grand Total: ${formatNumber(grandTotal)}
@@ -3284,6 +3352,9 @@ function renderPivotTable(aggregatedData, config) {
     resultsDiv.innerHTML = '';
     resultsDiv.appendChild(summaryDiv);
     resultsDiv.appendChild(pivotContainer);
+
+    // Setup sorting event listeners
+    setupPivotBuilderSorting();
 }
 
 // Save pivot preset to localStorage
@@ -3394,6 +3465,31 @@ function deletePivotPreset() {
         console.error('Error deleting pivot preset:', error);
         alert('Error deleting preset: ' + error.message);
     }
+}
+
+// Setup pivot builder sorting event listeners
+function setupPivotBuilderSorting() {
+    document.querySelectorAll('#pivotBuilderResults .pivot-table th.sortable').forEach(th => {
+        th.addEventListener('click', function() {
+            const column = this.dataset.column;
+            const type = this.dataset.type || 'text';
+
+            // Toggle sort direction
+            if (pivotBuilderSortState.column === column) {
+                pivotBuilderSortState.direction = pivotBuilderSortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                pivotBuilderSortState.column = column;
+                pivotBuilderSortState.direction = type === 'number' ? 'desc' : 'asc';
+            }
+
+            // Re-render pivot table with sorting
+            const config = window.lastPivotConfig;
+            const aggregatedData = window.lastPivotData;
+            if (config && aggregatedData) {
+                renderPivotTable(aggregatedData, config);
+            }
+        });
+    });
 }
 
 // Load quick pivot configurations
