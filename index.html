@@ -726,7 +726,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.8.0</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.8.1</span></p>
         </header>
 
         <div class="controls">
@@ -996,7 +996,9 @@
                         <h3 style="color: #6c757d; margin: 0;">📊 Time Trend</h3>
                         <button onclick="scrollToTop()" style="padding: 5px 10px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; cursor: pointer;">⬆ Top</button>
                     </div>
-                    <canvas id="timeTrendChart" height="300"></canvas>
+                    <div style="position: relative; height: 400px; max-height: 600px;">
+                        <canvas id="timeTrendChart"></canvas>
+                    </div>
                 </div>
 
                 <!-- Billing Type Pie Chart -->
@@ -1005,7 +1007,9 @@
                         <h3 style="color: #6c757d; margin: 0;">🥧 Billing Type Distribution</h3>
                         <button onclick="scrollToTop()" style="padding: 5px 10px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; cursor: pointer;">⬆ Top</button>
                     </div>
-                    <canvas id="billingPieChart" height="300"></canvas>
+                    <div style="position: relative; height: 400px; max-height: 600px;">
+                        <canvas id="billingPieChart"></canvas>
+                    </div>
                 </div>
 
                 <!-- Top Projects Bar Chart -->
@@ -1014,7 +1018,9 @@
                         <h3 style="color: #6c757d; margin: 0;">📊 Top 10 Projects by Hours</h3>
                         <button onclick="scrollToTop()" style="padding: 5px 10px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; cursor: pointer;">⬆ Top</button>
                     </div>
-                    <canvas id="topProjectsChart" height="400"></canvas>
+                    <div style="position: relative; height: 500px; max-height: 800px;">
+                        <canvas id="topProjectsChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div> <!-- End Charts View -->

@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.8.0
+- **Current Version**: v1.8.1
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -25,6 +25,18 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.8.1 (2025-12-09)
+- [x] **Chart Scaling Fix** - Fixed vertical scaling issue in Charts tab
+  - Wrapped canvas elements in positioned div containers with height constraints
+  - Time Trend Chart: 400px height, max-height 600px (prevents excessive vertical scaling)
+  - Billing Type Pie Chart: 400px height, max-height 600px
+  - Top Projects Bar Chart: 500px height, max-height 800px
+  - Removed fixed height attribute from canvas elements for responsive sizing
+  - Container-based sizing with `position: relative` for proper Chart.js rendering
+  - Charts now respect screen height limits and don't exceed reasonable sizes
+  - Maintains `maintainAspectRatio: false` in Chart.js config for container fill
+  - Fixes user-reported issue: "The rendering of the Time trend chart is scaling wrong. I should not scale vertical more than 1440 pixels"
 
 ### Version 1.8.0 (2025-12-09)
 - [x] **Enhanced Compare Periods - Up to 4 Periods** - Major upgrade to comparison functionality
