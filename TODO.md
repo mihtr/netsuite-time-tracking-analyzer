@@ -415,10 +415,10 @@
   - [x] Save custom pivot configurations - **COMPLETED v1.12.0**
   - [x] Grand totals and row totals - **COMPLETED v1.12.0**
   - [x] Quick preset shortcuts for common configurations - **COMPLETED v1.12.0**
+  - [x] Field sorting within pivot - **COMPLETED v1.12.0+**
   - [ ] Export pivot table views
   - [ ] Drill-down from aggregated cells to detail records
   - [ ] Conditional formatting for pivot cells
-  - [ ] Field sorting within pivot
   - [ ] Drag-and-drop interface (currently uses dropdown selectors)
 - [x] **Charts and visualizations** - Add interactive graphs for time distribution - **COMPLETED v1.7.0**
   - [x] Line charts for time trends
