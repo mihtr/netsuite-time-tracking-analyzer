@@ -1,8 +1,8 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.4.1
-- **Last Updated**: 2025-12-08
+- **Current Version**: v1.4.3
+- **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
 ---
@@ -13,8 +13,8 @@
 - None currently!
 
 ### Medium Priority
-- [ ] First-time load of CSV file (213 MB) takes 10-30 seconds (subsequent loads use cache)
-- [ ] No loading progress indicator during CSV parse
+- [x] First-time load of CSV file (213 MB) takes 10-30 seconds (subsequent loads use cache) - **RESOLVED** with progress bar in v1.4.2
+- [x] No loading progress indicator during CSV parse - **RESOLVED** in v1.4.2
 
 ### Low Priority
 - [ ] No validation on date input format (accepts invalid dates)
@@ -24,6 +24,30 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.4.3 (2025-12-09)
+- [x] **Save Filter Presets** - Users can now save and reuse filter combinations
+  - Save current filters with custom names
+  - Load saved presets from dropdown
+  - Delete unwanted presets
+  - Presets stored in localStorage
+- [x] **Time Distribution Patterns** - Automated analytics showing data insights
+  - Peak day of week analysis
+  - Top billing type breakdown
+  - Average hours per month calculation
+  - Weekday vs weekend distribution
+  - Dynamic insights displayed above data table
+
+### Version 1.4.2 (2025-12-09)
+- [x] **CSV Loading Progress Bar** - Real-time progress tracking during CSV parse
+  - Shows percentage complete
+  - Displays rows processed and total rows
+  - Estimates time remaining (ETA)
+  - Chunked processing (1000 rows per chunk) for responsive UI
+- [x] **Compact UI** - Reduced screen space usage
+  - Smaller padding, gaps, and font sizes throughout
+  - Stats forced to single-line 4-column layout
+  - More vertical space for data tables
 
 ### Version 1.4.0
 - [x] **Monthly view sorting** - All columns in monthly pivot table are now sortable
@@ -88,12 +112,13 @@
 ## 📋 TODO List
 
 ### Immediate (Sprint 1)
-- [ ] **Add loading progress bar** - Show CSV parsing progress
-- [ ] **Data insights dashboard** - Add automated insights and analysis about the data
+- [x] **Add loading progress bar** - Show CSV parsing progress - **COMPLETED v1.4.2**
+- [x] **Save filter presets** - Allow users to save commonly used filter combinations - **COMPLETED v1.4.3**
+- [x] **Time distribution patterns** - Show weekday/weekend distribution, peak days, billing breakdown - **COMPLETED v1.4.3**
+- [ ] **Data insights dashboard** - Add more automated insights and analysis about the data
   - [ ] Top performers by hours
   - [ ] Most active projects
-  - [ ] Time distribution patterns
-  - [ ] Billing type breakdown
+  - [ ] Billing type breakdown (enhanced)
   - [ ] Department utilization rates
 - [ ] **Suggested improvements section** - Automated recommendations based on data patterns
   - [ ] Underutilized resources
@@ -105,7 +130,6 @@
 - [ ] **Export functionality** - Export filtered results to CSV
 - [ ] **Date validation** - Validate date inputs and show error for invalid dates
 - [ ] **Performance optimization** - Optimize for large datasets (consider virtual scrolling)
-- [ ] **Save filter presets** - Allow users to save commonly used filter combinations
 - [ ] **Clear individual filters** - Add X button to clear each filter separately
 
 ### Medium Term (Sprint 3)
@@ -247,6 +271,31 @@
 ---
 
 ## 🔄 Change Log
+
+### v1.4.3 (2025-12-09)
+- **Filter Presets**: Save and load filter combinations
+  - Added save/load/delete preset functionality
+  - Presets selector dropdown in filter section
+  - Stored in localStorage for persistence
+- **Time Distribution Analytics**: Automated insights dashboard
+  - Peak day of week analysis with hours breakdown
+  - Top billing type with percentage calculation
+  - Average hours per month across date range
+  - Weekday vs weekend distribution analysis
+  - Insights displayed in compact card layout above data table
+- **UX Enhancement**: Added preset management buttons with emoji icons
+
+### v1.4.2 (2025-12-09)
+- **Loading Progress Bar**: Real-time CSV parsing progress
+  - Shows percentage, rows processed, and ETA
+  - Chunked processing (1000 rows/chunk) keeps UI responsive
+  - Progress bar with gradient styling
+- **Compact UI**: Reduced vertical space usage
+  - Decreased padding and gaps throughout controls
+  - Smaller font sizes for labels and inputs
+  - Stats cards more compact (6px vs 10px padding)
+  - Forced 4-column layout for metrics (always single line)
+  - More space available for data tables
 
 ### v1.4.1 (2025-12-08)
 - **UI Fix**: Improved monthly view header visibility

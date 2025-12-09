@@ -45,6 +45,7 @@ window.addEventListener('DOMContentLoaded', function() {
     setupMonthlySorting();
     setupDateFormatting();
     setupAutoFilterOnLeave();
+    updatePresetDropdown();
 });
 
 // Setup file upload as fallback
@@ -616,6 +617,140 @@ function updateStats() {
     document.getElementById('totalHours').textContent = formatNumber(totalHours);
     document.getElementById('uniqueProjects').textContent = uniqueProjects.toLocaleString();
     document.getElementById('uniqueProducts').textContent = uniqueProducts.toLocaleString();
+
+    // Update time distribution insights
+    updateTimeDistribution();
+}
+
+// Time Distribution Patterns Analytics
+function updateTimeDistribution() {
+    const insightsDiv = document.getElementById('timeInsights');
+
+    if (!insightsDiv || filteredData.length === 0) {
+        if (insightsDiv) insightsDiv.style.display = 'none';
+        return;
+    }
+
+    insightsDiv.style.display = 'block';
+
+    // Analyze by day of week
+    const dayOfWeekData = {};
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    // Analyze by billing type
+    const billingTypeData = {};
+
+    // Analyze by month
+    const monthlyData = {};
+
+    filteredData.forEach(row => {
+        const dateStr = row[COLUMNS.DATE];
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+        const billingType = row[COLUMNS.MTYPE2] || 'Unknown';
+
+        if (dateStr) {
+            const date = parseDate(dateStr);
+            if (date) {
+                // Day of week analysis
+                const dayOfWeek = date.getDay();
+                const dayName = dayNames[dayOfWeek];
+                dayOfWeekData[dayName] = (dayOfWeekData[dayName] || 0) + hours;
+
+                // Monthly analysis
+                const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                monthlyData[monthKey] = (monthlyData[monthKey] || 0) + hours;
+            }
+        }
+
+        // Billing type analysis
+        billingTypeData[billingType] = (billingTypeData[billingType] || 0) + hours;
+    });
+
+    // Find peak day of week
+    let peakDay = '';
+    let peakDayHours = 0;
+    Object.entries(dayOfWeekData).forEach(([day, hours]) => {
+        if (hours > peakDayHours) {
+            peakDay = day;
+            peakDayHours = hours;
+        }
+    });
+
+    // Find top billing type
+    let topBillingType = '';
+    let topBillingHours = 0;
+    Object.entries(billingTypeData).forEach(([type, hours]) => {
+        if (hours > topBillingHours) {
+            topBillingType = type;
+            topBillingHours = hours;
+        }
+    });
+
+    // Calculate average hours per month
+    const monthCount = Object.keys(monthlyData).length;
+    const totalHours = Object.values(monthlyData).reduce((sum, h) => sum + h, 0);
+    const avgHoursPerMonth = monthCount > 0 ? totalHours / monthCount : 0;
+
+    // Build insights HTML
+    let insightsHTML = '<div class="insights-grid">';
+
+    if (peakDay) {
+        insightsHTML += `
+            <div class="insight-card">
+                <div class="insight-icon">📅</div>
+                <div class="insight-content">
+                    <div class="insight-label">Peak Day</div>
+                    <div class="insight-value">${peakDay}</div>
+                    <div class="insight-detail">${formatNumber(peakDayHours)} hours</div>
+                </div>
+            </div>`;
+    }
+
+    if (topBillingType) {
+        const billingPercent = totalHours > 0 ? (topBillingHours / totalHours * 100).toFixed(1) : 0;
+        insightsHTML += `
+            <div class="insight-card">
+                <div class="insight-icon">💰</div>
+                <div class="insight-content">
+                    <div class="insight-label">Top Billing Type</div>
+                    <div class="insight-value">${topBillingType}</div>
+                    <div class="insight-detail">${billingPercent}% of total hours</div>
+                </div>
+            </div>`;
+    }
+
+    if (monthCount > 0) {
+        insightsHTML += `
+            <div class="insight-card">
+                <div class="insight-icon">📊</div>
+                <div class="insight-content">
+                    <div class="insight-label">Avg Hours/Month</div>
+                    <div class="insight-value">${formatNumber(avgHoursPerMonth)}</div>
+                    <div class="insight-detail">Across ${monthCount} month${monthCount > 1 ? 's' : ''}</div>
+                </div>
+            </div>`;
+    }
+
+    // Calculate workload distribution (weekday vs weekend)
+    const weekdayHours = (dayOfWeekData['Monday'] || 0) + (dayOfWeekData['Tuesday'] || 0) +
+                         (dayOfWeekData['Wednesday'] || 0) + (dayOfWeekData['Thursday'] || 0) +
+                         (dayOfWeekData['Friday'] || 0);
+    const weekendHours = (dayOfWeekData['Saturday'] || 0) + (dayOfWeekData['Sunday'] || 0);
+    const weekdayPercent = totalHours > 0 ? (weekdayHours / totalHours * 100).toFixed(1) : 0;
+
+    insightsHTML += `
+        <div class="insight-card">
+            <div class="insight-icon">⏰</div>
+            <div class="insight-content">
+                <div class="insight-label">Weekday Distribution</div>
+                <div class="insight-value">${weekdayPercent}%</div>
+                <div class="insight-detail">Weekdays vs ${(100 - weekdayPercent).toFixed(1)}% weekends</div>
+            </div>
+        </div>`;
+
+    insightsHTML += '</div>';
+
+    insightsDiv.innerHTML = insightsHTML;
 }
 
 // Reset filters
@@ -628,6 +763,106 @@ function resetFilters() {
     if (rawData.length > 0) {
         applyFilters();
     }
+}
+
+// Filter Preset Management
+function getCurrentFilters() {
+    const productFilterElement = document.getElementById('productFilter');
+    const selectedProducts = Array.from(productFilterElement.selectedOptions)
+        .map(opt => opt.value)
+        .filter(val => val !== '');
+
+    const projectTypeFilterElement = document.getElementById('projectTypeFilter');
+    const selectedProjectTypes = Array.from(projectTypeFilterElement.selectedOptions)
+        .map(opt => opt.value)
+        .filter(val => val !== '');
+
+    return {
+        dateFrom: document.getElementById('dateFrom').value,
+        dateTo: document.getElementById('dateTo').value,
+        products: selectedProducts,
+        projectTypes: selectedProjectTypes
+    };
+}
+
+function saveFilterPreset() {
+    const presetName = prompt('Enter a name for this filter preset:');
+    if (!presetName || presetName.trim() === '') {
+        return;
+    }
+
+    const filters = getCurrentFilters();
+    const presets = getFilterPresets();
+    presets[presetName.trim()] = filters;
+
+    localStorage.setItem('filterPresets', JSON.stringify(presets));
+    updatePresetDropdown();
+    showSuccess(`Filter preset "${presetName}" saved successfully!`);
+}
+
+function getFilterPresets() {
+    const presetsJson = localStorage.getItem('filterPresets');
+    return presetsJson ? JSON.parse(presetsJson) : {};
+}
+
+function loadFilterPreset(presetName) {
+    const presets = getFilterPresets();
+    const filters = presets[presetName];
+
+    if (!filters) {
+        showError(`Preset "${presetName}" not found`);
+        return;
+    }
+
+    // Apply saved filters
+    document.getElementById('dateFrom').value = filters.dateFrom || '';
+    document.getElementById('dateTo').value = filters.dateTo || '';
+
+    // Set multi-select products
+    const productFilterElement = document.getElementById('productFilter');
+    Array.from(productFilterElement.options).forEach(option => {
+        option.selected = filters.products.includes(option.value);
+    });
+
+    // Set multi-select project types
+    const projectTypeFilterElement = document.getElementById('projectTypeFilter');
+    Array.from(projectTypeFilterElement.options).forEach(option => {
+        option.selected = filters.projectTypes.includes(option.value);
+    });
+
+    applyFilters();
+    showSuccess(`Filter preset "${presetName}" loaded successfully!`);
+}
+
+function deleteFilterPreset(presetName) {
+    if (!confirm(`Are you sure you want to delete the preset "${presetName}"?`)) {
+        return;
+    }
+
+    const presets = getFilterPresets();
+    delete presets[presetName];
+
+    localStorage.setItem('filterPresets', JSON.stringify(presets));
+    updatePresetDropdown();
+    showSuccess(`Filter preset "${presetName}" deleted successfully!`);
+}
+
+function updatePresetDropdown() {
+    const presets = getFilterPresets();
+    const dropdown = document.getElementById('presetSelector');
+
+    if (!dropdown) return;
+
+    // Clear existing options except the default one
+    dropdown.innerHTML = '<option value="">Select a saved preset...</option>';
+
+    // Add preset options
+    Object.keys(presets).sort().forEach(presetName => {
+        const option = document.createElement('option');
+        option.value = presetName;
+        option.textContent = presetName;
+        dropdown.appendChild(option);
+    });
 }
 
 // Utility functions

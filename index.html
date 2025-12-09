@@ -173,6 +173,52 @@
             color: #212529;
         }
 
+        .insights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .insight-card {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            border-left: 3px solid #667eea;
+        }
+
+        .insight-icon {
+            font-size: 2em;
+            line-height: 1;
+        }
+
+        .insight-content {
+            flex: 1;
+        }
+
+        .insight-label {
+            font-size: 0.7em;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .insight-value {
+            font-size: 1.1em;
+            font-weight: 700;
+            color: #212529;
+            margin-bottom: 2px;
+        }
+
+        .insight-detail {
+            font-size: 0.75em;
+            color: #6c757d;
+        }
+
         .tabs {
             display: flex;
             background: #f8f9fa;
@@ -481,7 +527,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.4.2</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.4.3</span></p>
         </header>
 
         <div class="controls">
@@ -535,6 +581,19 @@
                 </div>
             </div>
 
+            <div class="filter-section" style="margin-top: 8px;">
+                <div class="filter-group">
+                    <label for="presetSelector">Saved Filter Presets</label>
+                    <select id="presetSelector" onchange="if(this.value) loadFilterPreset(this.value)">
+                        <option value="">Select a saved preset...</option>
+                    </select>
+                </div>
+                <div class="filter-group" style="display: flex; flex-direction: row; gap: 8px; align-items: flex-end;">
+                    <button class="btn-primary" onclick="saveFilterPreset()" title="Save current filters as a preset">💾 Save Preset</button>
+                    <button class="btn-secondary" onclick="if(document.getElementById('presetSelector').value) deleteFilterPreset(document.getElementById('presetSelector').value)" title="Delete selected preset">🗑️ Delete</button>
+                </div>
+            </div>
+
             <div class="button-group">
                 <button class="btn-secondary" onclick="resetFilters()">Reset All Filters</button>
                 <button class="btn-secondary" onclick="clearCache(); location.reload();" title="Clear cached data and reload">Clear Cache</button>
@@ -567,6 +626,11 @@
                 <div class="stat-label">Unique Products</div>
                 <div class="stat-value" id="uniqueProducts">0</div>
             </div>
+        </div>
+
+        <!-- Time Distribution Insights -->
+        <div id="timeInsights" style="display: none; padding: 10px 30px; background: #f8f9fa; border-bottom: 1px solid #e9ecef;">
+            <!-- Insights will be dynamically populated here -->
         </div>
 
         <div class="table-container">
