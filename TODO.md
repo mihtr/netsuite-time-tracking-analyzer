@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.4.7
+- **Current Version**: v1.4.8
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -277,6 +277,17 @@
 ---
 
 ## 🔄 Change Log
+
+### v1.4.8 (2025-12-09)
+- **Department Filter**: Added department as a filter option
+  - Multi-select department dropdown with alphabetically sorted options
+  - Clear button (✕) for independent department filter clearing
+  - Auto-apply on selection change
+  - Integrated into filter preset save/load system
+  - Department filtering in applyFilters() function
+  - Updated resetFilters() to properly clear department selections
+  - Populated from DEPARTMENT column (field #16)
+  - Consistent with existing product and project type filter UX
 
 ### v1.4.7 (2025-12-09)
 - **Additional Analytics Dashboard**: Expanded data insights beyond time distribution

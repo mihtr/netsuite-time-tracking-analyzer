@@ -634,7 +634,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.4.7</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.4.8</span></p>
         </header>
 
         <div class="controls">
@@ -696,6 +696,15 @@
                     </div>
                     <select id="projectTypeFilter" multiple size="5">
                         <option value="">All Project Types</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <label for="departmentFilter">Department</label>
+                        <button class="clear-filter-btn" onclick="clearDepartmentFilter()" title="Clear department filter">✕</button>
+                    </div>
+                    <select id="departmentFilter" multiple size="5">
+                        <option value="">All Departments</option>
                     </select>
                 </div>
             </div>

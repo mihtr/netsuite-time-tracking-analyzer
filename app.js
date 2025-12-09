@@ -173,6 +173,12 @@ function setupAutoFilterOnLeave() {
             applyFilters();
         }
     });
+
+    document.getElementById('departmentFilter').addEventListener('change', function() {
+        if (rawData.length > 0) {
+            applyFilters();
+        }
+    });
 }
 
 // Load CSV file from user upload
@@ -389,13 +395,16 @@ function parseCSVLine(line) {
 function populateFilters() {
     const products = new Set();
     const projectTypes = new Set();
+    const departments = new Set();
 
     rawData.forEach((row, index) => {
         const product = row[COLUMNS.MAIN_PRODUCT];
         const projectType = row[COLUMNS.PROJECT_TYPE];
+        const department = row[COLUMNS.DEPARTMENT];
 
         if (product) products.add(product);
         if (projectType) projectTypes.add(projectType);
+        if (department) departments.add(department);
     });
 
     // Populate product filter
@@ -416,6 +425,16 @@ function populateFilters() {
         option.value = type;
         option.textContent = type;
         projectTypeFilter.appendChild(option);
+    });
+
+    // Populate department filter
+    const departmentFilter = document.getElementById('departmentFilter');
+    departmentFilter.innerHTML = '<option value="">All Departments</option>';
+    Array.from(departments).sort().forEach(dept => {
+        const option = document.createElement('option');
+        option.value = dept;
+        option.textContent = dept;
+        departmentFilter.appendChild(option);
     });
 }
 
@@ -459,6 +478,11 @@ function applyFilters() {
             .map(opt => opt.value)
             .filter(val => val !== ''); // Remove "All Project Types" empty value
 
+        const departmentFilterElement = document.getElementById('departmentFilter');
+        const selectedDepartments = Array.from(departmentFilterElement.selectedOptions)
+            .map(opt => opt.value)
+            .filter(val => val !== ''); // Remove "All Departments" empty value
+
         // Parse filter dates (DD/MM/YYYY format)
         const dateFrom = dateFromStr ? parseDate(dateFromStr) : null;
         const dateTo = dateToStr ? parseDate(dateToStr) : null;
@@ -492,6 +516,14 @@ function applyFilters() {
         if (selectedProjectTypes.length > 0) {
             const rowProjectType = row[COLUMNS.PROJECT_TYPE];
             if (!selectedProjectTypes.includes(rowProjectType)) {
+                return false;
+            }
+        }
+
+        // Department filter (multi-select)
+        if (selectedDepartments.length > 0) {
+            const rowDepartment = row[COLUMNS.DEPARTMENT];
+            if (!selectedDepartments.includes(rowDepartment)) {
                 return false;
             }
         }
@@ -988,8 +1020,22 @@ function updateAdditionalAnalytics() {
 function resetFilters() {
     document.getElementById('dateFrom').value = '';
     document.getElementById('dateTo').value = '';
-    document.getElementById('productFilter').value = '';
-    document.getElementById('projectTypeFilter').value = '';
+
+    // Clear multi-select filters
+    const productFilterElement = document.getElementById('productFilter');
+    Array.from(productFilterElement.options).forEach(option => {
+        option.selected = false;
+    });
+
+    const projectTypeFilterElement = document.getElementById('projectTypeFilter');
+    Array.from(projectTypeFilterElement.options).forEach(option => {
+        option.selected = false;
+    });
+
+    const departmentFilterElement = document.getElementById('departmentFilter');
+    Array.from(departmentFilterElement.options).forEach(option => {
+        option.selected = false;
+    });
 
     if (rawData.length > 0) {
         applyFilters();
@@ -1031,6 +1077,16 @@ function clearProjectTypeFilter() {
     }
 }
 
+function clearDepartmentFilter() {
+    const departmentFilterElement = document.getElementById('departmentFilter');
+    Array.from(departmentFilterElement.options).forEach(option => {
+        option.selected = false;
+    });
+    if (rawData.length > 0) {
+        applyFilters();
+    }
+}
+
 // Filter Preset Management
 function getCurrentFilters() {
     const productFilterElement = document.getElementById('productFilter');
@@ -1043,11 +1099,17 @@ function getCurrentFilters() {
         .map(opt => opt.value)
         .filter(val => val !== '');
 
+    const departmentFilterElement = document.getElementById('departmentFilter');
+    const selectedDepartments = Array.from(departmentFilterElement.selectedOptions)
+        .map(opt => opt.value)
+        .filter(val => val !== '');
+
     return {
         dateFrom: document.getElementById('dateFrom').value,
         dateTo: document.getElementById('dateTo').value,
         products: selectedProducts,
-        projectTypes: selectedProjectTypes
+        projectTypes: selectedProjectTypes,
+        departments: selectedDepartments
     };
 }
 
@@ -1094,6 +1156,12 @@ function loadFilterPreset(presetName) {
     const projectTypeFilterElement = document.getElementById('projectTypeFilter');
     Array.from(projectTypeFilterElement.options).forEach(option => {
         option.selected = filters.projectTypes.includes(option.value);
+    });
+
+    // Set multi-select departments
+    const departmentFilterElement = document.getElementById('departmentFilter');
+    Array.from(departmentFilterElement.options).forEach(option => {
+        option.selected = (filters.departments || []).includes(option.value);
     });
 
     applyFilters();
