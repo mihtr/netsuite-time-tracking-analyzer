@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.8.1
+- **Current Version**: v1.9.0
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -25,6 +25,21 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.9.0 (2025-12-09)
+- [x] **Compare Periods Chart Visualization** - Added interactive chart to Compare Periods tab
+  - Grouped bar chart showing metrics across 2-4 periods side-by-side
+  - Four datasets visualized: Total Hours, Total Records, Active Projects, Active Employees
+  - Color-coded bars for easy comparison (teal, blue, yellow, purple)
+  - Responsive design with container-based height constraints (400px/max 600px)
+  - Chart auto-generates when comparison is performed
+  - Period labels show date ranges for context
+  - Chart.js integration with proper instance management
+  - Visual Analytics section appears below comparison table
+  - Makes trend identification and outlier detection easier
+  - Complements tabular data with visual representation
+  - Interactive legend to show/hide specific metrics
+  - Hover tooltips show exact values for each bar
 
 ### Version 1.8.1 (2025-12-09)
 - [x] **Chart Scaling Fix** - Fixed vertical scaling issue in Charts tab

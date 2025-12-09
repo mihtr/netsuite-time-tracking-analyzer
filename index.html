@@ -726,7 +726,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.8.1</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.9.0</span></p>
         </header>
 
         <div class="controls">
@@ -1087,6 +1087,14 @@
                     <button class="btn-primary" onclick="comparePeriods()" style="margin-bottom: 15px;">Compare Periods</button>
                     <div id="compareResults" style="display: none;">
                         <!-- Comparison results will be displayed here -->
+                    </div>
+                </div>
+
+                <!-- Comparison Chart -->
+                <div id="compareChartSection" style="display: none; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: 20px;">
+                    <h3 style="margin-bottom: 15px; color: #495057;">📊 Visual Comparison</h3>
+                    <div style="position: relative; height: 400px; max-height: 600px;">
+                        <canvas id="compareChart"></canvas>
                     </div>
                 </div>
             </div>

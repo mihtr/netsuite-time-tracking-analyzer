@@ -1082,6 +1082,7 @@ function updateInsightsStats() {
 let timeTrendChartInstance = null;
 let billingPieChartInstance = null;
 let topProjectsChartInstance = null;
+let compareChartInstance = null;
 
 // Update all charts
 function updateCharts() {
@@ -1308,6 +1309,91 @@ function updateTopProjectsChart() {
     });
 }
 
+// Render Compare Periods Chart
+function renderCompareChart(periodMetrics) {
+    const canvas = document.getElementById('compareChart');
+    const chartSection = document.getElementById('compareChartSection');
+    if (!canvas || !chartSection) return;
+
+    // Show chart section
+    chartSection.style.display = 'block';
+
+    // Destroy existing chart
+    if (compareChartInstance) {
+        compareChartInstance.destroy();
+    }
+
+    // Prepare labels (period names)
+    const labels = periodMetrics.map(pm => `Period ${pm.num}\n${pm.fromStr} - ${pm.toStr}`);
+
+    // Prepare datasets for each metric
+    const datasets = [
+        {
+            label: 'Total Hours',
+            data: periodMetrics.map(pm => pm.hours),
+            backgroundColor: 'rgba(75, 192, 192, 0.8)',
+            borderColor: 'rgba(75, 192, 192, 1)',
+            borderWidth: 1
+        },
+        {
+            label: 'Total Records',
+            data: periodMetrics.map(pm => pm.records),
+            backgroundColor: 'rgba(54, 162, 235, 0.8)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+        },
+        {
+            label: 'Active Projects',
+            data: periodMetrics.map(pm => pm.projects),
+            backgroundColor: 'rgba(255, 206, 86, 0.8)',
+            borderColor: 'rgba(255, 206, 86, 1)',
+            borderWidth: 1
+        },
+        {
+            label: 'Active Employees',
+            data: periodMetrics.map(pm => pm.employees),
+            backgroundColor: 'rgba(153, 102, 255, 0.8)',
+            borderColor: 'rgba(153, 102, 255, 1)',
+            borderWidth: 1
+        }
+    ];
+
+    const ctx = canvas.getContext('2d');
+    compareChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                title: {
+                    display: true,
+                    text: 'Period Comparison Metrics',
+                    font: {
+                        size: 16
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Value'
+                    }
+                }
+            }
+        }
+    });
+}
+
 // Update Compare Periods section
 function updateComparePeriods() {
     if (filteredData.length === 0) {
@@ -1501,6 +1587,9 @@ function comparePeriods() {
             </div>
         </div>
     `;
+
+    // Render comparison chart
+    renderCompareChart(periodMetrics);
 }
 
 // Time Distribution Patterns Analytics

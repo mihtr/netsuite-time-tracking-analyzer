@@ -1,6 +1,6 @@
 {
   "name": "netsuite-time-tracking-analyzer",
-  "version": "1.8.1",
+  "version": "1.9.0",
   "description": "Web-based application for viewing and analyzing NetSuite time tracking data with advanced filtering and aggregation capabilities",
   "main": "index.html",
   "scripts": {
