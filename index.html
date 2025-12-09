@@ -74,6 +74,29 @@
             letter-spacing: 0.5px;
         }
 
+        .clear-filter-btn {
+            background: transparent;
+            border: none;
+            color: #dc3545;
+            font-size: 1.2em;
+            cursor: pointer;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+            line-height: 1;
+        }
+
+        .clear-filter-btn:hover {
+            background: #dc3545;
+            color: white;
+            transform: scale(1.1);
+        }
+
         input, select {
             padding: 6px;
             border: 2px solid #dee2e6;
@@ -533,7 +556,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.4.4</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.4.5</span></p>
         </header>
 
         <div class="controls">
@@ -545,11 +568,17 @@
 
             <div class="filter-section">
                 <div class="filter-group">
-                    <label for="dateFrom">Date From (DD/MM/YYYY)</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <label for="dateFrom">Date From (DD/MM/YYYY)</label>
+                        <button class="clear-filter-btn" onclick="clearDateFrom()" title="Clear date from">✕</button>
+                    </div>
                     <input type="text" id="dateFrom" placeholder="DD/MM/YYYY" maxlength="10">
                 </div>
                 <div class="filter-group">
-                    <label for="dateTo">Date To (DD/MM/YYYY)</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <label for="dateTo">Date To (DD/MM/YYYY)</label>
+                        <button class="clear-filter-btn" onclick="clearDateTo()" title="Clear date to">✕</button>
+                    </div>
                     <input type="text" id="dateTo" placeholder="DD/MM/YYYY" maxlength="10">
                 </div>
             </div>
@@ -574,13 +603,19 @@
 
             <div class="filter-section" style="margin-top: 8px;">
                 <div class="filter-group">
-                    <label for="productFilter">Main Product</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <label for="productFilter">Main Product</label>
+                        <button class="clear-filter-btn" onclick="clearProductFilter()" title="Clear product filter">✕</button>
+                    </div>
                     <select id="productFilter" multiple size="5">
                         <option value="">All Products</option>
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label for="projectTypeFilter">Project Type</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <label for="projectTypeFilter">Project Type</label>
+                        <button class="clear-filter-btn" onclick="clearProjectTypeFilter()" title="Clear project type filter">✕</button>
+                    </div>
                     <select id="projectTypeFilter" multiple size="5">
                         <option value="">All Project Types</option>
                     </select>

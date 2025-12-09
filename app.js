@@ -830,6 +830,41 @@ function resetFilters() {
     }
 }
 
+// Clear individual filters
+function clearDateFrom() {
+    document.getElementById('dateFrom').value = '';
+    if (rawData.length > 0) {
+        applyFilters();
+    }
+}
+
+function clearDateTo() {
+    document.getElementById('dateTo').value = '';
+    if (rawData.length > 0) {
+        applyFilters();
+    }
+}
+
+function clearProductFilter() {
+    const productFilterElement = document.getElementById('productFilter');
+    Array.from(productFilterElement.options).forEach(option => {
+        option.selected = false;
+    });
+    if (rawData.length > 0) {
+        applyFilters();
+    }
+}
+
+function clearProjectTypeFilter() {
+    const projectTypeFilterElement = document.getElementById('projectTypeFilter');
+    Array.from(projectTypeFilterElement.options).forEach(option => {
+        option.selected = false;
+    });
+    if (rawData.length > 0) {
+        applyFilters();
+    }
+}
+
 // Filter Preset Management
 function getCurrentFilters() {
     const productFilterElement = document.getElementById('productFilter');

@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.4.4
+- **Current Version**: v1.4.5
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -130,7 +130,7 @@
 - [ ] **Export functionality** - Export filtered results to CSV
 - [ ] **Date validation** - Validate date inputs and show error for invalid dates
 - [ ] **Performance optimization** - Optimize for large datasets (consider virtual scrolling)
-- [ ] **Clear individual filters** - Add X button to clear each filter separately
+- [x] **Clear individual filters** - Add X button to clear each filter separately - **COMPLETED v1.4.5**
 
 ### Medium Term (Sprint 3)
 - [ ] **Advanced filtering** - Add more filter options:
@@ -271,6 +271,27 @@
 ---
 
 ## 🔄 Change Log
+
+### v1.4.5 (2025-12-09)
+- **Clear Individual Filters**: Added ✕ button next to each filter label
+  - Clear Date From independently
+  - Clear Date To independently
+  - Clear Product Filter independently
+  - Clear Project Type Filter independently
+  - Styled with red color and hover effects
+- **README Updates**: Comprehensive documentation of all features
+  - Added Time Distribution Analytics section
+  - Updated filtering instructions with preset and clear buttons
+  - Updated performance features with pagination details
+  - Marked completed features in Future Enhancements
+  - Updated troubleshooting guide
+- **CI/CD Pipeline Enhancements**:
+  - Updated all GitHub Actions to v4
+  - Updated Node.js version to 20
+  - Added README documentation validation step
+  - Added deployment package verification
+  - Enhanced deployment messages with feature list
+  - Updated configure-pages to v5
 
 ### v1.4.4 (2025-12-09)
 - **Pagination System**: Dramatically improved performance for large datasets

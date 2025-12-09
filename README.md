@@ -22,7 +22,9 @@ The application is automatically deployed to GitHub Pages via CI/CD pipeline on 
 - **Main Product Filter**: Multi-select filter by product line
 - **Project Type Filter**: Multi-select filter by project type
 - **Auto-Apply**: Filters apply automatically when changed
-- **Reset**: Quick reset button to clear all filters
+- **Clear Individual Filters**: ✕ button on each filter to clear it separately
+- **Filter Presets**: Save, load, and delete custom filter combinations
+- **Reset**: Quick reset button to clear all filters at once
 
 ### 📈 Statistics Dashboard
 - **Total Records**: Count of aggregated entries
@@ -31,10 +33,20 @@ The application is automatically deployed to GitHub Pages via CI/CD pipeline on 
 - **Unique Products**: Count of distinct products
 - **Monthly Stats**: Average hours per month, date range coverage
 
+### 💡 Time Distribution Analytics
+- **Peak Day Analysis**: Shows which day of the week has the most hours
+- **Top Billing Type**: Displays most common billing type with percentage
+- **Average Hours/Month**: Calculates monthly average across data range
+- **Weekday Distribution**: Shows percentage of hours on weekdays vs weekends
+- **Auto-Updates**: Insights update automatically when filters change
+
 ### ⚡ Performance Features
 - **Data Caching**: First load parses CSV, subsequent loads instant from cache
+- **Progress Bar**: Real-time loading progress with ETA and row counter
+- **Pagination**: Displays 500 rows per page (configurable: 100/250/500/1000)
 - **Cache Management**: Manual clear cache button to force reload
 - **Auto-Expiration**: Cache expires after 7 days for freshness
+- **Efficient Rendering**: DocumentFragment for batch DOM operations
 
 ## How to Use
 
@@ -58,6 +70,10 @@ The application is automatically deployed to GitHub Pages via CI/CD pipeline on 
    - **Main Product**: Multi-select products (Ctrl/Cmd+Click to select multiple)
    - **Project Type**: Multi-select project types (Ctrl/Cmd+Click to select multiple)
    - Filters apply **automatically** when you make selections
+   - Click **✕** button next to any filter label to clear that specific filter
+   - Click **💾 Save Preset** to save current filter combination
+   - Select from **Saved Filter Presets** dropdown to quickly apply saved filters
+   - Click **🗑️ Delete** to remove selected preset
    - Click "Reset All Filters" to clear all filters at once
    - Click "Clear Cache" to force reload data from file
 
@@ -125,7 +141,9 @@ The application can handle large CSV files (200+ MB) but performance depends on 
 - Verify that the selected product/project type exists in the dataset
 
 ### Application runs slowly
-- The initial load may take 10-30 seconds for large files (200+ MB)
+- The initial load may take 10-30 seconds for large files (200+ MB) but shows progress bar
+- Pagination (500 rows/page) ensures smooth scrolling even with large datasets
+- Reduce rows per page (100 or 250) if experiencing performance issues
 - Consider pre-filtering your CSV to reduce file size
 - Use Chrome or Edge for best performance
 - Close other browser tabs to free up memory
@@ -148,10 +166,13 @@ The application can handle large CSV files (200+ MB) but performance depends on 
 ## Future Enhancements
 
 Potential features for future versions:
+- ✅ ~~Column sorting by clicking headers~~ (Completed)
+- ✅ ~~Pagination for large result sets~~ (Completed)
+- ✅ ~~Custom date range presets~~ (Completed - Filter Presets)
+- ✅ ~~Time distribution analytics~~ (Completed)
 - Export filtered/aggregated data to CSV
 - Additional aggregation options (by employee, by department, by week)
 - Charts and graphs for visual analysis
-- Custom date range presets (This Month, Last Quarter, etc.)
 - Search functionality within results
-- Column sorting by clicking headers
-- Pagination for large result sets
+- Date validation with error messages
+- More advanced analytics (top performers, underutilized resources)
