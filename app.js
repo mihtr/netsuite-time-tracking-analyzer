@@ -3,6 +3,7 @@ let rawData = [];
 let filteredData = [];
 let aggregatedData = [];
 let monthlyAggregatedData = [];
+let monthlyDisplayedRows = 500; // Initial number of rows to display
 let currentView = 'detail';
 let currentSort = {
     column: 'totalHours',
@@ -93,7 +94,7 @@ function setupFileUpload() {
 }
 
 // Switch between views
-function switchView(viewName) {
+async function switchView(viewName) {
     currentView = viewName;
 
     // Update tabs
@@ -107,7 +108,8 @@ function switchView(viewName) {
         document.getElementById('detailView').classList.add('active');
     } else if (viewName === 'monthly') {
         document.getElementById('monthlyView').classList.add('active');
-        aggregateMonthlyData();
+        monthlyDisplayedRows = 500; // Reset to initial limit
+        await aggregateMonthlyData();
         displayMonthlyData();
         updateMonthlyStats();
     } else if (viewName === 'charts') {
@@ -765,10 +767,13 @@ function applyFilters() {
         const loadingMonthly = document.getElementById('loadingIndicatorMonthly');
         if (loadingMonthly) loadingMonthly.style.display = 'block';
 
+        // Reset displayed rows when filtering
+        monthlyDisplayedRows = 500;
+
         // Use setTimeout to allow UI to update with loading indicator
-        setTimeout(() => {
+        setTimeout(async () => {
             try {
-                aggregateMonthlyData();
+                await aggregateMonthlyData();
                 displayMonthlyData();
                 updateMonthlyStats();
             } catch (monthlyError) {
@@ -2327,46 +2332,77 @@ function setupMonthlySorting() {
 }
 
 // Aggregate data by Year, Month, and all other fields
-function aggregateMonthlyData() {
+// Chunked aggregation to avoid blocking UI
+async function aggregateMonthlyData() {
     const aggregationMap = new Map();
+    const chunkSize = 5000; // Process 5000 rows at a time
+    const totalRows = filteredData.length;
 
-    filteredData.forEach(row => {
-        const dateStr = row[COLUMNS.DATE];
-        const rowDate = parseDate(dateStr);
+    // Show loading indicator
+    const loading = document.getElementById('loadingIndicatorMonthly');
+    if (loading) {
+        loading.style.display = 'flex';
+        loading.innerHTML = `
+            <div class="spinner"></div>
+            <p>Aggregating monthly data... <span id="monthlyAggProgress">0%</span></p>
+        `;
+    }
 
-        if (!rowDate) return; // Skip rows with invalid dates
+    for (let i = 0; i < totalRows; i += chunkSize) {
+        const chunk = filteredData.slice(i, Math.min(i + chunkSize, totalRows));
 
-        const year = rowDate.getFullYear();
-        const month = rowDate.getMonth() + 1; // 1-12
+        chunk.forEach(row => {
+            const dateStr = row[COLUMNS.DATE];
+            const rowDate = parseDate(dateStr);
 
-        const mainProduct = row[COLUMNS.MAIN_PRODUCT] || '(Empty)';
-        const customerProject = row[COLUMNS.CUSTOMER_PROJECT] || '(Empty)';
-        const name = row[COLUMNS.NAME] || '(Empty)';
-        const mtype2 = row[COLUMNS.MTYPE2] || '(Empty)';
-        const task = row[COLUMNS.TASK] || '(Empty)';
-        const durDec = parseDecimal(row[COLUMNS.DUR_DEC]);
+            if (!rowDate) return; // Skip rows with invalid dates
 
-        // Create unique key for aggregation
-        const key = `${year}|${month}|${mainProduct}|${customerProject}|${name}|${mtype2}|${task}`;
+            const year = rowDate.getFullYear();
+            const month = rowDate.getMonth() + 1; // 1-12
 
-        if (aggregationMap.has(key)) {
-            aggregationMap.get(key).totalHours += durDec;
-        } else {
-            aggregationMap.set(key, {
-                year,
-                month,
-                mainProduct,
-                customerProject,
-                name,
-                mtype2,
-                task,
-                totalHours: durDec
-            });
+            const mainProduct = row[COLUMNS.MAIN_PRODUCT] || '(Empty)';
+            const customerProject = row[COLUMNS.CUSTOMER_PROJECT] || '(Empty)';
+            const name = row[COLUMNS.NAME] || '(Empty)';
+            const mtype2 = row[COLUMNS.MTYPE2] || '(Empty)';
+            const task = row[COLUMNS.TASK] || '(Empty)';
+            const durDec = parseDecimal(row[COLUMNS.DUR_DEC]);
+
+            // Create unique key for aggregation
+            const key = `${year}|${month}|${mainProduct}|${customerProject}|${name}|${mtype2}|${task}`;
+
+            if (aggregationMap.has(key)) {
+                aggregationMap.get(key).totalHours += durDec;
+            } else {
+                aggregationMap.set(key, {
+                    year,
+                    month,
+                    mainProduct,
+                    customerProject,
+                    name,
+                    mtype2,
+                    task,
+                    totalHours: durDec
+                });
+            }
+        });
+
+        // Update progress
+        const progress = Math.round(((i + chunk.length) / totalRows) * 100);
+        const progressSpan = document.getElementById('monthlyAggProgress');
+        if (progressSpan) {
+            progressSpan.textContent = `${progress}%`;
         }
-    });
+
+        // Yield to browser to keep UI responsive
+        await new Promise(resolve => setTimeout(resolve, 0));
+    }
 
     // Convert map to array
     monthlyAggregatedData = Array.from(aggregationMap.values());
+
+    if (loading) {
+        loading.style.display = 'none';
+    }
 }
 
 // Display monthly aggregated data as pivot table
@@ -2516,13 +2552,16 @@ function displayMonthlyData() {
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
-    // Body rows
+    // Body rows - limit initial rendering for performance
     const tbody = document.createElement('tbody');
     const monthTotals = {};
     sortedMonths.forEach(m => monthTotals[m] = 0);
     let grandTotal = 0;
 
-    rowsArray.forEach((rowData) => {
+    const rowsToDisplay = rowsArray.slice(0, monthlyDisplayedRows);
+    const hasMoreRows = rowsArray.length > monthlyDisplayedRows;
+
+    rowsToDisplay.forEach((rowData) => {
         const tr = document.createElement('tr');
 
         // Row labels
@@ -2591,8 +2630,36 @@ function displayMonthlyData() {
     pivotContainer.appendChild(table);
     container.appendChild(pivotContainer);
 
+    // Add "Load More" button if there are more rows
+    if (hasMoreRows) {
+        const loadMoreDiv = document.createElement('div');
+        loadMoreDiv.style.cssText = 'text-align: center; padding: 20px; background: #f8f9fa;';
+        loadMoreDiv.innerHTML = `
+            <p style="margin-bottom: 10px; color: #6c757d;">
+                Showing ${monthlyDisplayedRows.toLocaleString()} of ${rowsArray.length.toLocaleString()} rows
+            </p>
+            <button onclick="loadMoreMonthlyRows()" class="btn-primary" style="padding: 10px 20px;">
+                Load More Rows (+500)
+            </button>
+        `;
+        container.appendChild(loadMoreDiv);
+    } else if (rowsArray.length > 500) {
+        const infoDiv = document.createElement('div');
+        infoDiv.style.cssText = 'text-align: center; padding: 15px; background: #d4edda; color: #155724;';
+        infoDiv.innerHTML = `
+            <p>✓ All ${rowsArray.length.toLocaleString()} rows displayed</p>
+        `;
+        container.appendChild(infoDiv);
+    }
+
     // Setup sorting event listeners for the newly created table
     setupMonthlySortingEventListeners();
+}
+
+// Load more rows in monthly view
+function loadMoreMonthlyRows() {
+    monthlyDisplayedRows += 500;
+    displayMonthlyData();
 }
 
 // Update monthly statistics
