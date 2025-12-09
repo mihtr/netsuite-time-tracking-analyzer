@@ -2061,3 +2061,79 @@ function clearCache() {
         console.warn('Failed to clear cache:', error.message);
     }
 }
+
+// Export filtered data to CSV
+function exportToCSV() {
+    if (aggregatedData.length === 0) {
+        showError('No data to export. Please load data first.');
+        return;
+    }
+
+    try {
+        // Generate CSV content with European format (semicolon delimiter, comma decimals)
+        let csvContent = '';
+
+        // Add header row
+        csvContent += 'Main Product;Customer:Project;Name;Type;Task;Total Hours\n';
+
+        // Add data rows
+        aggregatedData.forEach(item => {
+            // Escape fields that contain semicolons or quotes
+            const mainProduct = escapeCSVField(item.mainProduct);
+            const customerProject = escapeCSVField(item.customerProject);
+            const name = escapeCSVField(item.name);
+            const mtype2 = escapeCSVField(item.mtype2);
+            const task = escapeCSVField(item.task);
+
+            // Convert decimal separator from period to comma for European format
+            const totalHours = item.totalHours.toFixed(2).replace('.', ',');
+
+            csvContent += `${mainProduct};${customerProject};${name};${mtype2};${task};${totalHours}\n`;
+        });
+
+        // Create blob with UTF-8 BOM for Excel compatibility
+        const BOM = '\uFEFF';
+        const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+
+        // Generate filename with timestamp
+        const now = new Date();
+        const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const filename = `netsuite_time_tracking_${timestamp}.csv`;
+
+        // Trigger download
+        const link = document.createElement('a');
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            showSuccess(`Exported ${aggregatedData.length.toLocaleString()} records to ${filename}`);
+        } else {
+            showError('Your browser does not support file downloads');
+        }
+    } catch (error) {
+        showError('Error exporting data: ' + error.message);
+        console.error('Export error:', error);
+    }
+}
+
+// Escape CSV field (add quotes if contains semicolon, quote, or newline)
+function escapeCSVField(field) {
+    if (field === null || field === undefined) {
+        return '';
+    }
+
+    const str = String(field);
+
+    // If field contains semicolon, quote, or newline, wrap in quotes and escape internal quotes
+    if (str.includes(';') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+        return '"' + str.replace(/"/g, '""') + '"';
+    }
+
+    return str;
+}

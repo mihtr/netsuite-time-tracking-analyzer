@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.6.0
+- **Current Version**: v1.6.1
 - **Last Updated**: 2025-12-09
 - **Status**: Active Development
 
@@ -126,10 +126,10 @@
   - [x] Billing inconsistencies
   - [x] Time tracking gaps
 
-### Short Term (Sprint 2)
-- [ ] **Export functionality** - Export filtered results to CSV
+### Short Term (Sprint 2) - ✅ COMPLETED
+- [x] **Export functionality** - Export filtered results to CSV - **COMPLETED v1.6.1**
 - [x] **Date validation** - Validate date inputs and show error for invalid dates - **COMPLETED v1.5.1**
-- [ ] **Performance optimization** - Optimize for large datasets (consider virtual scrolling)
+- [x] **Performance optimization** - Optimize for large datasets with virtual scrolling - **COMPLETED v1.6.0**
 - [x] **Clear individual filters** - Add X button to clear each filter separately - **COMPLETED v1.4.5**
 
 ### Medium Term (Sprint 3)
@@ -288,6 +288,29 @@
 ---
 
 ## 🔄 Change Log
+
+### v1.6.1 (2025-12-09)
+- **CSV Export Functionality**: Export filtered/sorted data to CSV file
+  - Added "📥 Export to CSV" button next to Reset Filters and Clear Cache
+  - Exports currently filtered and sorted aggregated data
+  - European CSV format: semicolon (;) delimiter, comma (,) decimal separator
+  - UTF-8 BOM encoding for Excel compatibility
+  - Proper CSV field escaping (quotes fields containing semicolons, quotes, or newlines)
+  - Timestamped filename: `netsuite_time_tracking_YYYY-MM-DDTHH-mm-ss.csv`
+  - Success message shows record count exported
+  - Error handling for unsupported browsers
+- **Export Features**
+  - Exports aggregated data (Detail view display)
+  - Includes all 6 columns: Main Product, Customer:Project, Name, Type, Task, Total Hours
+  - Respects current filters and sorting
+  - Total hours formatted with 2 decimal places
+  - Empty/null fields handled gracefully
+  - Automatic download trigger
+- **Sprint 2 Completed**: All Sprint 2 features now implemented
+  - Export functionality ✓
+  - Date validation ✓
+  - Performance optimization (virtual scrolling) ✓
+  - Clear individual filters ✓
 
 ### v1.6.0 (2025-12-09)
 - **Virtual Scrolling**: Replaced pagination with smooth virtual scrolling for Detail view
