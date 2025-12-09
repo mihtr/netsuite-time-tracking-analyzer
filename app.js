@@ -113,6 +113,8 @@ function switchView(viewName) {
     } else if (viewName === 'insights') {
         document.getElementById('insightsView').classList.add('active');
         updateInsightsStats();
+        updateCharts();
+        updateComparePeriods();
         updateTimeDistribution();
         updateAdditionalAnalytics();
         updateSuggestedImprovements();
@@ -1065,6 +1067,381 @@ function updateInsightsStats() {
     document.getElementById('totalHoursInsights').textContent = formatNumber(totalHours);
     document.getElementById('uniqueProjectsInsights').textContent = uniqueProjects.toLocaleString();
     document.getElementById('uniqueProductsInsights').textContent = uniqueProducts.toLocaleString();
+}
+
+// Chart instances (global to allow destruction/recreation)
+let timeTrendChartInstance = null;
+let billingPieChartInstance = null;
+let topProjectsChartInstance = null;
+
+// Update all charts
+function updateCharts() {
+    const chartsSection = document.getElementById('chartsSection');
+
+    if (!chartsSection || filteredData.length === 0) {
+        if (chartsSection) chartsSection.style.display = 'none';
+        return;
+    }
+
+    chartsSection.style.display = 'block';
+
+    updateTimeTrendChart();
+    updateBillingPieChart();
+    updateTopProjectsChart();
+}
+
+// Time Trend Line Chart
+function updateTimeTrendChart() {
+    const canvas = document.getElementById('timeTrendChart');
+    if (!canvas) return;
+
+    // Destroy existing chart
+    if (timeTrendChartInstance) {
+        timeTrendChartInstance.destroy();
+    }
+
+    // Aggregate hours by date
+    const dateMap = new Map();
+    filteredData.forEach(row => {
+        const dateStr = row[COLUMNS.DATE];
+        const rowDate = parseDate(dateStr);
+        if (!rowDate) return;
+
+        const dateKey = rowDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        const hours = parseDecimal(row[COLUMNS.DUR_DEC]);
+        dateMap.set(dateKey, (dateMap.get(dateKey) || 0) + hours);
+    });
+
+    // Sort by date
+    const sortedDates = Array.from(dateMap.keys()).sort();
+    const hours = sortedDates.map(date => dateMap.get(date));
+
+    // Format dates for display (show only first of month or sample if too many points)
+    let displayDates = sortedDates;
+    let displayHours = hours;
+    if (sortedDates.length > 30) {
+        // Sample every Nth point to keep chart readable
+        const step = Math.ceil(sortedDates.length / 30);
+        displayDates = sortedDates.filter((_, i) => i % step === 0);
+        displayHours = hours.filter((_, i) => i % step === 0);
+    }
+
+    const ctx = canvas.getContext('2d');
+    timeTrendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: displayDates.map(d => {
+                const parts = d.split('-');
+                return `${parts[2]}/${parts[1]}`; // DD/MM
+            }),
+            datasets: [{
+                label: 'Hours',
+                data: displayHours,
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Hours'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date (DD/MM)'
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Billing Type Pie Chart
+function updateBillingPieChart() {
+    const canvas = document.getElementById('billingPieChart');
+    if (!canvas) return;
+
+    // Destroy existing chart
+    if (billingPieChartInstance) {
+        billingPieChartInstance.destroy();
+    }
+
+    // Aggregate hours by billing type (MTYPE2)
+    const billingMap = new Map();
+    filteredData.forEach(row => {
+        const billingType = row[COLUMNS.MTYPE2] || 'Unknown';
+        const hours = parseDecimal(row[COLUMNS.DUR_DEC]);
+        billingMap.set(billingType, (billingMap.get(billingType) || 0) + hours);
+    });
+
+    const labels = Array.from(billingMap.keys());
+    const data = Array.from(billingMap.values());
+
+    // Color palette
+    const colors = [
+        'rgba(255, 99, 132, 0.8)',
+        'rgba(54, 162, 235, 0.8)',
+        'rgba(255, 206, 86, 0.8)',
+        'rgba(75, 192, 192, 0.8)',
+        'rgba(153, 102, 255, 0.8)',
+        'rgba(255, 159, 64, 0.8)',
+        'rgba(199, 199, 199, 0.8)'
+    ];
+
+    const ctx = canvas.getContext('2d');
+    billingPieChartInstance = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors.slice(0, labels.length),
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${value.toFixed(1)} hrs (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Top Projects Bar Chart
+function updateTopProjectsChart() {
+    const canvas = document.getElementById('topProjectsChart');
+    if (!canvas) return;
+
+    // Destroy existing chart
+    if (topProjectsChartInstance) {
+        topProjectsChartInstance.destroy();
+    }
+
+    // Aggregate hours by project
+    const projectMap = new Map();
+    filteredData.forEach(row => {
+        const project = row[COLUMNS.CUSTOMER_PROJECT] || 'Unknown';
+        const hours = parseDecimal(row[COLUMNS.DUR_DEC]);
+        projectMap.set(project, (projectMap.get(project) || 0) + hours);
+    });
+
+    // Sort and take top 10
+    const sortedProjects = Array.from(projectMap.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
+
+    const labels = sortedProjects.map(([project, _]) => {
+        // Truncate long project names
+        return project.length > 30 ? project.substring(0, 27) + '...' : project;
+    });
+    const data = sortedProjects.map(([_, hours]) => hours);
+
+    const ctx = canvas.getContext('2d');
+    topProjectsChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Hours',
+                data: data,
+                backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Hours'
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Update Compare Periods section
+function updateComparePeriods() {
+    const compareSection = document.getElementById('comparePeriods');
+
+    if (!compareSection || filteredData.length === 0) {
+        if (compareSection) compareSection.style.display = 'none';
+        return;
+    }
+
+    compareSection.style.display = 'block';
+
+    // Setup date pickers for compare periods
+    if (!compareSection.dataset.initialized) {
+        flatpickr('#comparePeriod1From', { dateFormat: 'd/m/Y' });
+        flatpickr('#comparePeriod1To', { dateFormat: 'd/m/Y' });
+        flatpickr('#comparePeriod2From', { dateFormat: 'd/m/Y' });
+        flatpickr('#comparePeriod2To', { dateFormat: 'd/m/Y' });
+        compareSection.dataset.initialized = 'true';
+    }
+}
+
+// Compare two periods
+function comparePeriods() {
+    const period1From = document.getElementById('comparePeriod1From').value;
+    const period1To = document.getElementById('comparePeriod1To').value;
+    const period2From = document.getElementById('comparePeriod2From').value;
+    const period2To = document.getElementById('comparePeriod2To').value;
+
+    if (!period1From || !period1To || !period2From || !period2To) {
+        showError('Please enter all date fields for both periods');
+        return;
+    }
+
+    const p1From = parseDate(period1From);
+    const p1To = parseDate(period1To);
+    const p2From = parseDate(period2From);
+    const p2To = parseDate(period2To);
+
+    if (!p1From || !p1To || !p2From || !p2To) {
+        showError('Invalid date format. Please use DD/MM/YYYY');
+        return;
+    }
+
+    // Filter data for each period
+    const period1Data = filteredData.filter(row => {
+        const rowDate = parseDate(row[COLUMNS.DATE]);
+        return rowDate && rowDate >= p1From && rowDate <= p1To;
+    });
+
+    const period2Data = filteredData.filter(row => {
+        const rowDate = parseDate(row[COLUMNS.DATE]);
+        return rowDate && rowDate >= p2From && rowDate <= p2To;
+    });
+
+    // Calculate metrics for each period
+    const p1Hours = period1Data.reduce((sum, row) => sum + parseDecimal(row[COLUMNS.DUR_DEC]), 0);
+    const p2Hours = period2Data.reduce((sum, row) => sum + parseDecimal(row[COLUMNS.DUR_DEC]), 0);
+
+    const p1Records = period1Data.length;
+    const p2Records = period2Data.length;
+
+    const p1Projects = new Set(period1Data.map(row => row[COLUMNS.CUSTOMER_PROJECT])).size;
+    const p2Projects = new Set(period2Data.map(row => row[COLUMNS.CUSTOMER_PROJECT])).size;
+
+    const p1Employees = new Set(period1Data.map(row => row[COLUMNS.NAME])).size;
+    const p2Employees = new Set(period2Data.map(row => row[COLUMNS.NAME])).size;
+
+    // Calculate deltas
+    const hoursDelta = p2Hours - p1Hours;
+    const hoursPercentChange = p1Hours > 0 ? ((hoursDelta / p1Hours) * 100).toFixed(1) : 0;
+    const recordsDelta = p2Records - p1Records;
+    const recordsPercentChange = p1Records > 0 ? ((recordsDelta / p1Records) * 100).toFixed(1) : 0;
+
+    // Format delta with color
+    const formatDelta = (delta, percent) => {
+        const color = delta > 0 ? '#28a745' : delta < 0 ? '#dc3545' : '#6c757d';
+        const arrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
+        const sign = delta > 0 ? '+' : '';
+        return `<span style="color: ${color}; font-weight: bold;">${arrow} ${sign}${delta.toFixed(1)} (${sign}${percent}%)</span>`;
+    };
+
+    // Display results
+    const resultsDiv = document.getElementById('compareResults');
+    resultsDiv.style.display = 'block';
+    resultsDiv.innerHTML = `
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 10px;">
+            <div style="text-align: center;">
+                <h4 style="color: #495057; margin-bottom: 10px;">Period 1</h4>
+                <p style="font-size: 0.9em; color: #6c757d; margin-bottom: 10px;">${period1From} - ${period1To}</p>
+            </div>
+            <div style="text-align: center;">
+                <h4 style="color: #495057; margin-bottom: 10px;">Change</h4>
+                <p style="font-size: 0.9em; color: #6c757d; margin-bottom: 10px;">&nbsp;</p>
+            </div>
+            <div style="text-align: center;">
+                <h4 style="color: #495057; margin-bottom: 10px;">Period 2</h4>
+                <p style="font-size: 0.9em; color: #6c757d; margin-bottom: 10px;">${period2From} - ${period2To}</p>
+            </div>
+        </div>
+        <div style="background: white; padding: 15px; border-radius: 8px; margin-top: 10px;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #dee2e6;">
+                        <th style="padding: 10px; text-align: left; color: #495057;">Metric</th>
+                        <th style="padding: 10px; text-align: right; color: #495057;">Period 1</th>
+                        <th style="padding: 10px; text-align: center; color: #495057;">Change</th>
+                        <th style="padding: 10px; text-align: right; color: #495057;">Period 2</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <td style="padding: 10px; font-weight: 500;">Total Hours</td>
+                        <td style="padding: 10px; text-align: right;">${p1Hours.toFixed(1)}</td>
+                        <td style="padding: 10px; text-align: center;">${formatDelta(hoursDelta, hoursPercentChange)}</td>
+                        <td style="padding: 10px; text-align: right;">${p2Hours.toFixed(1)}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <td style="padding: 10px; font-weight: 500;">Total Records</td>
+                        <td style="padding: 10px; text-align: right;">${p1Records.toLocaleString()}</td>
+                        <td style="padding: 10px; text-align: center;">${formatDelta(recordsDelta, recordsPercentChange)}</td>
+                        <td style="padding: 10px; text-align: right;">${p2Records.toLocaleString()}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <td style="padding: 10px; font-weight: 500;">Active Projects</td>
+                        <td style="padding: 10px; text-align: right;">${p1Projects}</td>
+                        <td style="padding: 10px; text-align: center; color: #6c757d;">${p2Projects - p1Projects > 0 ? '+' : ''}${p2Projects - p1Projects}</td>
+                        <td style="padding: 10px; text-align: right;">${p2Projects}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; font-weight: 500;">Active Employees</td>
+                        <td style="padding: 10px; text-align: right;">${p1Employees}</td>
+                        <td style="padding: 10px; text-align: center; color: #6c757d;">${p2Employees - p1Employees > 0 ? '+' : ''}${p2Employees - p1Employees}</td>
+                        <td style="padding: 10px; text-align: right;">${p2Employees}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    `;
 }
 
 // Time Distribution Patterns Analytics
