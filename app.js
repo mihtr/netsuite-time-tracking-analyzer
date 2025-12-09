@@ -3338,10 +3338,13 @@ function renderPivotTable(aggregatedData, config) {
                     td.style.cursor = 'pointer';
                     td.title = 'Click to see detail records';
 
-                    // Apply conditional formatting
-                    const colors = getConditionalFormattingColor(value, maxValue);
-                    td.style.backgroundColor = colors.background;
-                    td.style.color = colors.color;
+                    // Apply conditional formatting if enabled
+                    const colorHighlightEnabled = document.getElementById('pivotColorHighlight').checked;
+                    if (colorHighlightEnabled) {
+                        const colors = getConditionalFormattingColor(value, maxValue);
+                        td.style.backgroundColor = colors.background;
+                        td.style.color = colors.color;
+                    }
 
                     // Add click handler for drill-down
                     const rowKey = rowEntry.rowValues.join('|');
@@ -3374,10 +3377,13 @@ function renderPivotTable(aggregatedData, config) {
         totalTd.title = 'Click to see all detail records for this row';
         totalTd.textContent = formatNumber(rowTotal);
 
-        // Apply conditional formatting to row total
-        const colors = getConditionalFormattingColor(rowTotal, maxValue);
-        totalTd.style.backgroundColor = colors.background;
-        totalTd.style.color = colors.color;
+        // Apply conditional formatting to row total if enabled
+        const colorHighlightEnabled = document.getElementById('pivotColorHighlight').checked;
+        if (colorHighlightEnabled) {
+            const colors = getConditionalFormattingColor(rowTotal, maxValue);
+            totalTd.style.backgroundColor = colors.background;
+            totalTd.style.color = colors.color;
+        }
 
         // Add click handler for row total drill-down
         const rowKey = rowEntry.rowValues.join('|');
@@ -3469,7 +3475,9 @@ function savePivotPreset() {
         aggregation: document.getElementById('pivotAggregation').value,
         // Save sort state
         sortColumn: pivotBuilderSortState.column,
-        sortDirection: pivotBuilderSortState.direction
+        sortDirection: pivotBuilderSortState.direction,
+        // Save color highlight setting
+        colorHighlight: document.getElementById('pivotColorHighlight').checked
     };
 
     try {
@@ -3536,6 +3544,17 @@ function loadPivotPreset() {
                 pivotBuilderSortState.column = null;
                 pivotBuilderSortState.direction = 'desc';
             }
+
+            // Restore color highlight setting
+            if (config.colorHighlight !== undefined) {
+                document.getElementById('pivotColorHighlight').checked = config.colorHighlight;
+            } else {
+                // Default to enabled if not saved in preset
+                document.getElementById('pivotColorHighlight').checked = true;
+            }
+
+            // Auto-build pivot table after loading preset
+            setTimeout(() => buildPivotTable(), 100);
         }
     } catch (error) {
         console.error('Error loading pivot preset:', error);
