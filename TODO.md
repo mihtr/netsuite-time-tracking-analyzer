@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.25.0
+- **Current Version**: v1.27.0
 - **Last Updated**: 2025-12-10
 - **Status**: Active Development
 
@@ -25,6 +25,104 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.27.0 (2025-12-10)
+- [x] **Enhanced Suggested Improvements** - Added major new feature suggestions
+  - Added item #12: JIRA Integration (HIGH priority) with:
+    - JIRA Issue Lookup (parse EG - External Issue Number, fetch via REST API)
+    - Enhanced Analytics (group by JIRA project, track by issue type)
+    - Time Entry Sync (push to JIRA worklogs, batch sync capabilities)
+    - Configuration management (JIRA URL, API token, field mapping)
+  - Added item #13: Full Pivot Builder Editor (MEDIUM-HIGH priority) with:
+    - Calculated Fields (custom formulas, operators like +, -, *, /, functions like SUM, AVG)
+    - Advanced Filtering (Top N records, conditional filters)
+    - Custom Aggregations (median, percentiles, running totals)
+    - Layout Customization (drag-and-drop, freeze panes, column width)
+  - Renumbered all subsequent items from 14-28
+  - Updated document status: 28 active items (from 24), 13 completed features
+
+- [x] **UI Restructuring** - Replaced hamburger menu with top menu bar
+  - Created three dedicated menu buttons (index.html:1597-1609):
+    1. 📁 Data Import - scrolls to upload section with visual highlight
+    2. ⚠️ Anomaly Detection - switches to Recommendations tab
+    3. ⚙️ Settings - opens settings modal dialog
+  - Added CSS styling for menu bar (index.html:64-97):
+    - Flexible layout with gap spacing
+    - Hover effects and smooth transitions
+    - Consistent branding with existing UI
+  - Implemented menu functions (app.js:5751-5789):
+    - openDataImport() - focuses file upload with animation
+    - openAnomalyDetection() - switches to Recommendations view
+    - openSettings() - opens existing settings dialog
+
+- [x] **CI/CD Pipeline** - Complete GitHub Actions workflow
+  - Created .github/workflows/ci-cd.yml with 7 jobs:
+    1. **Test**: Run automated tests (npm test)
+    2. **Lint**: ESLint checks and file size validation
+    3. **Security**: npm audit and hardcoded secrets detection
+    4. **Build**: HTML validation, JS syntax check, artifact creation
+    5. **Docs**: Documentation file checks and version consistency validation
+    6. **Deploy**: GitHub Pages deployment (main branch only)
+    7. **Notify**: Overall CI/CD status reporting
+  - Integrated with existing test suite (tests/run-tests.js)
+  - Automated version consistency checks across package.json, index.html, TODO.md
+  - Configured for push to main/develop and pull requests to main
+
+- [x] **Documentation Updates** - Comprehensive maintenance rules
+  - Updated MAINTENANCE_RULES.md with version management guidelines
+  - Updated SUGGESTED_IMPROVEMENTS.md with detailed implementation notes
+  - Enhanced TODO.md with complete changelog for v1.27.0
+
+### Version 1.26.0 (2025-12-10)
+- [x] **Automated Data Insights Dashboard** - Comprehensive analytics and visualizations
+  - Implemented 5 core analysis modules (app.js:7427-8418):
+    1. Top Performers Analysis (getTopPerformers)
+       - Top 10 employees by total hours with bar charts
+       - Top 10 employees by project count with bar charts
+       - Billable percentage calculations
+    2. Project Analytics (getTopProjects)
+       - Top 10 projects by hours with horizontal bar chart
+       - Employee count per project
+       - Average hours per task calculations
+    3. Time Distribution Patterns (getTimeDistribution)
+       - Hours by day of week with colorful bar chart
+       - Monthly trend analysis (last 12 months) with line chart
+       - Peak activity period identification
+    4. Billing Analysis (getBillingBreakdown)
+       - Billable vs non-billable breakdown with doughnut chart
+       - Hours by billing class with pie chart
+       - Billable rate percentage display
+    5. Resource Utilization Metrics (getUtilizationMetrics)
+       - Overutilized resources detection (>110% utilization)
+       - Underutilized resources detection (<60% utilization)
+       - Department utilization chart (top 10 departments)
+       - Weekly average calculations per employee
+  - Added comprehensive rendering functions:
+    - renderInsightsDashboard() - Main orchestration function
+    - renderTopPerformers() - Top performers with dual charts
+    - renderProjectAnalytics() - Project statistics and visualization
+    - renderTimeDistribution() - Time patterns and peak insights
+    - renderBillingAnalysis() - Billing breakdowns and stats
+    - renderUtilizationMetrics() - Resource warnings and department chart
+  - Created 8 Chart.js visualizations:
+    - Top performers by hours (bar chart)
+    - Top performers by projects (bar chart)
+    - Top projects (horizontal bar chart)
+    - Day of week distribution (colorful bar chart)
+    - Monthly trend (line chart with fill)
+    - Billable breakdown (doughnut chart)
+    - Billing class distribution (pie chart)
+    - Department utilization (bar chart with percentage)
+  - Added comprehensive CSS styling (index.html:1448-1571):
+    - insights-section, insights-grid layouts
+    - insights-card with full-width and alert variants
+    - insights-chart-container for consistent chart sizing
+    - insights-table with hover effects
+    - insights-stat-grid for metric displays
+    - Responsive design for mobile (1200px breakpoint)
+  - Integrated with existing Insights view (app.js:173-177)
+  - Full dark mode support for all charts and UI elements
+  - Performance optimized with chart instance caching
 
 ### Version 1.21.0 (2025-12-10)
 - [x] **Job Group Billable % Comparison in Employee View** - Compare performance against job group peers

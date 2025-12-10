@@ -173,9 +173,12 @@ async function switchView(viewName) {
     } else if (viewName === 'insights') {
         document.getElementById('insightsView').classList.add('active');
         updateInsightsStats();
+        // Original insights (quick cards and lists)
         updateTimeDistribution();
         updateAdditionalAnalytics();
         updateSuggestedImprovements();
+        // New comprehensive insights dashboard
+        renderInsightsDashboard();
     } else if (viewName === 'recommendations') {
         document.getElementById('recommendationsView').classList.add('active');
         await displayRecommendations();
@@ -5745,6 +5748,46 @@ function closeSettings() {
     }
 }
 
+// Open Data Import dialog (focuses on file upload)
+function openDataImport() {
+    // Scroll to top where file upload is
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Highlight the file upload section temporarily
+    const fileSection = document.getElementById('fileUploadSection');
+    if (fileSection) {
+        fileSection.style.transition = 'all 0.5s ease';
+        fileSection.style.transform = 'scale(1.05)';
+        fileSection.style.boxShadow = '0 0 20px rgba(102, 126, 234, 0.6)';
+        setTimeout(() => {
+            fileSection.style.transform = 'scale(1)';
+            fileSection.style.boxShadow = 'none';
+        }, 1500);
+    }
+    // Show a quick tip
+    showSuccess('💡 Upload a new CSV file to import data. The file will be cached for faster subsequent loads.');
+}
+
+// Open Anomaly Detection view
+async function openAnomalyDetection() {
+    if (!rawData || rawData.length === 0) {
+        showError('⚠️ Please load data first before checking for anomalies.');
+        return;
+    }
+
+    // Switch to recommendations view which contains anomaly detection
+    const tabButtons = document.querySelectorAll('.tab');
+    tabButtons.forEach(tab => {
+        if (tab.textContent.includes('Recommendations')) {
+            tab.click();
+        }
+    });
+
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    showSuccess('🔍 Showing anomaly detection results. Review the findings below.');
+}
+
 // Close modal when clicking outside of it
 window.addEventListener('click', function(event) {
     const modal = document.getElementById('settingsModal');
@@ -7418,4 +7461,986 @@ window.onclick = function(event) {
     if (event.target === importStatsModal) {
         closeImportStats();
     }
+}
+
+// ============================================================================
+// AUTOMATED DATA INSIGHTS DASHBOARD
+// ============================================================================
+
+// Calculate all insights
+function calculateInsights(data) {
+    if (!data || data.length === 0) {
+        return null;
+    }
+
+    return {
+        topPerformers: getTopPerformers(data, 10),
+        topProjects: getTopProjects(data, 10),
+        timeDistribution: getTimeDistribution(data),
+        billingBreakdown: getBillingBreakdown(data),
+        utilization: getUtilizationMetrics(data)
+    };
+}
+
+// Get top performers by hours and project count
+function getTopPerformers(data, limit = 10) {
+    const employeeStats = {};
+
+    data.forEach(row => {
+        const employee = row[COLUMNS.EMPLOYEE] || '(Unknown)';
+        const hours = parseFloat(row[COLUMNS.DURATION_DECIMAL]) || 0;
+        const project = row[COLUMNS.CUSTOMER_PROJECT];
+
+        if (!employeeStats[employee]) {
+            employeeStats[employee] = {
+                name: employee,
+                totalHours: 0,
+                projects: new Set(),
+                billableHours: 0,
+                nonBillableHours: 0
+            };
+        }
+
+        employeeStats[employee].totalHours += hours;
+        if (project) {
+            employeeStats[employee].projects.add(project);
+        }
+
+        const billable = row[COLUMNS.BILLABLE];
+        if (billable === 'true' || billable === 'T') {
+            employeeStats[employee].billableHours += hours;
+        } else {
+            employeeStats[employee].nonBillableHours += hours;
+        }
+    });
+
+    // Convert to array and add derived metrics
+    const employeeArray = Object.values(employeeStats).map(emp => ({
+        ...emp,
+        projectCount: emp.projects.size,
+        billablePercent: emp.totalHours > 0 ? (emp.billableHours / emp.totalHours * 100) : 0
+    }));
+
+    return {
+        byHours: employeeArray.sort((a, b) => b.totalHours - a.totalHours).slice(0, limit),
+        byProjects: employeeArray.sort((a, b) => b.projectCount - a.projectCount).slice(0, limit)
+    };
+}
+
+// Get top projects by hours
+function getTopProjects(data, limit = 10) {
+    const projectStats = {};
+
+    data.forEach(row => {
+        const project = row[COLUMNS.CUSTOMER_PROJECT] || '(No Project)';
+        const hours = parseFloat(row[COLUMNS.DURATION_DECIMAL]) || 0;
+        const employee = row[COLUMNS.EMPLOYEE];
+
+        if (!projectStats[project]) {
+            projectStats[project] = {
+                name: project,
+                totalHours: 0,
+                employees: new Set(),
+                taskCount: 0
+            };
+        }
+
+        projectStats[project].totalHours += hours;
+        if (employee) {
+            projectStats[project].employees.add(employee);
+        }
+        projectStats[project].taskCount++;
+    });
+
+    // Convert to array and add derived metrics
+    const projectArray = Object.values(projectStats).map(proj => ({
+        ...proj,
+        employeeCount: proj.employees.size,
+        avgHoursPerTask: proj.taskCount > 0 ? (proj.totalHours / proj.taskCount) : 0
+    }));
+
+    return projectArray.sort((a, b) => b.totalHours - a.totalHours).slice(0, limit);
+}
+
+// Get time distribution patterns
+function getTimeDistribution(data) {
+    const byMonth = {};
+    const byDayOfWeek = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0};
+    const byHour = {};
+    const dailyStats = {};
+
+    data.forEach(row => {
+        const dateStr = row[COLUMNS.DATE];
+        const hours = parseFloat(row[COLUMNS.DURATION_DECIMAL]) || 0;
+
+        if (!dateStr) return;
+
+        // Parse date (format: DD.MM.YYYY)
+        const parts = dateStr.split('.');
+        if (parts.length === 3) {
+            const day = parseInt(parts[0]);
+            const month = parseInt(parts[1]);
+            const year = parseInt(parts[2]);
+            const date = new Date(year, month - 1, day);
+
+            if (!isNaN(date.getTime())) {
+                // By month
+                const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+                byMonth[monthKey] = (byMonth[monthKey] || 0) + hours;
+
+                // By day of week (0 = Sunday, 6 = Saturday)
+                const dayOfWeek = date.getDay();
+                byDayOfWeek[dayOfWeek] += hours;
+
+                // Daily stats for anomaly detection
+                const dayKey = dateStr;
+                if (!dailyStats[dayKey]) {
+                    dailyStats[dayKey] = {date: date, hours: 0, entries: 0};
+                }
+                dailyStats[dayKey].hours += hours;
+                dailyStats[dayKey].entries++;
+            }
+        }
+    });
+
+    // Find peak activity periods
+    const monthArray = Object.entries(byMonth).map(([month, hours]) => ({month, hours}))
+        .sort((a, b) => b.hours - a.hours);
+
+    return {
+        byMonth: monthArray,
+        byDayOfWeek: byDayOfWeek,
+        dailyStats: dailyStats,
+        peakMonth: monthArray[0],
+        dayNames: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    };
+}
+
+// Get billing breakdown
+function getBillingBreakdown(data) {
+    const breakdown = {
+        billable: 0,
+        nonBillable: 0,
+        byType: {},
+        byBillingClass: {}
+    };
+
+    data.forEach(row => {
+        const hours = parseFloat(row[COLUMNS.DURATION_DECIMAL]) || 0;
+        const billable = row[COLUMNS.BILLABLE];
+        const billingClass = row[COLUMNS.MTYPE2] || '(Unknown)';
+        const projectType = row[COLUMNS.PROJECT_TYPE] || '(Unknown)';
+
+        // Billable vs non-billable
+        if (billable === 'true' || billable === 'T') {
+            breakdown.billable += hours;
+        } else {
+            breakdown.nonBillable += hours;
+        }
+
+        // By billing class
+        breakdown.byBillingClass[billingClass] = (breakdown.byBillingClass[billingClass] || 0) + hours;
+
+        // By project type
+        breakdown.byType[projectType] = (breakdown.byType[projectType] || 0) + hours;
+    });
+
+    const totalHours = breakdown.billable + breakdown.nonBillable;
+    breakdown.billablePercent = totalHours > 0 ? (breakdown.billable / totalHours * 100) : 0;
+
+    return breakdown;
+}
+
+// Get resource utilization metrics
+function getUtilizationMetrics(data) {
+    const employeeMetrics = {};
+    const departmentMetrics = {};
+
+    data.forEach(row => {
+        const employee = row[COLUMNS.EMPLOYEE] || '(Unknown)';
+        const department = row[COLUMNS.DEPARTMENT] || '(Unknown)';
+        const hours = parseFloat(row[COLUMNS.DURATION_DECIMAL]) || 0;
+        const billable = row[COLUMNS.BILLABLE];
+        const dateStr = row[COLUMNS.DATE];
+
+        // Employee metrics
+        if (!employeeMetrics[employee]) {
+            employeeMetrics[employee] = {
+                name: employee,
+                totalHours: 0,
+                billableHours: 0,
+                weeks: new Set(),
+                department: department
+            };
+        }
+        employeeMetrics[employee].totalHours += hours;
+        if (billable === 'true' || billable === 'T') {
+            employeeMetrics[employee].billableHours += hours;
+        }
+
+        // Track week for weekly average calculation
+        if (dateStr) {
+            const parts = dateStr.split('.');
+            if (parts.length === 3) {
+                const year = parseInt(parts[2]);
+                const month = parseInt(parts[1]);
+                const day = parseInt(parts[0]);
+                const date = new Date(year, month - 1, day);
+                const weekKey = getWeekKey(date);
+                employeeMetrics[employee].weeks.add(weekKey);
+            }
+        }
+
+        // Department metrics
+        if (!departmentMetrics[department]) {
+            departmentMetrics[department] = {
+                name: department,
+                totalHours: 0,
+                billableHours: 0,
+                employees: new Set()
+            };
+        }
+        departmentMetrics[department].totalHours += hours;
+        if (billable === 'true' || billable === 'T') {
+            departmentMetrics[department].billableHours += hours;
+        }
+        departmentMetrics[department].employees.add(employee);
+    });
+
+    // Calculate averages and identify over/under-utilized resources
+    const employeeArray = Object.values(employeeMetrics).map(emp => {
+        const weekCount = emp.weeks.size || 1;
+        const avgHoursPerWeek = emp.totalHours / weekCount;
+        const utilization = (avgHoursPerWeek / 37) * 100; // 37 hours is standard work week
+        const billablePercent = emp.totalHours > 0 ? (emp.billableHours / emp.totalHours * 100) : 0;
+
+        return {
+            ...emp,
+            avgHoursPerWeek: avgHoursPerWeek,
+            utilization: utilization,
+            billablePercent: billablePercent,
+            status: utilization > 110 ? 'overutilized' : (utilization < 60 ? 'underutilized' : 'normal')
+        };
+    });
+
+    const departmentArray = Object.values(departmentMetrics).map(dept => ({
+        ...dept,
+        employeeCount: dept.employees.size,
+        avgHoursPerEmployee: dept.employees.size > 0 ? (dept.totalHours / dept.employees.size) : 0,
+        utilizationRate: dept.totalHours > 0 ? (dept.billableHours / dept.totalHours * 100) : 0
+    }));
+
+    return {
+        employees: employeeArray,
+        overutilized: employeeArray.filter(e => e.status === 'overutilized'),
+        underutilized: employeeArray.filter(e => e.status === 'underutilized'),
+        departments: departmentArray.sort((a, b) => b.totalHours - a.totalHours)
+    };
+}
+
+// Helper function to get week key for grouping
+function getWeekKey(date) {
+    const onejan = new Date(date.getFullYear(), 0, 1);
+    const week = Math.ceil((((date - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+    return `${date.getFullYear()}-W${week}`;
+}
+
+// Render insights dashboard
+function renderInsightsDashboard() {
+    const container = document.getElementById('comprehensiveDashboard');
+
+    if (!container || !filteredData || filteredData.length === 0) {
+        if (container) container.style.display = 'none';
+        return;
+    }
+
+    const insights = calculateInsights(filteredData);
+    if (!insights) return;
+
+    // Show container
+    container.style.display = 'block';
+
+    // Build all sections HTML
+    let html = '<div style="margin-bottom: 20px;"><h2 style="font-size: 1.8em; font-weight: 700; color: var(--text-primary); border-bottom: 3px solid var(--primary-color); padding-bottom: 10px;">📊 Comprehensive Analytics Dashboard</h2></div>';
+
+    // Add all sections
+    html += buildTopPerformersHTML(insights.topPerformers);
+    html += buildProjectAnalyticsHTML(insights.topProjects);
+    html += buildTimeDistributionHTML(insights.timeDistribution);
+    html += buildBillingAnalysisHTML(insights.billingBreakdown);
+    html += buildUtilizationMetricsHTML(insights.utilization);
+
+    // Set all HTML at once
+    container.innerHTML = html;
+
+    // Create all charts
+    createTopPerformersCharts(insights.topPerformers);
+    createTopProjectsInsightChart(insights.topProjects);
+    createTimeDistributionCharts(insights.timeDistribution);
+    createBillingCharts(insights.billingBreakdown);
+    createDepartmentUtilizationChart(insights.utilization.departments);
+}
+
+// Build Top Performers HTML
+function buildTopPerformersHTML(topPerformers) {
+    return `
+        <div class="insights-section">
+            <h3 class="insights-section-title">🏆 Top Performers</h3>
+
+            <div class="insights-grid">
+                <div class="insights-card">
+                    <h4>Top 10 by Total Hours</h4>
+                    <div class="insights-chart-container">
+                        <canvas id="topPerformersByHoursChart"></canvas>
+                    </div>
+                    <div class="insights-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Employee</th>
+                                    <th style="text-align: right;">Hours</th>
+                                    <th style="text-align: right;">Projects</th>
+                                    <th style="text-align: right;">Billable %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${topPerformers.byHours.slice(0, 5).map((emp, idx) => `
+                                    <tr>
+                                        <td>${idx + 1}</td>
+                                        <td>${emp.name}</td>
+                                        <td style="text-align: right;">${formatNumber(emp.totalHours)}</td>
+                                        <td style="text-align: right;">${emp.projectCount}</td>
+                                        <td style="text-align: right;">${emp.billablePercent.toFixed(1)}%</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="insights-card">
+                    <h4>Top 10 by Project Count</h4>
+                    <div class="insights-chart-container">
+                        <canvas id="topPerformersByProjectsChart"></canvas>
+                    </div>
+                    <div class="insights-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Employee</th>
+                                    <th style="text-align: right;">Projects</th>
+                                    <th style="text-align: right;">Hours</th>
+                                    <th style="text-align: right;">Avg hrs/project</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${topPerformers.byProjects.slice(0, 5).map((emp, idx) => `
+                                    <tr>
+                                        <td>${idx + 1}</td>
+                                        <td>${emp.name}</td>
+                                        <td style="text-align: right;">${emp.projectCount}</td>
+                                        <td style="text-align: right;">${formatNumber(emp.totalHours)}</td>
+                                        <td style="text-align: right;">${(emp.totalHours / emp.projectCount).toFixed(1)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Build Project Analytics HTML
+function buildProjectAnalyticsHTML(topProjects) {
+    return `
+        <div class="insights-section">
+            <h3 class="insights-section-title">📊 Project Analytics</h3>
+
+            <div class="insights-grid">
+                <div class="insights-card full-width">
+                    <h4>Top 10 Projects by Total Hours</h4>
+                    <div class="insights-chart-container" style="height: 400px;">
+                        <canvas id="topProjectsChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="insights-card">
+                    <h4>Project Statistics</h4>
+                    <div class="insights-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Project</th>
+                                    <th style="text-align: right;">Hours</th>
+                                    <th style="text-align: right;">Employees</th>
+                                    <th style="text-align: right;">Avg hrs/task</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${topProjects.slice(0, 10).map(proj => `
+                                    <tr>
+                                        <td>${proj.name.substring(0, 40)}${proj.name.length > 40 ? '...' : ''}</td>
+                                        <td style="text-align: right;">${formatNumber(proj.totalHours)}</td>
+                                        <td style="text-align: right;">${proj.employeeCount}</td>
+                                        <td style="text-align: right;">${proj.avgHoursPerTask.toFixed(2)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Build Time Distribution HTML
+function buildTimeDistributionHTML(timeDistribution) {
+    return `
+        <div class="insights-section">
+            <h3 class="insights-section-title">📅 Time Distribution Patterns</h3>
+
+            <div class="insights-grid">
+                <div class="insights-card">
+                    <h4>Hours by Day of Week</h4>
+                    <div class="insights-chart-container">
+                        <canvas id="dayOfWeekChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="insights-card">
+                    <h4>Monthly Trend (Last 12 Months)</h4>
+                    <div class="insights-chart-container">
+                        <canvas id="monthlyTrendInsightChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="insights-card full-width">
+                    <h4>Peak Activity Insights</h4>
+                    <div class="insights-stat-grid">
+                        <div class="insights-stat">
+                            <div class="insights-stat-label">Peak Month</div>
+                            <div class="insights-stat-value">${timeDistribution.peakMonth ? timeDistribution.peakMonth.month : 'N/A'}</div>
+                            <div class="insights-stat-detail">${timeDistribution.peakMonth ? formatNumber(timeDistribution.peakMonth.hours) + ' hours' : ''}</div>
+                        </div>
+                        <div class="insights-stat">
+                            <div class="insights-stat-label">Busiest Day</div>
+                            <div class="insights-stat-value">${getBusiestDay(timeDistribution.byDayOfWeek, timeDistribution.dayNames)}</div>
+                            <div class="insights-stat-detail">${formatNumber(Math.max(...Object.values(timeDistribution.byDayOfWeek)))} hours</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Build Billing Analysis HTML
+function buildBillingAnalysisHTML(billingBreakdown) {
+    return `
+        <div class="insights-section">
+            <h3 class="insights-section-title">💰 Billing Analysis</h3>
+
+            <div class="insights-grid">
+                <div class="insights-card">
+                    <h4>Billable vs Non-Billable</h4>
+                    <div class="insights-chart-container">
+                        <canvas id="billableBreakdownChart"></canvas>
+                    </div>
+                    <div class="insights-stat-grid">
+                        <div class="insights-stat">
+                            <div class="insights-stat-label">Billable Rate</div>
+                            <div class="insights-stat-value">${billingBreakdown.billablePercent.toFixed(1)}%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="insights-card">
+                    <h4>Hours by Billing Class</h4>
+                    <div class="insights-chart-container">
+                        <canvas id="billingClassChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="insights-card full-width">
+                    <h4>Billing Statistics</h4>
+                    <div class="insights-stat-grid">
+                        <div class="insights-stat">
+                            <div class="insights-stat-label">Billable Hours</div>
+                            <div class="insights-stat-value">${formatNumber(billingBreakdown.billable)}</div>
+                        </div>
+                        <div class="insights-stat">
+                            <div class="insights-stat-label">Non-Billable Hours</div>
+                            <div class="insights-stat-value">${formatNumber(billingBreakdown.nonBillable)}</div>
+                        </div>
+                        <div class="insights-stat">
+                            <div class="insights-stat-label">Total Hours</div>
+                            <div class="insights-stat-value">${formatNumber(billingBreakdown.billable + billingBreakdown.nonBillable)}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Build Resource Utilization HTML
+function buildUtilizationMetricsHTML(utilization) {
+    return `
+        <div class="insights-section">
+            <h3 class="insights-section-title">👥 Resource Utilization</h3>
+
+            <div class="insights-grid">
+                ${utilization.overutilized.length > 0 ? `
+                <div class="insights-card alert-warning">
+                    <h4>⚠️ Overutilized Resources (${utilization.overutilized.length})</h4>
+                    <div class="insights-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th style="text-align: right;">Avg hrs/week</th>
+                                    <th style="text-align: right;">Utilization</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${utilization.overutilized.slice(0, 5).map(emp => `
+                                    <tr>
+                                        <td>${emp.name}</td>
+                                        <td style="text-align: right;">${emp.avgHoursPerWeek.toFixed(1)}</td>
+                                        <td style="text-align: right; color: #dc3545;">${emp.utilization.toFixed(0)}%</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                ` : ''}
+
+                ${utilization.underutilized.length > 0 ? `
+                <div class="insights-card alert-info">
+                    <h4>ℹ️ Underutilized Resources (${utilization.underutilized.length})</h4>
+                    <div class="insights-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th style="text-align: right;">Avg hrs/week</th>
+                                    <th style="text-align: right;">Utilization</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${utilization.underutilized.slice(0, 5).map(emp => `
+                                    <tr>
+                                        <td>${emp.name}</td>
+                                        <td style="text-align: right;">${emp.avgHoursPerWeek.toFixed(1)}</td>
+                                        <td style="text-align: right; color: #ffc107;">${emp.utilization.toFixed(0)}%</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                ` : ''}
+
+                <div class="insights-card full-width">
+                    <h4>Department Utilization</h4>
+                    <div class="insights-chart-container" style="height: 300px;">
+                        <canvas id="departmentUtilizationChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Helper function to get busiest day
+function getBusiestDay(byDayOfWeek, dayNames) {
+    let maxHours = 0;
+    let busiestDay = '';
+    Object.entries(byDayOfWeek).forEach(([day, hours]) => {
+        if (hours > maxHours) {
+            maxHours = hours;
+            busiestDay = dayNames[parseInt(day)];
+        }
+    });
+    return busiestDay;
+}
+
+// Chart creation functions
+// Global chart instances for insights
+let topPerformersByHoursChartInstance = null;
+let topPerformersByProjectsChartInstance = null;
+let topProjectsInsightChartInstance = null;
+let dayOfWeekChartInstance = null;
+let monthlyTrendInsightChartInstance = null;
+let billableBreakdownChartInstance = null;
+let billingClassChartInstance = null;
+let departmentUtilizationChartInstance = null;
+
+function createTopPerformersCharts(topPerformers) {
+    const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDarkMode ? '#e0e0e0' : '#333';
+    const gridColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+
+    // By Hours Chart
+    const byHoursCanvas = document.getElementById('topPerformersByHoursChart');
+    if (byHoursCanvas) {
+        if (topPerformersByHoursChartInstance) {
+            topPerformersByHoursChartInstance.destroy();
+        }
+
+        topPerformersByHoursChartInstance = new Chart(byHoursCanvas, {
+            type: 'bar',
+            data: {
+                labels: topPerformers.byHours.map(emp => emp.name.substring(0, 20)),
+                datasets: [{
+                    label: 'Total Hours',
+                    data: topPerformers.byHours.map(emp => emp.totalHours),
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {display: false},
+                    title: {display: false}
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {color: textColor},
+                        grid: {color: gridColor}
+                    },
+                    x: {
+                        ticks: {color: textColor},
+                        grid: {color: gridColor}
+                    }
+                }
+            }
+        });
+    }
+
+    // By Projects Chart
+    const byProjectsCanvas = document.getElementById('topPerformersByProjectsChart');
+    if (byProjectsCanvas) {
+        if (topPerformersByProjectsChartInstance) {
+            topPerformersByProjectsChartInstance.destroy();
+        }
+
+        topPerformersByProjectsChartInstance = new Chart(byProjectsCanvas, {
+            type: 'bar',
+            data: {
+                labels: topPerformers.byProjects.map(emp => emp.name.substring(0, 20)),
+                datasets: [{
+                    label: 'Project Count',
+                    data: topPerformers.byProjects.map(emp => emp.projectCount),
+                    backgroundColor: 'rgba(255, 159, 64, 0.6)',
+                    borderColor: 'rgba(255, 159, 64, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {display: false},
+                    title: {display: false}
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {color: textColor, precision: 0},
+                        grid: {color: gridColor}
+                    },
+                    x: {
+                        ticks: {color: textColor},
+                        grid: {color: gridColor}
+                    }
+                }
+            }
+        });
+    }
+}
+
+function createTopProjectsInsightChart(topProjects) {
+    const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDarkMode ? '#e0e0e0' : '#333';
+    const gridColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+
+    const canvas = document.getElementById('topProjectsChart');
+    if (!canvas) return;
+
+    if (topProjectsInsightChartInstance) {
+        topProjectsInsightChartInstance.destroy();
+    }
+
+    topProjectsInsightChartInstance = new Chart(canvas, {
+        type: 'horizontalBar',
+        data: {
+            labels: topProjects.map(proj => proj.name.substring(0, 30) + (proj.name.length > 30 ? '...' : '')),
+            datasets: [{
+                label: 'Total Hours',
+                data: topProjects.map(proj => proj.totalHours),
+                backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {display: false},
+                title: {display: false}
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {color: textColor},
+                    grid: {color: gridColor}
+                },
+                y: {
+                    ticks: {color: textColor},
+                    grid: {color: gridColor}
+                }
+            }
+        }
+    });
+}
+
+function createTimeDistributionCharts(timeDistribution) {
+    const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDarkMode ? '#e0e0e0' : '#333';
+    const gridColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+
+    // Day of Week Chart
+    const dayCanvas = document.getElementById('dayOfWeekChart');
+    if (dayCanvas) {
+        if (dayOfWeekChartInstance) {
+            dayOfWeekChartInstance.destroy();
+        }
+
+        const dayData = Object.keys(timeDistribution.byDayOfWeek).map(day =>
+            timeDistribution.byDayOfWeek[day]
+        );
+
+        dayOfWeekChartInstance = new Chart(dayCanvas, {
+            type: 'bar',
+            data: {
+                labels: timeDistribution.dayNames,
+                datasets: [{
+                    label: 'Hours',
+                    data: dayData,
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.6)',
+                        'rgba(54, 162, 235, 0.6)',
+                        'rgba(255, 206, 86, 0.6)',
+                        'rgba(75, 192, 192, 0.6)',
+                        'rgba(153, 102, 255, 0.6)',
+                        'rgba(255, 159, 64, 0.6)',
+                        'rgba(199, 199, 199, 0.6)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {display: false}
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {color: textColor},
+                        grid: {color: gridColor}
+                    },
+                    x: {
+                        ticks: {color: textColor},
+                        grid: {color: gridColor}
+                    }
+                }
+            }
+        });
+    }
+
+    // Monthly Trend Chart
+    const monthCanvas = document.getElementById('monthlyTrendInsightChart');
+    if (monthCanvas) {
+        if (monthlyTrendInsightChartInstance) {
+            monthlyTrendInsightChartInstance.destroy();
+        }
+
+        // Get last 12 months
+        const last12Months = timeDistribution.byMonth.slice(0, 12).reverse();
+
+        monthlyTrendInsightChartInstance = new Chart(monthCanvas, {
+            type: 'line',
+            data: {
+                labels: last12Months.map(m => m.month),
+                datasets: [{
+                    label: 'Hours',
+                    data: last12Months.map(m => m.hours),
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {display: false}
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {color: textColor},
+                        grid: {color: gridColor}
+                    },
+                    x: {
+                        ticks: {color: textColor},
+                        grid: {color: gridColor}
+                    }
+                }
+            }
+        });
+    }
+}
+
+function createBillingCharts(billingBreakdown) {
+    const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDarkMode ? '#e0e0e0' : '#333';
+
+    // Billable Breakdown Pie Chart
+    const billableCanvas = document.getElementById('billableBreakdownChart');
+    if (billableCanvas) {
+        if (billableBreakdownChartInstance) {
+            billableBreakdownChartInstance.destroy();
+        }
+
+        billableBreakdownChartInstance = new Chart(billableCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: ['Billable', 'Non-Billable'],
+                datasets: [{
+                    data: [billingBreakdown.billable, billingBreakdown.nonBillable],
+                    backgroundColor: [
+                        'rgba(75, 192, 192, 0.6)',
+                        'rgba(255, 99, 132, 0.6)'
+                    ],
+                    borderColor: [
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(255, 99, 132, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {color: textColor}
+                    }
+                }
+            }
+        });
+    }
+
+    // Billing Class Chart
+    const classCanvas = document.getElementById('billingClassChart');
+    if (classCanvas) {
+        if (billingClassChartInstance) {
+            billingClassChartInstance.destroy();
+        }
+
+        const classes = Object.keys(billingBreakdown.byBillingClass);
+        const classHours = Object.values(billingBreakdown.byBillingClass);
+
+        billingClassChartInstance = new Chart(classCanvas, {
+            type: 'pie',
+            data: {
+                labels: classes,
+                datasets: [{
+                    data: classHours,
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.6)',
+                        'rgba(54, 162, 235, 0.6)',
+                        'rgba(255, 206, 86, 0.6)',
+                        'rgba(75, 192, 192, 0.6)',
+                        'rgba(153, 102, 255, 0.6)',
+                        'rgba(255, 159, 64, 0.6)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {color: textColor}
+                    }
+                }
+            }
+        });
+    }
+}
+
+function createDepartmentUtilizationChart(departments) {
+    const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDarkMode ? '#e0e0e0' : '#333';
+    const gridColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+
+    const canvas = document.getElementById('departmentUtilizationChart');
+    if (!canvas) return;
+
+    if (departmentUtilizationChartInstance) {
+        departmentUtilizationChartInstance.destroy();
+    }
+
+    // Get top 10 departments
+    const top10 = departments.slice(0, 10);
+
+    departmentUtilizationChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: top10.map(dept => dept.name.substring(0, 30)),
+            datasets: [{
+                label: 'Utilization Rate (%)',
+                data: top10.map(dept => dept.utilizationRate),
+                backgroundColor: 'rgba(153, 102, 255, 0.6)',
+                borderColor: 'rgba(153, 102, 255, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {display: false}
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {color: textColor, callback: function(value) { return value + '%'; }},
+                    grid: {color: gridColor}
+                },
+                x: {
+                    ticks: {color: textColor},
+                    grid: {color: gridColor}
+                }
+            }
+        }
+    });
 }
