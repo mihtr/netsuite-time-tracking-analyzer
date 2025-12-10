@@ -8,14 +8,15 @@ This is a data repository containing NetSuite time tracking data from an ERP sys
 
 ## Data Structure
 
-**Primary Dataset**: `MIT Time Tracking Dataset (NewOrg).csv`
-- **Size**: ~213 MB, 326,231 rows
+**Primary Dataset**: `MIT Time Tracking Dataset (NewOrg) (10-12-2025).csv`
+- **Previous Version**: `MIT Time Tracking Dataset (NewOrg).csv`
 - **Format**: Semicolon-delimited CSV with UTF-8 BOM encoding
 - **Line endings**: Mixed CRLF and LF
+- **Updated**: December 10, 2025
 
 ### Key Data Fields
 
-The dataset contains 56 columns tracking various aspects of time entries:
+The dataset contains 59 columns tracking various aspects of time entries:
 
 **Project Information**:
 - Customer/Project identification (MKundenavn, Name, Customer:Project)
@@ -36,10 +37,12 @@ The dataset contains 56 columns tracking various aspects of time entries:
 - Capitalization eligibility
 
 **Organizational**:
+- Job Group (EG - Job Group) - Employee job classification/role
 - Department (e.g., "00316 EG Utility - DevOps")
-- Team assignments
+- Team assignments (Mteam)
 - Subsidiary and location
-- Manager tracking
+- Manager tracking (MManager)
+- Supervisor information
 
 **Technical/Integration**:
 - JIRA integration (MisJira, EG - External Issue Number)
@@ -77,6 +80,16 @@ When analyzing this dataset:
 
 ## Development Guidelines
 
+### Documentation Maintenance
+**See MAINTENANCE_RULES.md for comprehensive guidelines on keeping documentation synchronized with code changes.**
+
+The maintenance rules document provides:
+- Complete version management workflow
+- TODO.md and SUGGESTED_IMPROVEMENTS.md update procedures
+- Pre-commit checklists
+- Commit message standards
+- Practical examples and quarterly review guidelines
+
 ### Version Management
 **IMPORTANT: Always bump the version number when completing a task or feature.**
 
@@ -97,3 +110,4 @@ Version numbering: `MAJOR.MINOR.PATCH`
 - Package version: `package.json` line 3
 - Project info: `TODO.md` lines 3-6
 - Changelog: `TODO.md` starting around line 273
+- Maintenance rules: `MAINTENANCE_RULES.md` (complete process documentation)

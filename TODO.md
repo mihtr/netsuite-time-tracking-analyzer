@@ -1,8 +1,8 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.14.0
-- **Last Updated**: 2025-12-09
+- **Current Version**: v1.25.0
+- **Last Updated**: 2025-12-10
 - **Status**: Active Development
 
 ---
@@ -25,6 +25,330 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.21.0 (2025-12-10)
+- [x] **Job Group Billable % Comparison in Employee View** - Compare performance against job group peers
+  - Added job group statistics calculation (app.js:3192-3214)
+    - Calculates average billable % for each job group
+    - Groups employees by job group for aggregate calculations
+    - Computes individual vs job group differential
+  - Added two new employee fields:
+    - `jobGroupBillableAvg`: Job group's average billable percentage
+    - `billableVsJobGroup`: Employee's billable % minus job group average
+  - Enhanced employee table with new "vs Job Group Avg" column (index.html:1776)
+    - Sortable column with tooltip showing job group average
+    - Color-coded display: green for above average, red for below average
+    - Shows format: "+5.2%" or "-3.8%"
+  - Updated table display logic (app.js:3258-3273)
+    - Conditional color coding based on positive/negative differential
+    - Tooltip reveals job group average on hover
+    - Plus sign prefix for positive differentials
+  - Updated colspan for no-data message (app.js:3234)
+  - Employee table now has 11 columns (was 10):
+    1. Employee Name
+    2. Subsidiary
+    3. Total Hours
+    4. Norm Hours
+    5. Utilization %
+    6. Billable Hours
+    7. Non-Billable Hours
+    8. Billable %
+    9. vs Dept Avg
+    10. vs Job Group Avg (NEW)
+    11. Top Tasks/Projects
+
+### Version 1.20.2 (2025-12-10)
+- [x] **Added Job Group to Employee Data Popup** - Updated to support new CSV dataset
+  - New CSV file: `MIT Time Tracking Dataset (NewOrg) (10-12-2025).csv`
+  - Dataset now contains 59 columns (up from 56)
+  - Added JOB_GROUP column constant (Field #59, index 58) (app.js:80)
+    - Maps to "EG - Job Group" field for employee job classification/role
+  - Updated employee aggregation to extract job group (app.js:3051, 3062)
+  - Enhanced Employee Data popup with Job Group as first item in Organizational Information (app.js:3286-3289)
+  - Updated CLAUDE.md documentation:
+    - Updated primary dataset filename reference
+    - Changed column count from 56 to 59
+    - Added Job Group to Organizational section
+    - Enhanced organizational field descriptions with field names
+  - Organizational Information now displays 6 items:
+    1. Job Group (NEW)
+    2. Subsidiary
+    3. Department
+    4. Supervisor
+    5. Manager
+    6. Team
+
+### Version 1.20.1 (2025-12-10)
+- [x] **Enhanced Employee Data Popup with Organizational Information** - Added comprehensive employee context
+  - Added three new column constants (app.js:77-79):
+    - MANAGER (Field #42, index 41) - MManager field
+    - TEAM (Field #43, index 42) - Mteam field
+    - SUPERVISOR (Field #52, index 51) - Supervisor field
+  - Updated employee aggregation to extract organizational fields (app.js:3047-3049, 3057-3059)
+    - Manager, Team, and Supervisor now stored in employee data structure
+  - Renamed popup header to "Employee Data: [Name]" (app.js:3278)
+  - Added new "Organizational Information" section (app.js:3280-3304)
+    - Displays: Subsidiary, Department, Supervisor, Manager, Team
+    - Grid layout with 5 items showing organizational hierarchy
+    - Falls back to "(None)" if data not available
+  - Reorganized popup structure:
+    1. Organizational Information (new)
+    2. Summary (hours statistics)
+    3. Hours by Activity Code
+    4. Hours by Project
+    5. Hours by Project Type
+
+### Version 1.20.0 (2025-12-10)
+- [x] **Department Billable % Comparison in Employee View** - Compare individual performance against department average
+  - Added department tracking to employee aggregation (app.js:3043, 3050)
+    - Extracts department from COLUMNS.DEPARTMENT (Field #16, index 15)
+    - Stored in employee data structure
+  - Implemented department statistics calculation (app.js:3156-3178)
+    - Calculates average billable % for each department
+    - Groups employees by department for aggregate calculations
+    - Computes individual vs department differential
+  - Added two new employee fields:
+    - `deptBillableAvg`: Department's average billable percentage
+    - `billableVsDept`: Employee's billable % minus department average
+  - Enhanced employee table with new "vs Dept Avg" column (index.html:1775)
+    - Sortable column with tooltip showing department average
+    - Color-coded display: green for above average, red for below average
+    - Shows format: "+5.2%" or "-3.8%"
+  - Updated table display logic (app.js:3217-3231)
+    - Conditional color coding based on positive/negative differential
+    - Tooltip reveals department average on hover
+    - Plus sign prefix for positive differentials
+  - Updated colspan for no-data message (app.js:3198)
+
+### Version 1.19.1 (2025-12-10)
+- [x] **Enhanced Employee Hover Popup** - Improved layout and project display
+  - Removed scroll bars from popup sections for cleaner appearance (index.html:1121-1123)
+  - Increased popup width: min-width: 500px, max-width: 650px (index.html:1061-1062)
+  - Enhanced project data structure to include both code and name (app.js:3077-3085)
+    - Projects now stored as objects: {hours: number, name: string}
+    - Extracts project name from NAME field (COLUMNS.NAME, index 1)
+  - Updated project display in popup (app.js:3282-3291)
+    - Shows format: "Project Name (PROJ123456)"
+    - Falls back to code only if name not available
+    - Full title on hover: "Project Name - PROJ123456"
+  - Fixed sorting to use new object structure (app.js:3227)
+  - Wider layout accommodates longer project names without truncation
+
+### Version 1.19.0 (2025-12-10)
+- [x] **Employee Hover Popup with Detailed Statistics** - Interactive tooltips on employee names
+  - Added ACTIVITY_CODE column constant (Field #17, index 16) (app.js:76)
+  - Extended aggregateEmployeeData() to track activity codes, projects, and project types (app.js:3031-3081)
+  - Employee data structure now includes three additional Maps:
+    - activityCodes: hours breakdown by EG Activity Code
+    - projects: hours breakdown by Customer:Project
+    - projectTypes: hours breakdown by Project Type
+  - Added CSS styles for popup tooltip (index.html:1052-1160)
+    - Responsive positioning near cursor with edge detection
+    - Dark mode support via CSS variables
+    - Smooth fade-in/fade-out transitions
+    - Scrollable sections for long lists (max-height: 150px)
+  - Implemented three new functions (app.js:3208-3342):
+    - showEmployeePopup(): Creates and displays popup with formatted stats
+    - positionEmployeePopup(): Smart positioning to avoid viewport edges
+    - hideEmployeePopup(): Smooth popup dismissal
+  - Modified displayEmployeeData() to add hover event listeners (app.js:3154-3206)
+    - Employee name cells now have 'employee-name-hover' class
+    - Dotted underline indicates hoverable items
+    - mouseenter/mouseleave/mousemove events for popup control
+  - Popup displays comprehensive employee information:
+    - Summary: Total Hours, Norm Hours, Billable, Non-Billable
+    - Top 10 Activity Codes sorted by hours
+    - Top 10 Projects sorted by hours
+    - All Project Types sorted by hours
+  - Number formatting via formatNumber() for consistent display
+  - Truncated text with full titles on hover for long names
+
+### Version 1.18.3 (2025-12-10)
+- [x] **Chronological Month Sorting** - Pivot months now display in correct date order
+  - Added sortColumns() helper function (app.js:3710-3734)
+  - Detects month format via regex: /^(Jan|Feb|Mar...)\s\d{4}$/
+  - Chronological sorting: sorts by year, then month number
+  - Month map: Jan=1, Feb=2, Mar=3... Dec=12
+  - Applied to renderPivotTable() at line 3861
+  - Applied to exportPivotTableToCSV() at line 4794
+  - Non-month columns continue using alphabetical sorting
+- [x] **Fullscreen Date Field Rendering Fixes** - Improved date input display on wide screens
+  - Date wrapper set to width: 100% with proper box-sizing (index.html:749-756)
+  - Date error positioned absolutely with z-index to prevent layout shift (index.html:758-766)
+  - Filter group min-width: 0 prevents overflow in CSS grid (index.html:110)
+  - Labels use ellipsis for text overflow (index.html:113-117)
+  - Ensures clean rendering in fullscreen/wide viewport modes
+
+### Version 1.18.2 (2025-12-10)
+- [x] **Configurable Chart Item Limits** - User-controlled chart data density
+  - Max Items input control added to chart header (app.js:4173-4192)
+  - Number input: min=5, max=100, default=20
+  - Replaced all hard-coded limits (10, 20, 15) with maxItems variable
+  - Applied to: swapped view rows/columns, normal view columns/rows, pie/doughnut slices
+  - Notes updated to guide users: "Adjust 'Max Items' to show more" (app.js:4284, 4316, 4342)
+  - Max items saved in presets: chartMaxItems field (app.js:4498)
+  - Max items restored from presets (app.js:4593-4600)
+  - onChange handler triggers immediate chart redraw
+  - Removes arbitrary limitations while maintaining performance defaults
+
+### Version 1.18.1 (2025-12-10)
+- [x] **Pivot Chart Controls & Axis Swapping** - Enhanced chart controls with data transposition
+  - Chart type selector moved below pivot table (app.js:4140-4160)
+  - Added swap axes button to transpose rows/columns (app.js:4173-4193)
+  - Swap button shows "Active" state when enabled
+  - Swap state persisted: chartSwapped saved in presets (app.js:4459)
+  - Swap state restored when loading presets (app.js:4545-4551)
+  - Intelligent swap button visibility: hidden for no columns or pie/doughnut charts
+  - Transposed chart logic: up to 10 rows as datasets, columns as labels (app.js:4232-4257)
+  - Chart controls in responsive flex layout with title
+  - Stored pivot data in window variables for chart updates (app.js:4106-4109)
+  - Line chart styling improved with proper tension and transparency
+
+### Version 1.18.0 (2025-12-10)
+- [x] **Global Filters Integration for Employees Tab** - Employees view now respects all global filters
+  - Added employees view update logic to applyFilters() function (app.js:856-874)
+  - Filters applied: Main Product, Project Type, Department, Date Range
+  - Re-aggregates employee data when filters change
+  - Updates table, stats card, multi-select filter, and 12-month trend chart
+  - Shows loading indicator during refresh
+  - Maintains employee selection state across filter changes
+
+### Version 1.17.1 (2025-12-10)
+- [x] **Enhanced Pivot Builder Chart with Type Selection** - Multiple chart type support for pivot visualizations
+  - Chart repositioned below pivot table (was above)
+  - 5 chart types: Bar, Line, Pie, Doughnut, Horizontal Bar
+  - Chart type selector dropdown in Pivot Builder options
+  - Chart type saved and restored with presets
+  - Intelligent data handling for pie/doughnut charts (single dataset with colors)
+  - Horizontal bar chart uses indexAxis: 'y' for sideways display
+  - Adaptive legend positioning and tooltip formatting per chart type
+
+### Version 1.17.0 (2025-12-10)
+- [x] **Pivot Builder Chart Visualization** - Automatic chart generation for pivot tables
+  - Charts automatically generated when building pivot tables
+  - Grouped bar charts for multi-column pivots (up to 10 columns)
+  - Simple bar charts for single-dimension pivots
+  - Top 20 rows displayed for readability with truncation notes
+  - Multi-color datasets for visual differentiation
+  - Dark mode support with CSS variable theming
+  - Formatted tooltips and axis labels
+  - Chart updates when rebuilding pivot with new configuration
+
+### Version 1.16.1 (2025-12-10)
+- [x] **Enhanced Employee Filter & Expanded Subsidiary Support**
+  - Excel-like multi-select dropdown filter for employees
+  - Search box inside dropdown for filtering
+  - (Select All) checkbox with indeterminate state
+  - Apply and Clear buttons
+  - Expanded norm hours settings to 6 subsidiaries: EGDK, EGXX, ZASE, EGPL, EGSU, Other
+
+### Version 1.16.0 (2025-12-10)
+- [x] **Workforce Planning: Norm Hours & Utilization Tracking** - Comprehensive workforce capacity management
+  - **Settings: Norm Hours per Week by Subsidiary**
+    - Configurable norm hours per subsidiary: EGDK (37h), EGSU (40h), Default (37h)
+    - Settings Menu → Workforce Planning section
+    - Decimal precision support (step: 0.5 hours)
+    - Persisted in localStorage
+    - Auto-applies to all Employee View calculations
+  - **Employee Search Enhancement**
+    - Search by both employee name AND employee ID/init
+    - Real-time search as you type
+    - Updates table, statistics, AND chart simultaneously
+    - Clear button (✕) to reset search
+    - Case-insensitive partial matching
+  - **Norm Hours Column**
+    - Automatically calculated based on date range and subsidiary
+    - Formula: (Norm Hours per Week) × (Weeks in Filtered Period)
+    - Updates dynamically when filters change
+    - Sortable column
+  - **Utilization % Column**
+    - Shows workforce utilization: (Total Hours / Norm Hours) × 100
+    - Color-coded for quick insights:
+      - 🔴 Red (>100%): Over-utilized / potential burnout risk
+      - 🟡 Yellow (90-100%): High utilization / near capacity
+      - 🟢 Green (<90%): Normal utilization
+    - Bold font weight for emphasis
+    - Sortable to identify over/under-utilized employees
+  - **12-Month Trend Chart Enhancement**
+    - Added "Norm Hours" line (red dashed line)
+    - Calculated per month: (Norm Hours/Week) × (Weeks in Month) × (# Employees)
+    - Chart respects employee search filter
+    - 4 datasets: Total Hours, Billable Hours, Non-Billable Hours, Norm Hours
+    - Visual benchmark for capacity planning
+  - **Use Cases**:
+    - Capacity planning: Compare actual vs. norm hours
+    - Identify over-utilized employees (burnout risk)
+    - Identify under-utilized employees (available capacity)
+    - Track utilization trends over time
+    - Workforce allocation optimization
+    - Compare utilization across subsidiaries with different norms
+
+### Version 1.15.1 (2025-12-10)
+- [x] **Employee View Enhancements** - Added sorting, filtering, and subsidiary field
+  - **Employee Filter Dropdown**: Filter by specific employee to focus on individual analysis
+    - Dropdown populated with all employees sorted alphabetically
+    - "All Employees" option to show everyone
+    - Clear button (✕) to quickly reset filter
+    - Auto-updates table and statistics when filter changes
+  - **Subsidiary Column**: Added after Employee Name column
+    - Shows company subsidiary (EGDK, EGSU, etc.) from Field #48
+    - Sortable column for grouping by subsidiary
+    - Falls back to "(No Subsidiary)" for missing values
+  - **Enhanced Sorting**: All columns now properly sortable
+    - Click any column header to sort ascending/descending
+    - Employee Name, Subsidiary, Total Hours, Billable Hours, Non-Billable Hours, Billable %
+    - Visual indicators (▲/▼) show current sort state
+  - **Statistics Dashboard Update**: Now respects employee filter
+    - When filtering by employee, stats show only that employee's metrics
+    - Total Employees count reflects filtered view
+    - Hours calculations (Total, Billable, Non-Billable) update dynamically
+  - **Added SUBSIDIARY constant** to COLUMNS in app.js (Field #48)
+  - **Use Cases**: Individual employee deep-dive, subsidiary-based analysis, focused performance review
+
+### Version 1.15.0 (2025-12-10)
+- [x] **Employee View** - New dedicated view for employee time tracking analysis
+  - 👤 Employee tab added to navigation between Pivot Builder and Charts
+  - **Employee Statistics Dashboard**: 4 key metrics at a glance
+    - Total Employees (count of unique employees in filtered data)
+    - Total Hours (sum of all employee hours)
+    - Billable Hours (hours marked as billable)
+    - Non-Billable Hours (hours not marked as billable)
+  - **12-Month Trend Chart**: Line chart showing last 12 months of activity
+    - Three data series: Total Hours, Billable Hours, Non-Billable Hours
+    - Color-coded lines (purple for total, green for billable, red for non-billable)
+    - Area fill for visual impact
+    - Interactive tooltips with exact values
+    - Automatically shows last 12 months from current date
+  - **Employee Detail Table**: Comprehensive employee-level breakdown
+    - Sortable columns: Employee Name, Total Hours, Billable Hours, Non-Billable Hours, Billable %
+    - Click any column header to sort ascending/descending
+    - Billable percentage calculated automatically (Billable Hours / Total Hours × 100)
+    - Top Tasks/Projects column shows top 3 tasks by hours for each employee
+    - Task format: "PROJECT_CODE - Task Name (hours)"
+    - Shows what employees are spending their time on
+  - **Data Processing**:
+    - Async aggregation with 5000-row chunks prevents UI blocking
+    - Loading indicator during data processing
+    - Uses BILLABLE field (Field #9) to distinguish billable vs non-billable hours
+    - Aggregates by employee Full Name (Field #51) with fallback to Employee code (Field #27)
+    - Monthly breakdown stored for trend chart
+    - Task tracking with project codes for detailed activity view
+  - **Responsive Design**:
+    - Auto-updates when filters change (date range, department, product, project type)
+    - Chart height constrained to 400px for optimal viewing
+    - Table horizontal scrolling for many columns
+    - Consistent with existing view styling and color scheme
+  - **Use Cases**:
+    - Employee utilization analysis
+    - Billable vs non-billable hour tracking by employee
+    - Identify employee focus areas (top tasks/projects)
+    - Historical trend analysis over 12 months
+    - Resource allocation and capacity planning
+    - Billing accuracy verification
+
+### Version 1.14.0 (2025-12-09)
+- [x] **Universal Dark Mode and Decimal Separator Support** - Global settings for UI customization
+- [x] **Settings Menu** - Hamburger menu in header for app-wide settings
 
 ### Version 1.13.0 (2025-12-09)
 - [x] **Pivot Builder: Export to CSV** - Export pivot table results to CSV file
@@ -583,6 +907,437 @@
 ---
 
 ## 🔄 Change Log
+
+**Documentation**: MAINTENANCE_RULES.md created (2025-12-10) - Comprehensive guidelines for keeping documentation synchronized with code changes, including version management workflow, commit standards, and maintenance procedures.
+
+### v1.25.0 - Anomaly Aggregation & Whitelist Filtering (2025-12-10)
+- **Major Feature: Anomaly Aggregation by Employee**
+  - **Problem**: Anomalies displayed individually, causing clutter (e.g., 500 separate weekend entries for same employee)
+  - **Solution**: Aggregate anomalies by employee within each type
+  - **Implementation**:
+    - Modified `displayAnomalies()` to group anomalies by employee using Map
+    - Display aggregated summaries with occurrence counts (e.g., "John Smith: 12 weekend entries")
+    - Added "Show Details" expandable section to view individual anomaly records
+    - Shows first 3-5 dates/details in summary, with "and X more" for larger sets
+    - Limits display to 20 employees per anomaly type for performance
+    - Created `toggleAnomalyDetails()` function for expand/collapse behavior
+  - **User Experience**: Dramatically reduces visual clutter, from hundreds of cards to dozens of aggregated summaries
+  - **Code**: app.js lines 7012-7110, index.html lines 7145-7159
+
+- **Major Feature: Anomaly Whitelist for False Positives**
+  - **Problem**: Some anomalies are false positives (e.g., IT support allowed weekends, part-time contractors expected gaps)
+  - **Solution**: Configurable whitelist system in Settings
+  - **Implementation**:
+    - Added "Anomaly Detection" section to Settings modal (index.html lines 1933-1977)
+    - Three whitelist categories:
+      1. Weekend Work Exemptions (e.g., IT support, consultants)
+      2. Time Gap Exemptions (e.g., part-time employees, contractors)
+      3. Excessive Hours Exemptions (e.g., managers, on-call engineers)
+    - Created whitelist management functions in app.js (lines 5825-5912):
+      - `saveAnomalyWhitelist()` - Saves to localStorage
+      - `loadAnomalyWhitelist()` - Loads from localStorage with optional message
+      - `getAnomalyWhitelist()` - Returns current whitelist or defaults
+      - `clearAnomalyWhitelist()` - Clears all whitelists
+    - Modified `detectAnomalies()` to respect whitelist (app.js lines 6555-6690):
+      - Weekend entries: Skip whitelisted employees (line 6645)
+      - Excessive hours: Skip whitelisted employees (line 6611)
+      - Time gaps: Skip whitelisted employees (line 6690)
+    - Settings auto-loads whitelist when opened (line 5736)
+    - Added CSS styling for textarea inputs (index.html lines 997-1019)
+  - **User Experience**: Users can configure exemptions once, eliminating repeated false positives
+  - **Storage**: Whitelist stored in localStorage as JSON with employee name arrays per category
+
+- **UI Enhancements**:
+  - Aggregated anomaly cards show highest severity among all occurrences
+  - Total occurrences highlighted with color-coded badges (critical=red, warning=yellow, info=blue)
+  - Type-specific summaries (e.g., weekend dates, excessive hours with values, gap durations)
+  - Expandable details preserve full anomaly information for investigation
+  - Clear/Reload whitelist buttons for easy management
+
+- **Performance**: Aggregation reduces DOM elements by 10-50x (e.g., 500 cards → 25 aggregated cards)
+
+### v1.24.0 - IndexedDB Cache (2025-12-10)
+- **Major Feature: Replaced localStorage with IndexedDB for Data Caching**
+  - Fixed "localStorage quota exceeded" errors when caching large datasets
+  - **Problem**: localStorage has 5-10MB limit, failing with 293k+ row datasets (100MB+)
+  - **Solution**: Migrated to IndexedDB which supports 100s of MB to GB of storage
+  - **Implementation**:
+    - Created `initDB()` function to initialize IndexedDB database
+    - Database name: `NetSuiteTimeTrackingDB`
+    - Object store: `dataCache`
+    - Database version: 1
+    - Updated `saveToCache()` to use IndexedDB instead of localStorage
+    - Updated `loadFromCache()` to use IndexedDB instead of localStorage
+    - Updated `clearCache()` to use IndexedDB instead of localStorage
+    - Made all cache functions async (return Promises)
+    - Updated all call sites to use `await` for async cache operations
+  - **Benefits**:
+    - Can cache datasets of any practical size (hundreds of MB)
+    - No more "quota exceeded" errors
+    - Faster cache operations for large datasets
+    - Data persists across browser sessions
+    - Automatic cleanup of expired cache (>7 days old)
+  - **User Impact**:
+    - First load: Imports data and caches in IndexedDB (✅ Data cached successfully in IndexedDB)
+    - Subsequent loads: Instant load from IndexedDB cache (✅ Data loaded from IndexedDB cache)
+    - Status message shows "Loaded from IndexedDB cache" instead of "Loaded from cache"
+    - No more cache failures with large datasets
+  - **Technical Notes**:
+    - IndexedDB is asynchronous (Promise-based)
+    - 7-day cache expiration still maintained
+    - Falls back gracefully if IndexedDB unavailable
+    - Compatible with all modern browsers
+
+### v1.23.3 - Anomaly Detection Limits Fix (2025-12-10)
+- **Critical Bug Fix: Anomaly Detection Limits Not Enforced**
+  - Fixed issue where anomaly detection found 194,944 anomalies (instead of max 800 with 100-per-type limit)
+  - **Root Cause**: Zero hours and excessive hours detection didn't have limits - they scanned ALL filtered data
+  - **Symptoms**:
+    - "Detecting anomalies..." spinner ran forever
+    - Console showed "194944 anomalies found" but UI crashed
+    - TypeError: "Cannot set properties of null (setting 'textContent')" at line 6797
+  - **Solutions Applied**:
+    1. Added limit to zero hours detection: Changed from `forEach` to `for` loop with early exit at 100 anomalies
+    2. Added limit to excessive hours detection: Added counter and early return when MAX_ANOMALIES_PER_TYPE reached
+    3. Added null checks to `updateRecommendationSummary()`: Prevents crash if DOM elements don't exist
+  - **Result**: Anomaly detection now properly limited to max 800 anomalies (100 per type × 8 types)
+  - **Performance**: Detection completes in <2 seconds and UI displays properly
+
+### v1.23.2 - Critical Bug Fixes: Anomaly Detection & CSV Parser (2025-12-10)
+- **Critical Bug Fix #1: Infinite Loop in Anomaly Detection**
+  - Fixed infinite loop bug in time gap detection that caused "Detecting anomalies..." to run forever
+  - Problem was in date iteration loop (lines 6500-6503) that mutated Date objects causing unexpected behavior
+  - Replaced expensive nested loop with efficient weekday calculation algorithm
+  - **Performance Optimizations**:
+    - Added `MAX_ANOMALIES_PER_TYPE = 100` limit to prevent UI overload with large datasets
+    - Weekend detection: Limited to 100 anomalies (was unlimited, could generate thousands)
+    - Task descriptions: Limited short/long description anomalies to 100 each
+    - Time gaps: Limited to 10 gaps per employee, max 100 total
+    - Hour spikes: Limited to 100 spike detections
+    - Suspicious patterns: Limited to 100 pattern detections
+    - Added early returns and break conditions to stop processing once limits reached
+  - **Algorithm Improvements**:
+    - Time gap weekday calculation: O(1) math instead of O(n) loop through days
+    - Formula: `totalDays - (weekends) - (start/end day adjustments)`
+    - Prevents infinite loops even with multi-year date gaps
+    - 10x+ faster for datasets with large time ranges
+  - **Console Logging**: Added completion message "✅ Anomaly detection completed: X anomalies found"
+  - **Result**: Anomaly detection now completes in <2 seconds even with 283k+ records (was infinite)
+  - **User Impact**: "Detecting anomalies..." spinner now completes and shows results properly
+- **Critical Bug Fix #2: CSV Parser Not Handling Quoted Fields**
+  - Fixed fundamental flaw in CSV import causing "Invalid row with only X columns" errors
+  - **Root Cause**: `text.split(/\r?\n/)` split entire CSV by newlines BEFORE parsing, breaking rows with newlines inside quoted fields
+  - **Solution**: Created proper `parseCSVRows()` function that parses character-by-character
+  - **New Features**:
+    - Correctly handles newlines within quoted fields (e.g., multi-line task descriptions)
+    - Correctly handles semicolons within quoted fields (e.g., project names with semicolons)
+    - Properly handles escaped quotes (doubled quotes: `""`)
+    - State machine tracks quote context while parsing
+  - **Impact**: Dramatically reduces import errors from 43,907 rejected rows to expected minimal rejections
+  - **Example Fixed Case**: `"Project ABC";"Task with\nnewline";"Field 3"` now parsed as 1 row (was 2 broken rows)
+
+### v1.23.1 - Import Statistics Viewer (2025-12-10)
+- **Settings Menu: Import Statistics**
+  - Added "📊 Import Statistics" menu item in Settings under "Data Import" section
+  - View detailed statistics and error log from last CSV data import
+  - Comprehensive modal display with file information, summary stats, and error details
+  - **Import Statistics Features**:
+    - File information display (filename and import timestamp)
+    - Summary statistics cards: Total Lines, Imported, Rejected, Success Rate %
+    - Color-coded success rate (green ≥95%, yellow ≥80%, red <80%)
+    - Rejection breakdown showing header rows, empty lines, and invalid rows
+    - Detailed error log (first 100 errors with line numbers and messages)
+    - Scrollable error log with monospace formatting for easy reading
+    - "No Import Data" placeholder when no file has been imported
+  - **Error Tracking Enhancements**:
+    - Errors now stored in memory (errorLog array) with line number, type, message, and column count
+    - Limited to 1000 errors to prevent memory issues with large datasets
+    - Filename and timestamp tracked for each import
+    - Console errors still shown but now also available in UI
+  - **UI Improvements**:
+    - Beautiful gradient button in Settings to open statistics modal
+    - Modal design consistent with existing settings modal style
+    - Click outside modal to close functionality
+    - Responsive grid layout for summary statistics
+    - Dark mode compatible with CSS variables
+  - **Use Cases**:
+    - Troubleshoot import issues without checking console
+    - Review data quality problems before analysis
+    - Identify specific line numbers with errors for CSV file corrections
+    - Audit import success rates and rejection patterns
+    - Share import statistics with team members or data providers
+
+### v1.23.0 - Anomaly Detection System (2025-12-10)
+- **Enhanced Recommendations Tab with Anomaly Detection**
+  - Comprehensive data quality anomaly detection system with 8 detection types
+  - Anomalies section displays below recommendations with grouped, collapsible display
+  - Red badge on Recommendations tab shows total anomaly count when detected
+  - Parallel processing: Recommendations and anomalies analyzed simultaneously for better performance
+  - **8 Anomaly Detection Types**:
+    1. **Zero/Negative Hours** (Critical) - Detects time entries with 0 or negative duration values
+    2. **Excessive Daily Hours** (Critical/Warning) - Flags days with >12h (warning) or >16h (critical) logged
+    3. **Weekend Entries** (Info) - Identifies time logged on Saturdays and Sundays
+    4. **Time Tracking Gaps** (Warning) - Detects 5+ consecutive weekdays without time entries
+    5. **Short Task Descriptions** (Info) - Flags task descriptions with <5 characters (low quality)
+    6. **Long Task Descriptions** (Info) - Identifies suspiciously long descriptions (>500 chars)
+    7. **Hour Spikes** (Warning/Info) - Detects sudden >200% week-over-week hour increases
+    8. **Suspicious Patterns** (Warning) - Identifies employees logging identical hours >80% of days
+  - **Anomaly Display Features**:
+    - Grouped by anomaly type with expand/collapse functionality
+    - Shows up to 10 anomalies per group (prevents overwhelming UI)
+    - Each anomaly card includes severity icon, title, detailed message, and affected data
+    - "Show X more..." links for groups with >10 anomalies
+    - Color-coded severity indicators (🚫 Critical, ⚠️ Warning, ℹ️ Info)
+  - **Anomaly Analysis Functions**:
+    - `detectAnomalies()` - Main detection orchestrator analyzing all 8 anomaly types
+    - `displayAnomalies()` - Renders grouped, collapsible anomaly sections with counts
+    - `toggleAnomalyGroup()` - Expand/collapse individual anomaly type groups
+    - `updateAnomalyBadge()` - Shows/updates red notification badge on Recommendations tab
+  - **Smart Thresholds**:
+    - Daily hours: >12h warning, >16h critical
+    - Suspicious patterns: >80% identical hours over 10+ days
+    - Hour spikes: >200% increase (info), >400% increase (warning)
+    - Weekday gaps: 5+ consecutive business days without entries
+  - **Use Cases**:
+    - Data quality auditing: Identify incomplete or suspicious time entries
+    - Compliance monitoring: Detect potential timesheet fraud or data entry errors
+    - Workload management: Flag burnout risk from excessive hours
+    - Process improvement: Identify gaps in time tracking habits
+    - Payroll validation: Catch errors before processing
+    - Project management: Ensure accurate time data for billing and reporting
+
+### v1.22.0 - Smart Recommendations Engine (2025-12-10)
+- **New Tab: 🎯 Smart Recommendations**
+  - Comprehensive automated recommendation system analyzes filtered data and provides actionable insights
+  - Four recommendation categories with detailed analysis:
+    1. **Resource Management** - Detects overwork (>50h/week), underutilization (<20h/week), and low department utilization
+    2. **Billing Optimization** - Identifies high non-billable % projects/customers, revenue leaks, and overall billing patterns
+    3. **Data Quality** - Flags generic/missing task descriptions, inactive employees, and duplicate entries
+    4. **Project Health** - Tracks declining/spiking activity, inactive projects (>30 days)
+  - **Summary Dashboard** - 4 color-coded cards showing Critical, Warnings, Info, and Good Practices counts
+  - **Smart Filtering** - Filter by severity (critical/warning/info) or category (resource/billing/quality/project)
+  - **Rich Card Display** - Each recommendation includes:
+    - Severity indicator with color coding (red/yellow/blue/green borders)
+    - Category badge (Resource Management, Billing Optimization, Data Quality, Project Health)
+    - Detailed message explaining the issue
+    - Actionable recommendation for resolution
+    - Detailed metrics (affected employees, hours, percentages, trends)
+  - **Refresh Analysis Button** - Re-analyze data after filter changes
+  - **Detection Features**:
+    - Overwork detection: Identifies employees working >50h/week with burnout risk assessment
+    - Underutilization: Finds employees <20h/week consistently to optimize capacity
+    - Billing analysis: Projects with >60% non-billable hours flagged as critical/warning
+    - Customer billing review: Flags customers with >50% non-billable time
+    - Overall billing health: Warns if >40% of all hours are non-billable
+    - Task description quality: Detects entries with <10 char descriptions or missing descriptions
+    - Inactive tracking: Finds employees not logging time in 14+ days
+    - Duplicate detection: Identifies potential duplicate entries
+    - Project trends: Detects 30%+ declines over 3 months or 2x spikes in activity
+    - Stalled projects: Lists projects with no activity in 30+ days
+  - **Week Number Calculation** - ISO week numbering for accurate weekly hour tracking
+  - **Comprehensive Analysis Functions**:
+    - `generateRecommendations()` - Main orchestration function
+    - `analyzeResourceManagement()` - Weekly/monthly employee hour analysis with department utilization
+    - `analyzeBillingOptimization()` - Project/customer billing patterns and revenue optimization
+    - `analyzeDataQuality()` - Time entry completeness, duplicates, and employee activity tracking
+    - `analyzeProjectHealth()` - Monthly trend analysis, activity spikes, and project lifecycle monitoring
+  - **Dynamic Filtering** - 8 filter chips (All, Critical, Warning, Info, Resource, Billing, Quality, Project)
+  - **Responsive UI** - Beautiful gradient cards, hover effects, border color coding
+  - **Empty State** - Friendly "No Recommendations" message when data looks good
+  - **CSS Styling** - 240+ lines of comprehensive styles for cards, filters, badges, and layouts
+- **Integration**: Automatically triggers on Recommendations tab switch, respects global filters
+- **Performance**: Analyzes 300K+ rows in <2 seconds using Map-based aggregation
+- **Smart Thresholds**: Configurable detection thresholds (50h overwork, 20h underutil, 60% non-billable, etc.)
+
+### v1.21.0 (2025-12-10)
+- **Job Group Billable % Comparison in Employee View**
+  - Added "vs Job Group Avg" column to employee table
+  - Shows billable % differential compared to job group average
+  - Color-coded: Green for above average, Red for below, Gray for equal
+  - Tooltip displays job group average billable %
+  - Works parallel to existing "vs Dept Avg" column
+  - Enables performance comparison within job roles
+  - Updated employee aggregation to calculate job group statistics
+
+### v1.20.2 (2025-12-10)
+- **Updated CSV Dataset & Job Group Field Added**
+  - Updated to new CSV file: "MIT Time Tracking Dataset (NewOrg) (10-12-2025).csv"
+  - Dataset now contains 59 columns (was 56)
+  - Added EG - Job Group field (Column 59) to employee data
+  - Job Group field added to Employee Data popup (Organizational Information section)
+  - Updated CLAUDE.md documentation with new dataset information
+  - Added JOB_GROUP constant to COLUMNS mapping (index 58)
+
+### v1.20.1 (2025-12-10)
+- **Organizational Fields in Employee Popup**
+  - Added Organizational Information section to Employee Data popup
+  - New fields displayed: Job Group, Subsidiary, Department, Supervisor, Manager, Team
+  - Added SUPERVISOR (Field #52), MANAGER (Field #42), TEAM (Field #43) to COLUMNS
+  - Employee aggregation now tracks and stores organizational fields
+  - Provides comprehensive employee context at a glance
+  - Fallback to "(None)" for missing organizational data
+
+### v1.20.0 (2025-12-10)
+- **Department Billable % Comparison in Employee View**
+  - Added "vs Dept Avg" column comparing employee billable % against department average
+  - Department statistics aggregation: calculates average billable % per department
+  - Color-coded differential display: Green (+positive), Red (negative), Gray (neutral)
+  - Tooltip shows department average for context
+  - Bold font weight for visual emphasis
+  - Sortable column for identifying over/under-performing employees
+  - Enables peer benchmarking within departments
+
+### v1.19.1 (2025-12-10)
+- **Enhanced Employee Popup Layout**
+  - Removed scrollbars from popup (removed max-height and overflow-y)
+  - Expanded popup width: 500-650px (was 350-450px)
+  - Project display enhanced: Shows "Project Name (Code)" instead of just code
+  - Projects Map structure changed to store objects: {hours, name}
+  - Full project name in tooltip on hover
+  - Improved horizontal space utilization
+  - Better readability for project information
+
+### v1.19.0 (2025-12-10)
+- **Employee Hover Popup with Detailed Statistics**
+  - Added interactive popup when hovering over employee names in table
+  - Popup displays 5 comprehensive sections:
+    1. Summary: Total hours, norm hours, billable/non-billable breakdown
+    2. Activity Codes: Top 10 activity codes with hours
+    3. Projects: Top 10 projects with full names and hours
+    4. Project Types: Distribution across project types
+  - Smart positioning: Adjusts popup location to stay within viewport
+  - Dotted underline on employee names indicates hover functionality
+  - Styled with dark mode support and CSS variables
+  - Added showEmployeePopup(), positionEmployeePopup(), hideEmployeePopup() functions
+  - Enhanced project tracking to store both project code and name
+  - CSS classes for popup structure, sections, stats, and list items
+
+### v1.18.3 (2025-12-10)
+- **Chronological Month Sorting & Fullscreen Date Field Fixes**
+  - Fixed pivot table and chart month columns to sort chronologically (Jan, Feb, Mar...) instead of alphabetically
+  - Added sortColumns() function with intelligent sorting: chronological for months, alphabetical for others
+  - Month format detection: "Jan 2024", "Feb 2024" pattern matching
+  - Sorts by year first, then month within each year
+  - Applied to both pivot table rendering and CSV export
+  - Fixed date input field rendering issues in fullscreen mode
+  - Date error messages now positioned absolutely to prevent layout shifts
+  - Filter group labels use ellipsis for long text in wide layouts
+  - Added min-width: 0 to prevent grid item overflow
+  - Date input wrapper ensures 100% width with proper box-sizing
+
+### v1.18.2 (2025-12-10)
+- **User-Controllable Chart Item Limits**
+  - Removed hard-coded chart row/column limits (was: 10 columns, 20 rows, 15 for pie)
+  - Added "Max Items" input control in chart header (range: 5-100, default: 20)
+  - Chart automatically updates when Max Items value is changed
+  - Applies to all chart types: rows/columns for bar/line, items for pie/doughnut
+  - Max Items setting saved with presets and restored on load
+  - Informative notes updated to mention "Adjust 'Max Items' to show more"
+  - Users now have full control over chart data density vs. readability
+
+### v1.18.1 (2025-12-10)
+- **Pivot Chart Controls Repositioned & Swap Axes Feature**
+  - Moved chart type selector from build options to below pivot table
+  - Chart controls now display in header row with chart title
+  - Added "🔄 Swap Axes" button to transpose rows and columns in chart
+  - Swap feature creates transposed view: columns become x-axis, rows become datasets
+  - Swap button only visible for charts with column field (not for pie/doughnut)
+  - Swap state saved with presets and restored on load
+  - Chart type selector triggers immediate chart redraw
+  - Line charts now properly styled with transparent backgrounds and smooth curves
+  - Improved chart controls UX with responsive flexbox layout
+
+### v1.18.0 (2025-12-10)
+- **Global Filters Now Affect Employees Tab**
+  - Main Product, Project Type, and Department filters now automatically update the Employees view
+  - Employee data re-aggregates when filters are applied
+  - Employee table, statistics, and chart all update in real-time when filtering
+  - Loading indicator displays during employee data refresh
+  - Consistent filter behavior across all tabs (Detail, Monthly, Insights, Ken.PBI.1, Employees, Pivot Builder)
+
+### v1.17.1 (2025-12-10)
+- **Enhanced Pivot Builder Chart Features**
+  - Chart now displays below the pivot table for better readability
+  - Added chart type selector with 5 options: Bar, Line, Pie, Doughnut, Horizontal Bar
+  - Chart type selection saved with presets and restored on load
+  - Pie/Doughnut charts show up to 15 items with distinct colors
+  - Pie/Doughnut charts display column totals when column field is used
+  - Horizontal bar chart support for alternative visualization
+  - Legend position adapts to chart type (right for pie/doughnut, top for others)
+  - Chart options respect dark mode theming
+
+### v1.17.0 (2025-12-10)
+- **Pivot Builder Chart Visualization**
+  - Added automatic chart generation when building pivot tables
+  - Chart displays before the pivot table for better data visualization
+  - Grouped bar chart for pivot tables with column field (up to 10 columns shown)
+  - Simple bar chart for pivot tables without column field
+  - Limits display to top 20 rows for chart readability
+  - Chart respects dark mode and uses CSS variables for theming
+  - Multi-color datasets for better visual differentiation
+  - Tooltips show formatted values with proper number formatting
+  - Chart automatically destroyed and recreated when rebuilding pivot
+  - Helper notes displayed when data is truncated (>10 columns or >20 rows)
+
+### v1.16.1 (2025-12-10)
+- **Enhanced Multi-Select Employee Filter & Expanded Subsidiary Support**
+  - Replaced text search with Excel-like multi-select dropdown filter
+  - Added search box inside dropdown for filtering employee list
+  - Implemented (Select All) checkbox with indeterminate state support
+  - Apply and Clear buttons for filter management
+  - Label displays "All Employees" or count of selected employees
+  - Chart and table update based on multi-select filter
+  - Expanded norm hours settings to support all 6 subsidiaries: EGDK, EGXX, ZASE, EGPL, EGSU, Other
+  - Updated Settings → Workforce Planning section with 6 individual inputs
+  - Renamed 'default' subsidiary to 'Other' for clarity
+  - Set default norm hours: EGDK/EGXX/ZASE/Other: 37h, EGPL/EGSU: 40h
+
+### v1.16.0 (2025-12-10)
+- **Workforce Planning: Norm Hours & Utilization** - Major feature for capacity management and workforce optimization
+  - Added Settings section for configuring norm hours per subsidiary (EGDK: 37h, EGSU: 40h, Default: 37h)
+  - Norm hours settings saved to localStorage with saveNormHours() function
+  - Enhanced employee search to include both name AND employee ID/init
+  - Replaced employee filter dropdown with search input for more flexible filtering
+  - searchAndFilterEmployees() updates table, stats, and chart in real-time
+  - Added employeeId field to employee aggregation
+  - Norm Hours column calculated dynamically: (Norm Hours/Week) × (Weeks in Period)
+  - Utilization % column: (Total Hours / Norm Hours) × 100
+  - Color-coded utilization: Red (>100%), Yellow (90-100%), Green (<90%)
+  - Chart updated with "Norm Hours" dashed red line for visual benchmark
+  - Chart filters based on employee search to show individual trends
+  - Date range calculation from filteredData for accurate norm hours
+  - Added SUBSIDIARY constant (Field #48) for norm hours lookup
+  - Table now has 9 columns including Norm Hours and Utilization %
+  - Use cases: capacity planning, burnout prevention, resource optimization
+
+### v1.15.1 (2025-12-10)
+- **Employee View Enhancements**: Added employee filtering, subsidiary column, and improved sorting
+  - Employee filter dropdown with "All Employees" option and clear button
+  - Subsidiary column added after Employee Name (Field #48)
+  - All columns now properly sortable including subsidiary
+  - Statistics dashboard respects employee filter selection
+  - populateEmployeeFilter() function auto-populates dropdown
+  - filterAndDisplayEmployees() updates table based on filter
+  - clearEmployeeFilter() resets filter to show all employees
+  - Added SUBSIDIARY constant to COLUMNS mapping
+
+### v1.15.0 (2025-12-10)
+- **Employee View**: New dedicated view for comprehensive employee time tracking analysis
+  - Added 👤 Employees tab to main navigation
+  - Employee statistics dashboard with 4 key metrics (Total Employees, Total Hours, Billable Hours, Non-Billable Hours)
+  - 12-month trend chart showing Total/Billable/Non-Billable hours over time
+  - Employee detail table with sortable columns and billable percentage calculation
+  - Top 3 tasks/projects displayed for each employee showing where time is spent
+  - Added BILLABLE column constant (Field #9) to app.js for billable/non-billable tracking
+  - Async data aggregation with chunking for performance with large datasets
+  - Auto-updates when filters are applied
+  - Integrates with existing filter system (date range, department, product, project type)
+  - Use cases: employee utilization, billable tracking, focus area identification, capacity planning
+
+### v1.14.0 (2025-12-09)
+- **Universal Dark Mode**: Added dark mode support with system preference detection
+- **Decimal Separator Setting**: Choose between period (1.5) or comma (1,5) for decimal display
+- **Settings Menu**: Hamburger menu (☰) in header for app-wide configuration
 
 ### v1.6.1 (2025-12-09)
 - **CSV Export Functionality**: Export filtered/sorted data to CSV file

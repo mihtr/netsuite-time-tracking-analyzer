@@ -4,6 +4,10 @@
 
 This document provides data-driven recommendations and technical improvements to enhance the NetSuite Time Tracking Analyzer application.
 
+**Current Focus**: Features and improvements that are **not yet implemented**.
+
+**For completed features**, see the [Archived Completed Features](#archived-completed-features) section at the bottom of this document.
+
 ---
 
 ## 📊 Data Insights & Analysis Recommendations
@@ -66,11 +70,13 @@ function calculateInsights(data) {
 
 ---
 
-### 2. **Smart Recommendations Engine** 💡
+### 2. **Smart Recommendations Engine** 💡 ✅ COMPLETED (v1.22.0)
 
-**Priority**: MEDIUM
+**Priority**: ~~MEDIUM~~ COMPLETED
 **Effort**: Medium
 **Impact**: Medium user value
+
+**Status**: Fully implemented in v1.22.0 with comprehensive analysis across 4 categories.
 
 **Description**: Provide automated recommendations based on data patterns.
 
@@ -122,11 +128,13 @@ function generateRecommendations(data) {
 
 ---
 
-### 3. **Anomaly Detection** ⚠️
+### 3. **Anomaly Detection** ⚠️ ✅ COMPLETED (v1.23.0)
 
-**Priority**: MEDIUM
+**Priority**: ~~MEDIUM~~ COMPLETED
 **Effort**: Low-Medium
 **Impact**: High for data quality
+
+**Status**: Fully implemented in v1.23.0 with 8 anomaly detection types and grouped display.
 
 **Description**: Automatically flag unusual patterns that may indicate errors or issues.
 
@@ -275,160 +283,66 @@ worker.onmessage = function(e) {
 
 ## 🎨 User Experience Improvements
 
-### 9. **Advanced Search & Filter** 🔍
+### 9. **Enhanced Advanced Search & Filter** 🔍
 
-**Priority**: HIGH
+**Priority**: MEDIUM
 **Effort**: Medium
 **Impact**: High usability
 
-**Features to add**:
+**Status**: Core filtering completed in v1.0.0-v1.16.1
 
-#### **Global Search**
-- Search across all text fields
-- Highlight matching text
-- Show match count
-- Jump to next/previous match
-
-#### **Advanced Filters**
-- Employee name filter (dropdown or search)
-- Department filter
-- Customer filter
-- Task category filter
-- Hours range (min/max)
-- Billing status (billable/non-billable)
-
-#### **Filter Combinations**
-- Save filter presets ("My Weekly Report", "Billable Q4", etc.)
-- Share filter URLs (encoded in query string)
-- Recent filter history
-
-#### **Smart Filters**
-- "Show only this week"
-- "Show overdue projects"
-- "Show unbilled hours"
-- "Show my team"
+**Still to implement**:
+- [ ] Highlight matching text in search results
+- [ ] Show match count
+- [ ] Jump to next/previous match
+- [ ] Customer filter
+- [ ] Task category filter
+- [ ] Hours range filter (min/max)
+- [ ] Billing status filter (billable/non-billable toggle)
+- [ ] Share filter URLs (query string encoding)
+- [ ] Recent filter history
+- [ ] Smart filters ("this week", "unbilled hours", etc.)
 
 ---
 
-### 10. **Export Functionality** 📥
-
-**Priority**: HIGH
-**Effort**: Low
-**Impact**: High utility
-
-**Export formats**:
-- **CSV** - Current filtered view
-- **Excel** - With formatting and multiple sheets
-- **PDF** - Formatted report
-- **JSON** - For API integration
-
-**What to export**:
-- Filtered data only
-- Aggregated data (current view)
-- Statistics summary
-- Charts/visualizations (as images)
-- Full raw data
-
-**Implementation**:
-```javascript
-function exportToCSV() {
-    const csv = convertToCSV(aggregatedData);
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `time-tracking-${new Date().toISOString()}.csv`;
-    a.click();
-}
-```
-
----
-
-### 11. **Interactive Charts & Visualizations** 📊
+### 10. **Enhanced Export Functionality** 📥
 
 **Priority**: MEDIUM
-**Effort**: Medium-High
-**Impact**: Better data understanding
+**Effort**: Low-Medium
+**Impact**: High utility
 
-**Charts to add**:
+**Status**: CSV export completed in v1.6.1 and v1.13.0
 
-#### **Overview Dashboard**
-- Hours by month (line chart)
-- Hours by product (bar chart)
-- Hours by billing type (pie chart)
-- Hours by employee (bar chart)
-
-#### **Trend Analysis**
-- Time series (daily/weekly/monthly)
-- Year-over-year comparison
-- Moving averages
-- Forecast lines
-
-#### **Comparison Views**
-- Compare multiple projects
-- Compare time periods
-- Compare employees
-- Compare departments
-
-**Libraries to consider**:
-- `Chart.js` - Simple, lightweight
-- `D3.js` - Powerful, complex
-- `ApexCharts` - Modern, feature-rich
-- `Plotly.js` - Interactive, scientific
+**Still to implement**:
+- [ ] Excel export with formatting (.xlsx)
+- [ ] PDF report generation
+- [ ] JSON export for API integration
+- [ ] Chart export as images (PNG/SVG)
+- [ ] Scheduled exports
+- [ ] Email export functionality
 
 ---
 
-### 12. **Drill-Down Functionality** 🔽
+### 11. **Enhanced Charts & Visualizations** 📊
 
 **Priority**: MEDIUM
 **Effort**: Medium
-**Impact**: Better data exploration
+**Impact**: Better data understanding
 
-**Feature**: Click aggregated row to see detail records
+**Status**: Chart.js 4.4.1 implemented in v1.17.0+
 
-**Example flow**:
-1. User sees: "Project Alpha - 120 hours"
-2. Clicks row
-3. Modal/panel opens showing:
-   - All individual time entries
-   - Breakdown by employee
-   - Breakdown by task
-   - Timeline view
-   - Edit/export options
-
-**Benefits**:
-- Quick investigation of totals
-- Verify aggregation accuracy
-- Find specific entries
-- Understand project composition
+**Still to implement**:
+- [ ] Year-over-year comparison charts
+- [ ] Moving averages on trend lines
+- [ ] Forecast lines with confidence intervals
+- [ ] Advanced comparison views (side-by-side periods)
+- [ ] Sparklines in table cells
+- [ ] Chart annotations and markers
+- [ ] Custom color palettes
 
 ---
 
-### 13. **Custom View Builder** 🛠️
-
-**Priority**: LOW
-**Effort**: High
-**Impact**: Power user feature
-
-**Feature**: Let users create custom views
-
-**Options to customize**:
-- Which fields to show
-- Grouping/aggregation level
-- Sort order
-- Color coding rules
-- Column widths
-- Calculated fields
-
-**Save & share**:
-- Save custom views with names
-- Set default view
-- Share view configuration
-- Export view definition
-
----
-
-### 14. **Keyboard Shortcuts** ⌨️
+### 12. **Keyboard Shortcuts** ⌨️
 
 **Priority**: LOW
 **Effort**: Low
@@ -450,7 +364,7 @@ function exportToCSV() {
 
 ## 📱 Mobile & Accessibility
 
-### 15. **Mobile-Responsive Design** 📱
+### 13. **Mobile-Responsive Design** 📱
 
 **Priority**: MEDIUM
 **Effort**: Medium
@@ -467,7 +381,7 @@ function exportToCSV() {
 
 ---
 
-### 16. **Accessibility Enhancements** ♿
+### 14. **Accessibility Enhancements** ♿
 
 **Priority**: MEDIUM
 **Effort**: Low-Medium
@@ -495,7 +409,7 @@ function exportToCSV() {
 
 ## 🔐 Security & Privacy
 
-### 17. **Data Privacy Controls** 🔒
+### 15. **Data Privacy Controls** 🔒
 
 **Priority**: MEDIUM
 **Effort**: Low
@@ -511,7 +425,7 @@ function exportToCSV() {
 
 ---
 
-### 18. **Content Security Policy** 🛡️
+### 16. **Content Security Policy** 🛡️
 
 **Priority**: LOW
 **Effort**: Low
@@ -529,7 +443,7 @@ function exportToCSV() {
 
 ## 🔧 Technical Improvements
 
-### 19. **Migrate to Modern Framework** ⚛️
+### 17. **Migrate to Modern Framework** ⚛️
 
 **Priority**: LOW (Future)
 **Effort**: Very High
@@ -549,7 +463,7 @@ function exportToCSV() {
 
 ---
 
-### 20. **TypeScript Migration** 📘
+### 18. **TypeScript Migration** 📘
 
 **Priority**: LOW
 **Effort**: High
@@ -564,7 +478,7 @@ function exportToCSV() {
 
 ---
 
-### 21. **Add Build Process** 🏗️
+### 19. **Add Build Process** 🏗️
 
 **Priority**: LOW
 **Effort**: Medium
@@ -585,7 +499,7 @@ function exportToCSV() {
 
 ---
 
-### 22. **API Integration** 🔌
+### 20. **API Integration** 🔌
 
 **Priority**: LOW (Future)
 **Effort**: High
@@ -609,7 +523,7 @@ function exportToCSV() {
 
 ## 📊 Reporting & Analytics
 
-### 23. **Scheduled Reports** 📅
+### 21. **Scheduled Reports** 📅
 
 **Priority**: LOW
 **Effort**: High
@@ -631,7 +545,7 @@ function exportToCSV() {
 
 ---
 
-### 24. **Custom Report Builder** 📝
+### 22. **Custom Report Builder** 📝
 
 **Priority**: LOW
 **Effort**: High
@@ -656,7 +570,7 @@ function exportToCSV() {
 
 ## 🧪 Testing & Quality
 
-### 25. **End-to-End Tests** 🔬
+### 23. **End-to-End Tests** 🔬
 
 **Priority**: MEDIUM
 **Effort**: Medium
@@ -680,7 +594,7 @@ function exportToCSV() {
 
 ---
 
-### 26. **Performance Monitoring** 📈
+### 24. **Performance Monitoring** 📈
 
 **Priority**: LOW
 **Effort**: Low
@@ -703,7 +617,7 @@ function exportToCSV() {
 
 ## 🌐 Collaboration Features
 
-### 27. **Multi-User Support** 👥
+### 25. **Multi-User Support** 👥
 
 **Priority**: LOW (Future)
 **Effort**: Very High
@@ -725,7 +639,7 @@ function exportToCSV() {
 
 ---
 
-### 28. **Commenting & Annotations** 💬
+### 26. **Commenting & Annotations** 💬
 
 **Priority**: LOW
 **Effort**: Medium
@@ -743,33 +657,27 @@ function exportToCSV() {
 
 ## 🎯 Priority Matrix
 
-### Immediate (Do First)
-1. ✅ **Sorting** (DONE v1.4.0)
-2. ✅ **Caching** (DONE v1.4.0)
-3. **Automated Insights Dashboard**
-4. **Export Functionality**
-5. **Advanced Search & Filter**
+### Immediate (Do Next)
+1. **Automated Insights Dashboard** - High ROI, medium effort
+2. **Anomaly Detection** - Low effort, high value for data quality
+3. **Virtual Scrolling** - Performance boost for large datasets
 
 ### Short Term (Next Sprint)
-6. **Virtual Scrolling**
-7. **Smart Recommendations**
-8. **Anomaly Detection**
-9. **Interactive Charts**
-10. **Drill-Down Functionality**
+4. **Smart Recommendations** - Medium effort, medium value
+5. **Progressive Loading** - Better perceived performance
+6. **Web Workers** - Non-blocking UI during CSV parse
 
 ### Medium Term (Next Quarter)
-11. **Web Workers**
-12. **Progressive Loading**
-13. **Mobile Responsive**
-14. **Accessibility**
-15. **IndexedDB Migration**
+7. **Mobile Responsive** - Expand user base
+8. **Accessibility** (WCAG 2.1) - Compliance and inclusivity
+9. **IndexedDB Migration** - Solve storage limitations
+10. **Enhanced Search Filters** - Complete remaining filter features
 
 ### Long Term (Future)
-16. **Custom View Builder**
-17. **Predictive Analytics**
-18. **Framework Migration**
-19. **API Integration**
-20. **Multi-User Support**
+11. **Framework Migration** - Maintainability (if codebase grows significantly)
+12. **API Integration** - Real-time data from NetSuite
+13. **Multi-User Support** - Team collaboration features
+14. **Scheduled Reports** - Automation for regular reporting
 
 ---
 
@@ -778,13 +686,12 @@ function exportToCSV() {
 | Improvement | Effort | Impact | ROI |
 |------------|--------|--------|-----|
 | Insights Dashboard | Medium | High | ⭐⭐⭐⭐⭐ |
-| Export Functionality | Low | High | ⭐⭐⭐⭐⭐ |
+| Anomaly Detection | Low-Med | High | ⭐⭐⭐⭐⭐ |
 | Virtual Scrolling | Medium | High | ⭐⭐⭐⭐ |
-| Advanced Search | Medium | High | ⭐⭐⭐⭐ |
-| Charts | Medium | Medium | ⭐⭐⭐ |
+| Enhanced Search | Medium | High | ⭐⭐⭐⭐ |
 | Web Workers | Medium | Medium | ⭐⭐⭐ |
 | Mobile Design | Medium | Medium | ⭐⭐⭐ |
-| Drill-Down | Medium | Medium | ⭐⭐⭐ |
+| Progressive Loading | Low-Med | Medium | ⭐⭐⭐ |
 | Framework Migration | Very High | Low | ⭐⭐ |
 
 ---
@@ -792,24 +699,23 @@ function exportToCSV() {
 ## 📝 Implementation Notes
 
 ### Quick Wins (1-2 days each)
-- Export to CSV
 - Keyboard shortcuts
-- Loading progress bar
 - Data quality warnings
-- Clear individual filters
+- Content Security Policy
+- Performance monitoring setup
 
 ### Medium Projects (1 week each)
 - Insights dashboard
-- Advanced filters
-- Chart visualizations
+- Enhanced filters
 - Virtual scrolling
 - Web workers
+- Anomaly detection
 
 ### Large Projects (2-4 weeks each)
-- Custom view builder
 - Predictive analytics
 - Framework migration
 - API integration
+- Multi-user support
 
 ---
 
@@ -824,6 +730,235 @@ To implement any of these improvements:
 
 ---
 
-**Last Updated**: 2025-12-08
-**Version**: 1.4.0
+## 📝 Document Status
+
+**Last Updated**: 2025-12-10
+**Current Version**: v1.22.0
+**Active Suggestions**: 25 items
+**Archived Completed**: 11 major features (v1.4.0 → v1.22.0)
 **Next Review**: Q1 2026
+
+---
+
+## Archived Completed Features
+
+### ✅ Export Functionality (v1.13.0, v1.6.1)
+
+**Status**: COMPLETED
+
+**Original Priority**: HIGH
+**Effort**: Low
+**Impact**: High utility
+
+**What was delivered**:
+- ✅ Filtered data CSV export (v1.6.1)
+- ✅ Pivot table CSV export with European format (v1.13.0)
+- ✅ Semicolon delimiter, comma decimal separator
+- ✅ UTF-8 BOM encoding for Excel compatibility
+- ✅ Timestamped filenames
+
+**Remaining work**: Excel/PDF export, chart images (moved to item #10)
+
+---
+
+### ✅ Interactive Charts & Visualizations (v1.17.0+)
+
+**Status**: COMPLETED
+
+**Original Priority**: MEDIUM
+**Effort**: Medium-High
+**Impact**: Better data understanding
+
+**What was delivered**:
+- ✅ Chart.js 4.4.1 integration (v1.17.0)
+- ✅ Pivot table automatic chart generation
+- ✅ Multiple chart types: Bar, Line, Pie, Doughnut, Horizontal Bar (v1.17.1)
+- ✅ Employee 12-month trend charts (v1.15.0, v1.16.0)
+- ✅ Compare periods visualization (v1.9.0)
+- ✅ Charts view with Time Trend, Billing Type, Top Projects (v1.8.0+)
+- ✅ Swap axes functionality (v1.18.1)
+- ✅ User-controlled max items (v1.18.2)
+- ✅ Dark mode support
+- ✅ Interactive tooltips and legends
+
+**Implemented Charts**:
+- Hours by month (line chart)
+- Hours by billing type (pie/doughnut chart)
+- Top projects (bar chart)
+- Employee trends (multi-line chart)
+- Pivot visualizations (configurable)
+
+**Remaining work**: Advanced features moved to item #11
+
+---
+
+### ✅ Drill-Down Functionality (v1.13.0)
+
+**Status**: COMPLETED
+
+**Original Priority**: MEDIUM
+**Effort**: Medium
+**Impact**: Better data exploration
+
+**What was delivered**:
+- ✅ Click any value cell or row total to see detail records
+- ✅ Modal dialog with scrollable detail table
+- ✅ Shows 7 columns: Date, Main Product, Customer:Project, Employee, Type, Task, Duration
+- ✅ Cell information summary with row fields and record count
+- ✅ Close button and click-outside dismissal
+- ✅ Hover tooltip: "Click to see detail records"
+- ✅ Pointer cursor on clickable cells
+- ✅ Full detail records stored during aggregation
+
+**Benefits achieved**:
+- Quick investigation of totals
+- Verify aggregation accuracy
+- Find specific entries
+- Understand project composition
+
+---
+
+### ✅ Custom View Builder (v1.12.0)
+
+**Status**: COMPLETED
+
+**Original Priority**: LOW
+**Effort**: High
+**Impact**: Power user feature
+
+**What was delivered** (Implemented as Pivot Builder):
+- ✅ Dynamic field selection for rows (up to 3 levels)
+- ✅ Optional column cross-tabulation
+- ✅ Measure field selection (Duration/Count)
+- ✅ Aggregation types: Sum, Average, Count, Min, Max
+- ✅ 8 available fields: Main Product, Customer:Project, Employee, Billing Type, Task, Department, Project Type, Month
+- ✅ Save custom configurations as named presets
+- ✅ Load saved presets from dropdown
+- ✅ Delete unwanted presets
+- ✅ 3 predefined quick presets
+- ✅ Column sorting with visual indicators
+- ✅ Conditional formatting (color coding)
+- ✅ Chart type selection
+- ✅ Swap axes functionality
+
+**Features achieved**:
+- Field selection and grouping
+- Multiple aggregation types
+- Sort order configuration
+- Color coding rules (conditional formatting)
+- Save/load named configurations
+- Preset management
+
+**Remaining work**:
+- Set default view
+- Share view URL
+- Export view definition
+- Column width customization
+- Calculated fields
+
+---
+
+### ✅ Advanced Search & Filter (v1.0.0+)
+
+**Status**: PARTIALLY COMPLETED
+
+**Original Priority**: HIGH
+**Effort**: Medium
+**Impact**: High usability
+
+**What was delivered**:
+- ✅ Global search box across all fields (v1.0.0)
+- ✅ Multi-select dropdown filters (v1.1.0)
+- ✅ Date range filter (From/To with validation) (v1.5.1)
+- ✅ Main Product filter (v1.0.0)
+- ✅ Project Type filter (v1.0.0)
+- ✅ Department filter (v1.0.0)
+- ✅ Employee multi-select filter with search (v1.16.1)
+- ✅ Save filter presets with custom names (v1.7.0)
+- ✅ Load saved presets from dropdown (v1.7.0)
+- ✅ Delete presets (v1.7.0)
+- ✅ Clear individual filters (v1.8.0+)
+- ✅ Auto-apply on filter change (v1.1.0)
+
+**Remaining work**: Moved to item #9 (Enhanced Advanced Search & Filter)
+
+---
+
+### ✅ Employee View (v1.15.0+)
+
+**Status**: COMPLETED
+
+**What was delivered**:
+- ✅ Dedicated Employee tab (v1.15.0)
+- ✅ Employee statistics dashboard (v1.15.0)
+- ✅ 12-month trend chart (v1.15.0)
+- ✅ Sortable employee table (v1.15.1)
+- ✅ Subsidiary column (v1.15.1)
+- ✅ Employee filter dropdown (v1.15.1)
+- ✅ Multi-select employee filter with search (v1.16.1)
+- ✅ Norm hours and utilization tracking (v1.16.0)
+- ✅ Color-coded utilization % (v1.16.0)
+- ✅ Global filters integration (v1.18.0)
+- ✅ Employee hover popup with detailed stats (v1.19.0)
+- ✅ Organizational fields (v1.20.1)
+- ✅ Department billable % comparison (v1.20.0)
+- ✅ Job group billable % comparison (v1.21.0)
+
+---
+
+### ✅ Norm Hours & Utilization (v1.16.0)
+
+**Status**: COMPLETED
+
+**What was delivered**:
+- ✅ Settings for norm hours per subsidiary
+- ✅ Configurable workforce planning
+- ✅ Norm Hours column (calculated dynamically)
+- ✅ Utilization % column
+- ✅ Color-coded utilization indicators
+- ✅ Norm Hours line on employee trend chart
+- ✅ Support for 6 subsidiaries (EGDK, EGXX, ZASE, EGPL, EGSU, Other)
+
+---
+
+### ✅ Dark Mode (v1.14.0)
+
+**Status**: COMPLETED
+
+**What was delivered**:
+- ✅ Dark/Light theme toggle
+- ✅ Settings menu with theme selection
+- ✅ CSS variables for theming
+- ✅ localStorage persistence
+- ✅ All charts support dark mode
+- ✅ All UI components themed
+
+---
+
+### ✅ Sorting (v1.4.0)
+
+**Status**: COMPLETED
+
+**What was delivered**:
+- ✅ Sortable table columns
+- ✅ Ascending/descending indicators
+- ✅ Multiple data types (string, number, date)
+- ✅ Sort state persistence
+
+---
+
+### ✅ Caching (v1.4.0)
+
+**Status**: COMPLETED
+
+**What was delivered**:
+- ✅ localStorage caching for CSV data
+- ✅ Cache invalidation on new file upload
+- ✅ Clear cache button
+- ✅ Significant performance improvement on reload
+
+**Limitation**: localStorage has 5-10MB limit (see item #8 for IndexedDB upgrade)
+
+---
+
+**End of Archived Completed Features**

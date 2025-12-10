@@ -5,6 +5,7 @@ let aggregatedData = [];
 let monthlyAggregatedData = [];
 let monthlyDisplayedRows = 500; // Initial number of rows to display
 let kenPBI1AggregatedData = [];
+let employeeAggregatedData = [];
 let currentView = 'detail';
 let currentSort = {
     column: 'totalHours',
@@ -27,8 +28,12 @@ let importStats = {
     emptyLines: 0,
     invalidLines: 0,
     imported: 0,
-    rejected: 0
+    rejected: 0,
+    errorLog: [], // Array of error objects: {line, type, message, columnCount}
+    timestamp: null,
+    fileName: null
 };
+let currentFileName = 'Unknown'; // Track current file name for import stats
 
 // Virtual scrolling state
 let virtualScroll = {
@@ -46,7 +51,15 @@ let aggregatedDataBeforeSearch = [];
 // Settings state
 let appSettings = {
     darkMode: null, // null = follow system, true = force dark, false = force light
-    decimalSeparator: 'comma' // 'period' or 'comma'
+    decimalSeparator: 'comma', // 'period' or 'comma'
+    normHoursPerWeek: { // Norm hours per week by subsidiary
+        'EGDK': 37,
+        'EGXX': 37,
+        'ZASE': 37,
+        'EGPL': 40,
+        'EGSU': 40,
+        'Other': 37
+    }
 };
 
 // CSV Column indices (0-based, subtract 1 from FIELD_CATALOG.md numbers)
@@ -61,19 +74,26 @@ const COLUMNS = {
     PROJECT_TYPE: 4,            // Project Type - Field #5
     DEPARTMENT: 15,             // Department - Field #16
     EMPLOYEE: 26,               // Employee - Field #27
-    FULL_NAME: 50               // Full Name - Field #51
+    FULL_NAME: 50,              // Full Name - Field #51
+    BILLABLE: 8,                // Billable - Field #9
+    SUBSIDIARY: 47,             // Subsidiary - Field #48
+    ACTIVITY_CODE: 16,          // EG - Activity Code - Field #17
+    MANAGER: 41,                // MManager - Field #42
+    TEAM: 42,                   // Mteam - Field #43
+    SUPERVISOR: 51,             // Supervisor - Field #52
+    JOB_GROUP: 58               // EG - Job Group - Field #59
 };
 
 // Auto-load CSV file on page load
-window.addEventListener('DOMContentLoaded', function() {
+window.addEventListener('DOMContentLoaded', async function() {
     // Initialize settings first
     initializeSettings();
 
-    // Check if cached data exists
-    const cachedData = loadFromCache();
+    // Check if cached data exists (IndexedDB is async)
+    const cachedData = await loadFromCache();
     if (cachedData) {
         rawData = cachedData;
-        document.getElementById('fileName').textContent = 'Loaded from cache';
+        document.getElementById('fileName').textContent = 'Loaded from IndexedDB cache';
         document.getElementById('fileUploadSection').style.display = 'none';
         populateFilters();
         updatePresetDropdown();
@@ -86,7 +106,7 @@ window.addEventListener('DOMContentLoaded', function() {
             applyFilters();
         }
 
-        showSuccess('Data loaded from cache (213 MB, ' + rawData.length.toLocaleString() + ' rows)');
+        showSuccess('Data loaded from IndexedDB cache (' + rawData.length.toLocaleString() + ' rows)');
     } else {
         loadCSVFromURL();
     }
@@ -137,6 +157,13 @@ async function switchView(viewName) {
     } else if (viewName === 'pivotbuilder') {
         document.getElementById('pivotbuilderView').classList.add('active');
         initializePivotBuilder();
+    } else if (viewName === 'employees') {
+        document.getElementById('employeesView').classList.add('active');
+        await aggregateEmployeeData();
+        populateEmployeeFilter();
+        displayEmployeeData();
+        updateEmployeeStats();
+        createEmployeeTrendChart();
     } else if (viewName === 'charts') {
         document.getElementById('chartsView').classList.add('active');
         updateCharts();
@@ -149,6 +176,9 @@ async function switchView(viewName) {
         updateTimeDistribution();
         updateAdditionalAnalytics();
         updateSuggestedImprovements();
+    } else if (viewName === 'recommendations') {
+        document.getElementById('recommendationsView').classList.add('active');
+        await displayRecommendations();
     }
 }
 
@@ -351,6 +381,7 @@ function setupSearch() {
 function loadCSVFromFile(file) {
     showLoading();
     showProgress('Reading file...');
+    currentFileName = file.name; // Store filename for import stats
 
     const reader = new FileReader();
     reader.onload = async function(e) {
@@ -360,7 +391,7 @@ function loadCSVFromFile(file) {
             await parseCSV(text, true); // Enable progress tracking
             hideProgress();
             logImportStats(); // Log detailed import statistics
-            saveToCache(rawData); // Cache the parsed data
+            await saveToCache(rawData); // Cache the parsed data in IndexedDB
             showSuccess(getImportSummary());
             populateFilters();
             updatePresetDropdown();
@@ -389,6 +420,7 @@ function loadCSVFromFile(file) {
 function loadCSVFromURL() {
     showLoading();
     showProgress('Downloading CSV file...');
+    currentFileName = 'MIT Time Tracking Dataset (NewOrg).csv'; // Store filename for import stats
 
     fetch('MIT Time Tracking Dataset (NewOrg).csv')
         .then(response => {
@@ -403,7 +435,7 @@ function loadCSVFromURL() {
                 await parseCSV(text, true); // Enable progress tracking
                 hideProgress();
                 logImportStats(); // Log detailed import statistics
-                saveToCache(rawData); // Cache the parsed data
+                await saveToCache(rawData); // Cache the parsed data in IndexedDB
                 document.getElementById('fileName').textContent = 'MIT Time Tracking Dataset (NewOrg).csv (auto-loaded)';
                 showSuccess(getImportSummary());
                 populateFilters();
@@ -480,7 +512,8 @@ function parseCSV(text, onProgress) {
             // Remove BOM if present
             text = text.replace(/^\uFEFF/, '');
 
-            const lines = text.split(/\r?\n/);
+            // Parse CSV rows properly (handles newlines within quoted fields)
+            const lines = parseCSVRows(text);
             rawData = [];
 
             // Reset import statistics
@@ -490,7 +523,10 @@ function parseCSV(text, onProgress) {
                 emptyLines: 0,
                 invalidLines: 0,
                 imported: 0,
-                rejected: 0
+                rejected: 0,
+                errorLog: [],
+                timestamp: new Date(),
+                fileName: currentFileName || 'Unknown'
             };
 
             const totalLines = lines.length;
@@ -517,6 +553,17 @@ function parseCSV(text, onProgress) {
                     if (row.length < 50) {
                         importStats.invalidLines++;
                         importStats.rejected++;
+
+                        // Store error in log (limit to 1000 errors to avoid memory issues)
+                        if (importStats.errorLog.length < 1000) {
+                            importStats.errorLog.push({
+                                line: i + 1,
+                                type: 'invalid_columns',
+                                message: `Invalid row with only ${row.length} columns (expected 56)`,
+                                columnCount: row.length
+                            });
+                        }
+
                         console.warn(`Line ${i + 1}: Invalid row with only ${row.length} columns (expected 56)`);
                         continue;
                     }
@@ -551,7 +598,7 @@ function parseCSV(text, onProgress) {
     });
 }
 
-// Parse a single CSV line with quoted fields
+// Parse a single CSV line with quoted fields (handles semicolons and newlines in quotes)
 function parseCSVLine(line) {
     const result = [];
     let current = '';
@@ -563,7 +610,7 @@ function parseCSVLine(line) {
 
         if (char === '"') {
             if (inQuotes && nextChar === '"') {
-                // Escaped quote
+                // Escaped quote (doubled quotes)
                 current += '"';
                 i++; // Skip next quote
             } else {
@@ -571,10 +618,11 @@ function parseCSVLine(line) {
                 inQuotes = !inQuotes;
             }
         } else if (char === ';' && !inQuotes) {
-            // Field separator
+            // Field separator (semicolon outside quotes)
             result.push(current.trim());
             current = '';
         } else {
+            // Regular character (including newlines if inside quotes)
             current += char;
         }
     }
@@ -583,6 +631,47 @@ function parseCSVLine(line) {
     result.push(current.trim());
 
     return result;
+}
+
+// Parse CSV text into rows (handles newlines within quoted fields)
+function parseCSVRows(text) {
+    const rows = [];
+    let currentRow = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const nextChar = text[i + 1];
+
+        if (char === '"') {
+            currentRow += char;
+            if (inQuotes && nextChar === '"') {
+                // Escaped quote (doubled quotes)
+                currentRow += nextChar;
+                i++; // Skip next quote
+            } else {
+                // Toggle quote state
+                inQuotes = !inQuotes;
+            }
+        } else if ((char === '\n' || (char === '\r' && nextChar === '\n')) && !inQuotes) {
+            // End of row (newline outside quotes)
+            if (currentRow.trim() !== '') {
+                rows.push(currentRow);
+            }
+            currentRow = '';
+            if (char === '\r') i++; // Skip \n in \r\n
+        } else if (char !== '\r') {
+            // Regular character (skip standalone \r)
+            currentRow += char;
+        }
+    }
+
+    // Add last row if exists
+    if (currentRow.trim() !== '') {
+        rows.push(currentRow);
+    }
+
+    return rows;
 }
 
 // Generate import summary message
@@ -831,6 +920,26 @@ function applyFilters() {
                 console.error('Error updating Ken.PBI.1 view:', kenPBI1Error);
             } finally {
                 if (loadingKenPBI1) loadingKenPBI1.style.display = 'none';
+            }
+        }, 10);
+    }
+
+    // If currently on employees view, update it as well
+    if (currentView === 'employees') {
+        const loadingEmployees = document.getElementById('loadingIndicatorEmployees');
+        if (loadingEmployees) loadingEmployees.style.display = 'flex';
+
+        setTimeout(async () => {
+            try {
+                await aggregateEmployeeData();
+                populateEmployeeFilter();
+                displayEmployeeData();
+                updateEmployeeStats();
+                createEmployeeTrendChart();
+            } catch (employeesError) {
+                console.error('Error updating employees view:', employeesError);
+            } finally {
+                if (loadingEmployees) loadingEmployees.style.display = 'none';
             }
         }, 10);
     }
@@ -2968,6 +3077,877 @@ function updateKenPBI1Stats() {
     document.getElementById('totalProjectsKenPBI1').textContent = projectsSet.size.toLocaleString();
 }
 
+// ========== EMPLOYEE VIEW FUNCTIONS ==========
+
+// Aggregate employee data
+async function aggregateEmployeeData() {
+    const employeeMap = new Map();
+    const chunkSize = 5000;
+    const totalRows = filteredData.length;
+
+    // Show loading indicator
+    const loading = document.getElementById('loadingIndicatorEmployees');
+    if (loading) {
+        loading.style.display = 'flex';
+        loading.innerHTML = `
+            <div class="spinner"></div>
+            <p>Aggregating employee data...</p>
+        `;
+    }
+
+    for (let i = 0; i < totalRows; i += chunkSize) {
+        const chunk = filteredData.slice(i, Math.min(i + chunkSize, totalRows));
+
+        chunk.forEach(row => {
+            const fullName = row[COLUMNS.FULL_NAME] || row[COLUMNS.EMPLOYEE] || '(Unknown)';
+            const employeeId = row[COLUMNS.EMPLOYEE] || '';
+            const duration = parseFloat((row[COLUMNS.DUR_DEC] || '0').toString().replace(',', '.')) || 0;
+            const isBillable = (row[COLUMNS.BILLABLE] || '').toString().toLowerCase() === 'true';
+            const task = row[COLUMNS.TASK] || '(No Task)';
+            const customerProject = row[COLUMNS.CUSTOMER_PROJECT] || '';
+            const projectName = row[COLUMNS.NAME] || '';
+            const date = row[COLUMNS.DATE] || '';
+            const subsidiary = row[COLUMNS.SUBSIDIARY] || '(No Subsidiary)';
+            const activityCode = row[COLUMNS.ACTIVITY_CODE] || '(No Activity Code)';
+            const projectType = row[COLUMNS.PROJECT_TYPE] || '(No Project Type)';
+            const department = row[COLUMNS.DEPARTMENT] || '(No Department)';
+            const manager = row[COLUMNS.MANAGER] || '(No Manager)';
+            const team = row[COLUMNS.TEAM] || '(No Team)';
+            const supervisor = row[COLUMNS.SUPERVISOR] || '(No Supervisor)';
+            const jobGroup = row[COLUMNS.JOB_GROUP] || '(No Job Group)';
+
+            if (!employeeMap.has(fullName)) {
+                employeeMap.set(fullName, {
+                    employeeName: fullName,
+                    employeeId: employeeId,
+                    subsidiary: subsidiary,
+                    department: department,
+                    manager: manager,
+                    team: team,
+                    supervisor: supervisor,
+                    jobGroup: jobGroup,
+                    totalHours: 0,
+                    billableHours: 0,
+                    nonBillableHours: 0,
+                    tasks: new Map(),
+                    monthlyHours: new Map(),
+                    activityCodes: new Map(),
+                    projects: new Map(),
+                    projectTypes: new Map()
+                });
+            }
+
+            const employee = employeeMap.get(fullName);
+            employee.totalHours += duration;
+
+            if (isBillable) {
+                employee.billableHours += duration;
+            } else {
+                employee.nonBillableHours += duration;
+            }
+
+            // Track top tasks/projects
+            const taskKey = customerProject ? `${customerProject} - ${task}` : task;
+            employee.tasks.set(taskKey, (employee.tasks.get(taskKey) || 0) + duration);
+
+            // Track by activity code
+            employee.activityCodes.set(activityCode, (employee.activityCodes.get(activityCode) || 0) + duration);
+
+            // Track by project - store both code and name
+            if (customerProject) {
+                if (!employee.projects.has(customerProject)) {
+                    employee.projects.set(customerProject, {
+                        hours: 0,
+                        name: projectName
+                    });
+                }
+                employee.projects.get(customerProject).hours += duration;
+            }
+
+            // Track by project type
+            employee.projectTypes.set(projectType, (employee.projectTypes.get(projectType) || 0) + duration);
+
+            // Track monthly hours
+            if (date) {
+                const dateParts = date.split('.');
+                if (dateParts.length === 3) {
+                    const month = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}`;
+                    employee.monthlyHours.set(month, (employee.monthlyHours.get(month) || 0) + duration);
+                }
+            }
+        });
+
+        // Yield to browser
+        await new Promise(resolve => setTimeout(resolve, 0));
+    }
+
+    // Calculate date range for norm hours calculation
+    let minDate = null;
+    let maxDate = null;
+    filteredData.forEach(row => {
+        const dateStr = row[COLUMNS.DATE] || '';
+        if (dateStr) {
+            const parts = dateStr.split('.');
+            if (parts.length === 3) {
+                const date = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                if (!minDate || date < minDate) minDate = date;
+                if (!maxDate || date > maxDate) maxDate = date;
+            }
+        }
+    });
+
+    // Calculate number of weeks in period
+    let weeksInPeriod = 1;
+    if (minDate && maxDate) {
+        const daysDiff = (maxDate - minDate) / (1000 * 60 * 60 * 24);
+        weeksInPeriod = Math.max(1, daysDiff / 7);
+    }
+
+    // Convert to array and calculate additional fields
+    employeeAggregatedData = Array.from(employeeMap.values()).map(employee => {
+        // Calculate billable percentage
+        employee.billablePercent = employee.totalHours > 0
+            ? (employee.billableHours / employee.totalHours * 100).toFixed(1)
+            : 0;
+
+        // Get top 3 tasks
+        const sortedTasks = Array.from(employee.tasks.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3);
+        employee.topTasks = sortedTasks.map(([task, hours]) => `${task} (${formatNumber(hours)}h)`).join(', ');
+
+        // Calculate norm hours based on subsidiary
+        const normHoursPerWeek = appSettings.normHoursPerWeek[employee.subsidiary] || appSettings.normHoursPerWeek['Other'] || 37;
+        employee.normHours = (normHoursPerWeek * weeksInPeriod).toFixed(1);
+
+        // Calculate utilization percentage (total hours / norm hours * 100)
+        employee.utilizationPercent = employee.normHours > 0
+            ? (employee.totalHours / parseFloat(employee.normHours) * 100).toFixed(1)
+            : 0;
+
+        return employee;
+    });
+
+    // Sort by total hours descending
+    employeeAggregatedData.sort((a, b) => b.totalHours - a.totalHours);
+
+    // Calculate department billable % averages
+    const departmentStats = new Map();
+    employeeAggregatedData.forEach(employee => {
+        const dept = employee.department || '(No Department)';
+        if (!departmentStats.has(dept)) {
+            departmentStats.set(dept, {
+                totalBillablePercent: 0,
+                employeeCount: 0
+            });
+        }
+        const stats = departmentStats.get(dept);
+        stats.totalBillablePercent += parseFloat(employee.billablePercent);
+        stats.employeeCount++;
+    });
+
+    // Calculate averages and add comparison to each employee
+    employeeAggregatedData.forEach(employee => {
+        const dept = employee.department || '(No Department)';
+        const stats = departmentStats.get(dept);
+        const deptAverage = stats.employeeCount > 0 ? stats.totalBillablePercent / stats.employeeCount : 0;
+        employee.deptBillableAvg = deptAverage.toFixed(1);
+        employee.billableVsDept = (parseFloat(employee.billablePercent) - deptAverage).toFixed(1);
+    });
+
+    // Calculate job group billable % averages
+    const jobGroupStats = new Map();
+    employeeAggregatedData.forEach(employee => {
+        const jobGroup = employee.jobGroup || '(No Job Group)';
+        if (!jobGroupStats.has(jobGroup)) {
+            jobGroupStats.set(jobGroup, {
+                totalBillablePercent: 0,
+                employeeCount: 0
+            });
+        }
+        const stats = jobGroupStats.get(jobGroup);
+        stats.totalBillablePercent += parseFloat(employee.billablePercent);
+        stats.employeeCount++;
+    });
+
+    // Calculate averages and add comparison to each employee
+    employeeAggregatedData.forEach(employee => {
+        const jobGroup = employee.jobGroup || '(No Job Group)';
+        const stats = jobGroupStats.get(jobGroup);
+        const jobGroupAverage = stats.employeeCount > 0 ? stats.totalBillablePercent / stats.employeeCount : 0;
+        employee.jobGroupBillableAvg = jobGroupAverage.toFixed(1);
+        employee.billableVsJobGroup = (parseFloat(employee.billablePercent) - jobGroupAverage).toFixed(1);
+    });
+
+    // Hide loading
+    if (loading) {
+        loading.style.display = 'none';
+    }
+}
+
+// Display employee data
+function displayEmployeeData() {
+    const tbody = document.getElementById('employeeTableBody');
+    tbody.innerHTML = '';
+
+    // Filter employees based on selected employees
+    let displayData = employeeAggregatedData;
+    if (selectedEmployees.size > 0 && selectedEmployees.size < allEmployeeNames.length) {
+        displayData = employeeAggregatedData.filter(emp => selectedEmployees.has(emp.employeeName));
+    }
+
+    if (displayData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11" class="no-data">No employee data available</td></tr>';
+        return;
+    }
+
+    // Create popup element if it doesn't exist
+    let popup = document.getElementById('employeePopup');
+    if (!popup) {
+        popup = document.createElement('div');
+        popup.id = 'employeePopup';
+        popup.className = 'employee-popup';
+        document.body.appendChild(popup);
+    }
+
+    displayData.forEach(employee => {
+        const row = document.createElement('tr');
+        const utilizationColor = parseFloat(employee.utilizationPercent) > 100 ? '#dc3545' :
+                                 parseFloat(employee.utilizationPercent) > 90 ? '#ffc107' :
+                                 '#28a745';
+
+        // Color code vs dept average: green if above, red if below
+        const vsDeptValue = parseFloat(employee.billableVsDept);
+        const vsDeptColor = vsDeptValue > 0 ? '#28a745' : vsDeptValue < 0 ? '#dc3545' : '#6c757d';
+        const vsDeptDisplay = vsDeptValue > 0 ? `+${formatNumber(employee.billableVsDept)}%` : `${formatNumber(employee.billableVsDept)}%`;
+
+        // Color code vs job group average: green if above, red if below
+        const vsJobGroupValue = parseFloat(employee.billableVsJobGroup);
+        const vsJobGroupColor = vsJobGroupValue > 0 ? '#28a745' : vsJobGroupValue < 0 ? '#dc3545' : '#6c757d';
+        const vsJobGroupDisplay = vsJobGroupValue > 0 ? `+${formatNumber(employee.billableVsJobGroup)}%` : `${formatNumber(employee.billableVsJobGroup)}%`;
+
+        row.innerHTML = `
+            <td class="employee-name-hover">${employee.employeeName}</td>
+            <td>${employee.subsidiary || '(No Subsidiary)'}</td>
+            <td style="text-align: right;">${formatNumber(employee.totalHours)}</td>
+            <td style="text-align: right;">${formatNumber(employee.normHours)}</td>
+            <td style="text-align: right; color: ${utilizationColor}; font-weight: 600;">${formatNumber(employee.utilizationPercent)}%</td>
+            <td style="text-align: right;">${formatNumber(employee.billableHours)}</td>
+            <td style="text-align: right;">${formatNumber(employee.nonBillableHours)}</td>
+            <td style="text-align: right;">${formatNumber(employee.billablePercent)}%</td>
+            <td style="text-align: right; color: ${vsDeptColor}; font-weight: 600;" title="Dept Avg: ${formatNumber(employee.deptBillableAvg)}%">${vsDeptDisplay}</td>
+            <td style="text-align: right; color: ${vsJobGroupColor}; font-weight: 600;" title="Job Group Avg: ${formatNumber(employee.jobGroupBillableAvg)}%">${vsJobGroupDisplay}</td>
+            <td style="font-size: 0.85em;">${employee.topTasks || '(None)'}</td>
+        `;
+
+        // Add hover event listeners to employee name cell
+        const nameCell = row.querySelector('.employee-name-hover');
+        nameCell.addEventListener('mouseenter', (e) => showEmployeePopup(e, employee));
+        nameCell.addEventListener('mouseleave', hideEmployeePopup);
+        nameCell.addEventListener('mousemove', (e) => positionEmployeePopup(e));
+
+        tbody.appendChild(row);
+    });
+
+    // Setup sorting for employee table
+    setupEmployeeTableSorting();
+}
+
+// Show employee popup with detailed stats
+function showEmployeePopup(event, employee) {
+    const popup = document.getElementById('employeePopup');
+    if (!popup) return;
+
+    // Sort activity codes by hours
+    const activityCodes = Array.from(employee.activityCodes.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
+
+    // Sort projects by hours
+    const projects = Array.from(employee.projects.entries())
+        .sort((a, b) => b[1].hours - a[1].hours)
+        .slice(0, 10);
+
+    // Sort project types by hours
+    const projectTypes = Array.from(employee.projectTypes.entries())
+        .sort((a, b) => b[1] - a[1]);
+
+    // Build popup content
+    let popupHTML = `
+        <div class="employee-popup-header">Employee Data: ${employee.employeeName}</div>
+
+        <div class="employee-popup-section">
+            <div class="employee-popup-section-title">Organizational Information</div>
+            <div class="employee-popup-stats">
+                <div class="employee-popup-stat">
+                    <span class="employee-popup-stat-label">Job Group:</span>
+                    <span class="employee-popup-stat-value">${employee.jobGroup || '(None)'}</span>
+                </div>
+                <div class="employee-popup-stat">
+                    <span class="employee-popup-stat-label">Subsidiary:</span>
+                    <span class="employee-popup-stat-value">${employee.subsidiary || '(None)'}</span>
+                </div>
+                <div class="employee-popup-stat">
+                    <span class="employee-popup-stat-label">Department:</span>
+                    <span class="employee-popup-stat-value">${employee.department || '(None)'}</span>
+                </div>
+                <div class="employee-popup-stat">
+                    <span class="employee-popup-stat-label">Supervisor:</span>
+                    <span class="employee-popup-stat-value">${employee.supervisor || '(None)'}</span>
+                </div>
+                <div class="employee-popup-stat">
+                    <span class="employee-popup-stat-label">Manager:</span>
+                    <span class="employee-popup-stat-value">${employee.manager || '(None)'}</span>
+                </div>
+                <div class="employee-popup-stat">
+                    <span class="employee-popup-stat-label">Team:</span>
+                    <span class="employee-popup-stat-value">${employee.team || '(None)'}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="employee-popup-section">
+            <div class="employee-popup-section-title">Summary</div>
+            <div class="employee-popup-stats">
+                <div class="employee-popup-stat">
+                    <span class="employee-popup-stat-label">Total Hours:</span>
+                    <span class="employee-popup-stat-value">${formatNumber(employee.totalHours)}h</span>
+                </div>
+                <div class="employee-popup-stat">
+                    <span class="employee-popup-stat-label">Norm Hours:</span>
+                    <span class="employee-popup-stat-value">${formatNumber(employee.normHours)}h</span>
+                </div>
+                <div class="employee-popup-stat">
+                    <span class="employee-popup-stat-label">Billable:</span>
+                    <span class="employee-popup-stat-value">${formatNumber(employee.billableHours)}h</span>
+                </div>
+                <div class="employee-popup-stat">
+                    <span class="employee-popup-stat-label">Non-Billable:</span>
+                    <span class="employee-popup-stat-value">${formatNumber(employee.nonBillableHours)}h</span>
+                </div>
+            </div>
+        </div>`;
+
+    // Activity Codes section
+    if (activityCodes.length > 0) {
+        popupHTML += `
+        <div class="employee-popup-section">
+            <div class="employee-popup-section-title">Hours by Activity Code</div>
+            <div class="employee-popup-list">`;
+        activityCodes.forEach(([code, hours]) => {
+            popupHTML += `
+                <div class="employee-popup-list-item">
+                    <span class="employee-popup-list-item-name" title="${code}">${code}</span>
+                    <span class="employee-popup-list-item-value">${formatNumber(hours)}h</span>
+                </div>`;
+        });
+        popupHTML += `</div></div>`;
+    }
+
+    // Projects section
+    if (projects.length > 0) {
+        popupHTML += `
+        <div class="employee-popup-section">
+            <div class="employee-popup-section-title">Hours by Project</div>
+            <div class="employee-popup-list">`;
+        projects.forEach(([projectCode, projectData]) => {
+            const displayName = projectData.name ? `${projectData.name} (${projectCode})` : projectCode;
+            const fullTitle = projectData.name ? `${projectData.name} - ${projectCode}` : projectCode;
+            popupHTML += `
+                <div class="employee-popup-list-item">
+                    <span class="employee-popup-list-item-name" title="${fullTitle}">${displayName}</span>
+                    <span class="employee-popup-list-item-value">${formatNumber(projectData.hours)}h</span>
+                </div>`;
+        });
+        popupHTML += `</div></div>`;
+    }
+
+    // Project Types section
+    if (projectTypes.length > 0) {
+        popupHTML += `
+        <div class="employee-popup-section">
+            <div class="employee-popup-section-title">Hours by Project Type</div>
+            <div class="employee-popup-list">`;
+        projectTypes.forEach(([type, hours]) => {
+            popupHTML += `
+                <div class="employee-popup-list-item">
+                    <span class="employee-popup-list-item-name" title="${type}">${type}</span>
+                    <span class="employee-popup-list-item-value">${formatNumber(hours)}h</span>
+                </div>`;
+        });
+        popupHTML += `</div></div>`;
+    }
+
+    popup.innerHTML = popupHTML;
+    popup.classList.add('show');
+    positionEmployeePopup(event);
+}
+
+// Position employee popup near cursor
+function positionEmployeePopup(event) {
+    const popup = document.getElementById('employeePopup');
+    if (!popup || !popup.classList.contains('show')) return;
+
+    const padding = 15;
+    const popupWidth = popup.offsetWidth;
+    const popupHeight = popup.offsetHeight;
+
+    let left = event.clientX + padding;
+    let top = event.clientY + padding;
+
+    // Adjust if popup would go off right edge
+    if (left + popupWidth > window.innerWidth) {
+        left = event.clientX - popupWidth - padding;
+    }
+
+    // Adjust if popup would go off bottom edge
+    if (top + popupHeight > window.innerHeight) {
+        top = event.clientY - popupHeight - padding;
+    }
+
+    // Ensure popup doesn't go off left or top edge
+    left = Math.max(padding, left);
+    top = Math.max(padding, top);
+
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+}
+
+// Hide employee popup
+function hideEmployeePopup() {
+    const popup = document.getElementById('employeePopup');
+    if (popup) {
+        popup.classList.remove('show');
+    }
+}
+
+// Setup sorting for employee table
+function setupEmployeeTableSorting() {
+    const employeeTable = document.querySelector('#employeesView table');
+    if (!employeeTable) return;
+
+    employeeTable.querySelectorAll('th.sortable').forEach(th => {
+        // Remove existing listeners by cloning
+        const newTh = th.cloneNode(true);
+        th.parentNode.replaceChild(newTh, th);
+
+        newTh.addEventListener('click', function() {
+            const column = this.dataset.column;
+            const type = this.dataset.type;
+            const currentDirection = this.classList.contains('sort-asc') ? 'asc' : 'desc';
+            const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+
+            // Remove all sort classes
+            employeeTable.querySelectorAll('th.sortable').forEach(h => {
+                h.classList.remove('sort-asc', 'sort-desc');
+            });
+
+            // Add new sort class
+            this.classList.add(newDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+
+            // Sort data
+            employeeAggregatedData.sort((a, b) => {
+                let aVal = a[column];
+                let bVal = b[column];
+
+                if (type === 'number') {
+                    aVal = parseFloat(aVal) || 0;
+                    bVal = parseFloat(bVal) || 0;
+                } else {
+                    aVal = (aVal || '').toString().toLowerCase();
+                    bVal = (bVal || '').toString().toLowerCase();
+                }
+
+                if (newDirection === 'asc') {
+                    return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+                } else {
+                    return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+                }
+            });
+
+            displayEmployeeData();
+        });
+    });
+}
+
+// Update employee stats
+function updateEmployeeStats() {
+    const statsDiv = document.getElementById('statsEmployees');
+
+    if (employeeAggregatedData.length === 0) {
+        statsDiv.style.display = 'none';
+        return;
+    }
+
+    statsDiv.style.display = 'grid';
+
+    // Filter employees based on selected employees
+    let displayData = employeeAggregatedData;
+    if (selectedEmployees.size > 0 && selectedEmployees.size < allEmployeeNames.length) {
+        displayData = employeeAggregatedData.filter(emp => selectedEmployees.has(emp.employeeName));
+    }
+
+    // Calculate totals
+    let totalHours = 0;
+    let billableHours = 0;
+    let nonBillableHours = 0;
+
+    displayData.forEach(employee => {
+        totalHours += employee.totalHours;
+        billableHours += employee.billableHours;
+        nonBillableHours += employee.nonBillableHours;
+    });
+
+    document.getElementById('totalEmployees').textContent = displayData.length.toLocaleString();
+    document.getElementById('totalHoursEmployees').textContent = formatNumber(totalHours);
+    document.getElementById('billableHoursEmployees').textContent = formatNumber(billableHours);
+    document.getElementById('nonBillableHoursEmployees').textContent = formatNumber(nonBillableHours);
+}
+
+// Create employee 12-month trend chart
+let employeeTrendChartInstance = null;
+let pivotChartInstance = null;
+
+function createEmployeeTrendChart() {
+    const ctx = document.getElementById('employeeTrendChart');
+    if (!ctx) return;
+
+    // Destroy existing chart
+    if (employeeTrendChartInstance) {
+        employeeTrendChartInstance.destroy();
+    }
+
+    // Get last 12 months
+    const now = new Date();
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        months.push({
+            key: monthKey,
+            label: d.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+        });
+    }
+
+    // Filter employees based on selected employees
+    let displayData = employeeAggregatedData;
+    if (selectedEmployees.size > 0 && selectedEmployees.size < allEmployeeNames.length) {
+        displayData = employeeAggregatedData.filter(emp => selectedEmployees.has(emp.employeeName));
+    }
+
+    // Aggregate hours by month from filtered employees
+    const monthlyTotals = new Map();
+    const monthlyBillable = new Map();
+    const monthlyNonBillable = new Map();
+
+    displayData.forEach(employee => {
+        employee.monthlyHours.forEach((hours, month) => {
+            if (months.some(m => m.key === month)) {
+                monthlyTotals.set(month, (monthlyTotals.get(month) || 0) + hours);
+            }
+        });
+    });
+
+    // Calculate billable/non-billable per month from filtered raw data
+    filteredData.forEach(row => {
+        const fullName = row[COLUMNS.FULL_NAME] || row[COLUMNS.EMPLOYEE] || '(Unknown)';
+
+        // Check if this employee is in selected employees
+        if (selectedEmployees.size > 0 && selectedEmployees.size < allEmployeeNames.length) {
+            if (!selectedEmployees.has(fullName)) {
+                return; // Skip this row if employee not selected
+            }
+        }
+
+        const date = row[COLUMNS.DATE] || '';
+        if (date) {
+            const dateParts = date.split('.');
+            if (dateParts.length === 3) {
+                const month = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}`;
+                if (months.some(m => m.key === month)) {
+                    const duration = parseFloat((row[COLUMNS.DUR_DEC] || '0').toString().replace(',', '.')) || 0;
+                    const isBillable = (row[COLUMNS.BILLABLE] || '').toString().toLowerCase() === 'true';
+
+                    if (isBillable) {
+                        monthlyBillable.set(month, (monthlyBillable.get(month) || 0) + duration);
+                    } else {
+                        monthlyNonBillable.set(month, (monthlyNonBillable.get(month) || 0) + duration);
+                    }
+                }
+            }
+        }
+    });
+
+    // Calculate norm hours per month for filtered employees
+    const monthlyNormHours = new Map();
+    months.forEach(monthInfo => {
+        const [year, month] = monthInfo.key.split('-');
+        const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+        const weeksInMonth = daysInMonth / 7;
+
+        let normTotal = 0;
+        displayData.forEach(employee => {
+            const normHoursPerWeek = appSettings.normHoursPerWeek[employee.subsidiary] || appSettings.normHoursPerWeek['Other'] || 37;
+            normTotal += normHoursPerWeek * weeksInMonth;
+        });
+
+        monthlyNormHours.set(monthInfo.key, normTotal);
+    });
+
+    const chartData = {
+        labels: months.map(m => m.label),
+        datasets: [
+            {
+                label: 'Total Hours',
+                data: months.map(m => monthlyTotals.get(m.key) || 0),
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                tension: 0.4,
+                fill: true
+            },
+            {
+                label: 'Billable Hours',
+                data: months.map(m => monthlyBillable.get(m.key) || 0),
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                tension: 0.4,
+                fill: true
+            },
+            {
+                label: 'Non-Billable Hours',
+                data: months.map(m => monthlyNonBillable.get(m.key) || 0),
+                borderColor: '#dc3545',
+                backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                tension: 0.4,
+                fill: true
+            },
+            {
+                label: 'Norm Hours',
+                data: months.map(m => monthlyNormHours.get(m.key) || 0),
+                borderColor: '#ff6b6b',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                tension: 0,
+                fill: false,
+                pointRadius: 0
+            }
+        ]
+    };
+
+    employeeTrendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: chartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + formatNumber(context.parsed.y) + ' hours';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Hours'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Month'
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Employee filter state
+let selectedEmployees = new Set();
+let allEmployeeNames = [];
+
+// Populate employee filter checkboxes
+function populateEmployeeFilter() {
+    // Get all employee names sorted alphabetically
+    allEmployeeNames = [...new Set(employeeAggregatedData.map(emp => emp.employeeName))].sort();
+
+    // Initialize selectedEmployees with all employees
+    selectedEmployees = new Set(allEmployeeNames);
+
+    renderEmployeeCheckboxList();
+}
+
+// Render employee checkbox list
+function renderEmployeeCheckboxList() {
+    const container = document.getElementById('employeeCheckboxList');
+    if (!container) return;
+
+    const searchTerm = (document.getElementById('employeeSearchBox')?.value || '').toLowerCase();
+
+    // Filter employees based on search
+    const filteredEmployees = allEmployeeNames.filter(name =>
+        name.toLowerCase().includes(searchTerm)
+    );
+
+    container.innerHTML = '';
+
+    filteredEmployees.forEach(name => {
+        const label = document.createElement('label');
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+        label.style.padding = '4px';
+        label.style.cursor = 'pointer';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = name;
+        checkbox.checked = selectedEmployees.has(name);
+        checkbox.style.marginRight = '8px';
+        checkbox.onchange = () => updateEmployeeSelection();
+
+        const span = document.createElement('span');
+        span.textContent = name;
+        span.style.fontSize = '0.9em';
+
+        label.appendChild(checkbox);
+        label.appendChild(span);
+        container.appendChild(label);
+    });
+}
+
+// Filter employee list based on search box
+function filterEmployeeList() {
+    renderEmployeeCheckboxList();
+}
+
+// Toggle employee filter dropdown
+function toggleEmployeeFilter() {
+    const dropdown = document.getElementById('employeeFilterDropdown');
+    if (dropdown) {
+        const isVisible = dropdown.style.display !== 'none';
+        dropdown.style.display = isVisible ? 'none' : 'block';
+
+        if (!isVisible) {
+            // Populate on open
+            populateEmployeeFilter();
+        }
+    }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    const container = document.querySelector('.employee-filter-container');
+    const dropdown = document.getElementById('employeeFilterDropdown');
+
+    if (container && dropdown && !container.contains(event.target)) {
+        dropdown.style.display = 'none';
+    }
+});
+
+// Update employee selection
+function updateEmployeeSelection() {
+    const checkboxes = document.querySelectorAll('#employeeCheckboxList input[type="checkbox"]');
+    selectedEmployees.clear();
+
+    checkboxes.forEach(cb => {
+        if (cb.checked) {
+            selectedEmployees.add(cb.value);
+        }
+    });
+
+    // Update Select All checkbox
+    const selectAll = document.getElementById('selectAllEmployees');
+    if (selectAll) {
+        const allChecked = selectedEmployees.size === allEmployeeNames.length;
+        const noneChecked = selectedEmployees.size === 0;
+        selectAll.checked = allChecked;
+        selectAll.indeterminate = !allChecked && !noneChecked;
+    }
+}
+
+// Toggle Select All
+function toggleSelectAllEmployees() {
+    const selectAll = document.getElementById('selectAllEmployees');
+    const checkboxes = document.querySelectorAll('#employeeCheckboxList input[type="checkbox"]');
+
+    if (selectAll.checked) {
+        // Select all visible employees
+        checkboxes.forEach(cb => {
+            cb.checked = true;
+            selectedEmployees.add(cb.value);
+        });
+    } else {
+        // Deselect all visible employees
+        checkboxes.forEach(cb => {
+            cb.checked = false;
+            selectedEmployees.delete(cb.value);
+        });
+    }
+}
+
+// Apply employee filter
+function applyEmployeeFilter() {
+    // Update label
+    const label = document.getElementById('employeeFilterLabel');
+    if (label) {
+        if (selectedEmployees.size === 0) {
+            label.textContent = 'No Employees Selected';
+        } else if (selectedEmployees.size === allEmployeeNames.length) {
+            label.textContent = 'All Employees';
+        } else if (selectedEmployees.size === 1) {
+            label.textContent = Array.from(selectedEmployees)[0];
+        } else {
+            label.textContent = `${selectedEmployees.size} Employees Selected`;
+        }
+    }
+
+    // Close dropdown
+    const dropdown = document.getElementById('employeeFilterDropdown');
+    if (dropdown) {
+        dropdown.style.display = 'none';
+    }
+
+    // Update display
+    displayEmployeeData();
+    updateEmployeeStats();
+    createEmployeeTrendChart();
+}
+
+// Clear employee filter
+function clearEmployeeFilter() {
+    // Select all employees
+    selectedEmployees = new Set(allEmployeeNames);
+
+    // Update checkboxes
+    const checkboxes = document.querySelectorAll('#employeeCheckboxList input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        cb.checked = true;
+    });
+
+    // Update Select All
+    const selectAll = document.getElementById('selectAllEmployees');
+    if (selectAll) {
+        selectAll.checked = true;
+        selectAll.indeterminate = false;
+    }
+
+    // Apply filter
+    applyEmployeeFilter();
+}
+
 // ========== PIVOT BUILDER FUNCTIONS ==========
 
 // Initialize Pivot Builder view
@@ -3073,6 +4053,33 @@ async function aggregatePivotData(config) {
     }
 
     return Array.from(aggregationMap.values());
+}
+
+// Sort columns intelligently (chronological for months, alphabetical otherwise)
+function sortColumns(columns, fieldType) {
+    // Check if columns are months (format: "Jan 2024", "Feb 2024", etc.)
+    const isMonth = fieldType === 'month' || columns.some(col => /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{4}$/.test(col));
+
+    if (isMonth) {
+        // Parse month strings and sort chronologically
+        const monthMap = {
+            'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+            'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+        };
+
+        return columns.sort((a, b) => {
+            const [monthA, yearA] = a.split(' ');
+            const [monthB, yearB] = b.split(' ');
+
+            const yearDiff = parseInt(yearA) - parseInt(yearB);
+            if (yearDiff !== 0) return yearDiff;
+
+            return monthMap[monthA] - monthMap[monthB];
+        });
+    } else {
+        // Alphabetical sorting for non-month columns
+        return columns.sort();
+    }
 }
 
 // Get field value from row
@@ -3199,7 +4206,8 @@ function renderPivotTable(aggregatedData, config) {
         });
     });
 
-    const sortedColumns = config.column ? Array.from(columnsSet).sort() : [];
+    // Sort columns - chronologically for months, alphabetically for others
+    const sortedColumns = config.column ? sortColumns(Array.from(columnsSet), config.column) : [];
 
     // Convert rowsMap to array for sorting
     let rowsArray = Array.from(rowsMap.values());
@@ -3470,6 +4478,372 @@ function renderPivotTable(aggregatedData, config) {
 
     // Setup sorting event listeners
     setupPivotBuilderSorting();
+
+    // Store data for chart updates
+    window.lastPivotData = rowsArray;
+    window.lastPivotColumns = sortedColumns;
+    window.lastPivotColumnTotals = columnTotals;
+    window.lastPivotGrandTotal = grandTotal;
+
+    // Generate chart
+    createPivotChart(rowsArray, sortedColumns, config, columnTotals, grandTotal);
+}
+
+// Create pivot chart
+function createPivotChart(rowsArray, sortedColumns, config, columnTotals, grandTotal) {
+    // Destroy previous chart if exists
+    if (pivotChartInstance) {
+        pivotChartInstance.destroy();
+        pivotChartInstance = null;
+    }
+
+    // Get selected chart type
+    const chartTypeSelect = document.getElementById('pivotChartType');
+    const chartType = chartTypeSelect ? chartTypeSelect.value : 'bar';
+
+    // Clean up old notes
+    const oldNotes = document.querySelectorAll('.chart-note, .chart-note-rows');
+    oldNotes.forEach(note => note.remove());
+
+    // Get or create chart container
+    let chartContainer = document.getElementById('pivotChartContainer');
+    if (!chartContainer) {
+        chartContainer = document.createElement('div');
+        chartContainer.id = 'pivotChartContainer';
+        chartContainer.style.cssText = 'padding: 20px 30px; background: var(--bg-primary); margin-top: 20px; border-top: 2px solid var(--border-color);';
+
+        const titleRow = document.createElement('div');
+        titleRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;';
+
+        const title = document.createElement('h3');
+        title.textContent = '📊 Pivot Chart';
+        title.style.margin = '0';
+        titleRow.appendChild(title);
+
+        // Chart controls
+        const controlsDiv = document.createElement('div');
+        controlsDiv.style.cssText = 'display: flex; gap: 15px; align-items: center; flex-wrap: wrap;';
+
+        // Chart type selector
+        const chartTypeLabel = document.createElement('label');
+        chartTypeLabel.style.cssText = 'font-size: 0.9em; display: flex; align-items: center; gap: 8px;';
+        chartTypeLabel.innerHTML = '<span>Chart Type:</span>';
+
+        const chartTypeSelect = document.createElement('select');
+        chartTypeSelect.id = 'pivotChartType';
+        chartTypeSelect.style.cssText = 'padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 0.9em;';
+        chartTypeSelect.innerHTML = `
+            <option value="bar">Bar Chart</option>
+            <option value="line">Line Chart</option>
+            <option value="pie">Pie Chart</option>
+            <option value="doughnut">Doughnut Chart</option>
+            <option value="horizontalBar">Horizontal Bar</option>
+        `;
+        chartTypeSelect.onchange = () => {
+            if (window.lastPivotConfig && window.lastPivotData) {
+                createPivotChart(window.lastPivotData, window.lastPivotColumns || [], window.lastPivotConfig, window.lastPivotColumnTotals || {}, window.lastPivotGrandTotal || 0);
+            }
+        };
+        chartTypeLabel.appendChild(chartTypeSelect);
+        controlsDiv.appendChild(chartTypeLabel);
+
+        // Chart limit controls
+        const limitsLabel = document.createElement('label');
+        limitsLabel.style.cssText = 'font-size: 0.9em; display: flex; align-items: center; gap: 8px;';
+        limitsLabel.innerHTML = '<span>Max Items:</span>';
+
+        const maxItemsInput = document.createElement('input');
+        maxItemsInput.id = 'pivotChartMaxItems';
+        maxItemsInput.type = 'number';
+        maxItemsInput.min = '5';
+        maxItemsInput.max = '100';
+        maxItemsInput.value = '20';
+        maxItemsInput.style.cssText = 'width: 60px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 0.9em;';
+        maxItemsInput.title = 'Maximum rows/columns to show in chart';
+        maxItemsInput.onchange = () => {
+            if (window.lastPivotConfig && window.lastPivotData) {
+                createPivotChart(window.lastPivotData, window.lastPivotColumns || [], window.lastPivotConfig, window.lastPivotColumnTotals || {}, window.lastPivotGrandTotal || 0);
+            }
+        };
+        limitsLabel.appendChild(maxItemsInput);
+        controlsDiv.appendChild(limitsLabel);
+
+        // Swap axes button (only show if there are columns)
+        const swapButton = document.createElement('button');
+        swapButton.id = 'pivotChartSwapAxes';
+        swapButton.style.cssText = 'padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); cursor: pointer; font-size: 0.9em;';
+        swapButton.innerHTML = '🔄 Swap Axes';
+        swapButton.title = 'Swap rows and columns in chart';
+        swapButton.onclick = () => {
+            const currentState = swapButton.dataset.swapped === 'true';
+            swapButton.dataset.swapped = !currentState ? 'true' : 'false';
+            swapButton.innerHTML = swapButton.dataset.swapped === 'true' ? '🔄 Swap Axes (Active)' : '🔄 Swap Axes';
+            if (window.lastPivotConfig && window.lastPivotData) {
+                createPivotChart(window.lastPivotData, window.lastPivotColumns || [], window.lastPivotConfig, window.lastPivotColumnTotals || {}, window.lastPivotGrandTotal || 0);
+            }
+        };
+        swapButton.dataset.swapped = 'false';
+        controlsDiv.appendChild(swapButton);
+
+        // Hide swap button initially if no columns
+        if (!config.column || sortedColumns.length === 0) {
+            swapButton.style.display = 'none';
+        }
+
+        titleRow.appendChild(controlsDiv);
+        chartContainer.appendChild(titleRow);
+
+        const canvasWrapper = document.createElement('div');
+        canvasWrapper.style.cssText = 'position: relative; height: 400px; max-height: 600px;';
+
+        const canvas = document.createElement('canvas');
+        canvas.id = 'pivotChart';
+        canvasWrapper.appendChild(canvas);
+
+        chartContainer.appendChild(canvasWrapper);
+
+        // Will be appended after the pivot table
+        const resultsDiv = document.getElementById('pivotBuilderResults');
+        resultsDiv.appendChild(chartContainer);
+    }
+
+    const ctx = document.getElementById('pivotChart');
+    if (!ctx) return;
+
+    // Get swap axes state
+    const swapButton = document.getElementById('pivotChartSwapAxes');
+    const isSwapped = swapButton && swapButton.dataset.swapped === 'true';
+
+    // Get max items limit
+    const maxItemsInput = document.getElementById('pivotChartMaxItems');
+    const maxItems = maxItemsInput ? parseInt(maxItemsInput.value) || 20 : 20;
+
+    // Update swap button visibility based on whether we have columns
+    if (swapButton) {
+        if (config.column && sortedColumns.length > 0 && chartType !== 'pie' && chartType !== 'doughnut') {
+            swapButton.style.display = 'inline-block';
+        } else {
+            swapButton.style.display = 'none';
+        }
+    }
+
+    // Prepare chart data
+    let labels = rowsArray.map(row => row.rowValues.join(' → '));
+    let datasets = [];
+
+    // If swapped and we have columns, transpose the data
+    if (isSwapped && config.column && sortedColumns.length > 0 && chartType !== 'pie' && chartType !== 'doughnut') {
+        // Swapped: columns become labels, rows become datasets
+        labels = sortedColumns.slice(0, maxItems);
+
+        const colors = [
+            '#667eea', '#28a745', '#dc3545', '#ffc107', '#17a2b8',
+            '#6f42c1', '#fd7e14', '#20c997', '#e83e8c', '#6c757d'
+        ];
+
+        const maxRows = Math.min(maxItems, rowsArray.length);
+        rowsArray.slice(0, maxRows).forEach((row, index) => {
+            const data = sortedColumns.slice(0, maxItems).map(col => row.columns[col] || 0);
+            datasets.push({
+                label: row.rowValues.join(' → '),
+                data: data,
+                backgroundColor: chartType === 'line' ? 'transparent' : colors[index % colors.length],
+                borderColor: colors[index % colors.length],
+                borderWidth: chartType === 'line' ? 2 : 1,
+                fill: chartType === 'line' ? false : undefined,
+                tension: chartType === 'line' ? 0.4 : undefined
+            });
+        });
+
+        if (rowsArray.length > maxItems) {
+            const noteDiv = document.createElement('div');
+            noteDiv.style.cssText = 'margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; color: #856404;';
+            noteDiv.textContent = `Note: Showing top ${maxItems} of ${rowsArray.length} rows as separate series. Adjust "Max Items" to show more.`;
+            if (!chartContainer.querySelector('.chart-note-rows')) {
+                noteDiv.className = 'chart-note-rows';
+                chartContainer.appendChild(noteDiv);
+            }
+        }
+    } else if (config.column && sortedColumns.length > 0) {
+        // Grouped/stacked bar chart with multiple series (one per column)
+        const displayColumns = sortedColumns.slice(0, maxItems);
+
+        const colors = [
+            '#667eea', '#28a745', '#dc3545', '#ffc107', '#17a2b8',
+            '#6f42c1', '#fd7e14', '#20c997', '#e83e8c', '#6c757d'
+        ];
+
+        displayColumns.forEach((col, index) => {
+            const data = rowsArray.map(row => row.columns[col] || 0);
+            datasets.push({
+                label: col,
+                data: data,
+                backgroundColor: chartType === 'line' ? 'transparent' : colors[index % colors.length],
+                borderColor: colors[index % colors.length],
+                borderWidth: chartType === 'line' ? 2 : 1,
+                fill: chartType === 'line' ? false : undefined,
+                tension: chartType === 'line' ? 0.4 : undefined
+            });
+        });
+
+        if (sortedColumns.length > maxItems) {
+            // Add a note if columns were truncated
+            const noteDiv = document.createElement('div');
+            noteDiv.style.cssText = 'margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; color: #856404;';
+            noteDiv.textContent = `Note: Showing top ${maxItems} of ${sortedColumns.length} columns. Adjust "Max Items" to show more.`;
+            chartContainer.appendChild(noteDiv);
+        }
+    } else {
+        // Simple bar chart with totals
+        const data = rowsArray.map(row => {
+            const rowTotal = Object.values(row.columns).reduce((sum, val) => sum + val, 0);
+            return rowTotal;
+        });
+
+        datasets.push({
+            label: config.aggregation.toUpperCase(),
+            data: data,
+            backgroundColor: '#667eea',
+            borderColor: '#667eea',
+            borderWidth: 1
+        });
+    }
+
+    // Limit to user-specified max rows for chart readability
+    if (labels.length > maxItems && chartType !== 'pie' && chartType !== 'doughnut') {
+        labels.splice(maxItems);
+        datasets.forEach(ds => ds.data.splice(maxItems));
+
+        const noteDiv = document.createElement('div');
+        noteDiv.style.cssText = 'margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; color: #856404;';
+        noteDiv.textContent = `Note: Showing top ${maxItems} of ${rowsArray.length} rows. Adjust "Max Items" to show more.`;
+
+        if (!chartContainer.querySelector('.chart-note')) {
+            noteDiv.className = 'chart-note';
+            chartContainer.appendChild(noteDiv);
+        }
+    }
+
+    // For pie/doughnut charts, restructure data to use single dataset
+    if (chartType === 'pie' || chartType === 'doughnut') {
+        const colors = [
+            '#667eea', '#28a745', '#dc3545', '#ffc107', '#17a2b8',
+            '#6f42c1', '#fd7e14', '#20c997', '#e83e8c', '#6c757d',
+            '#f8b739', '#5856d6', '#ff2d55', '#5ac8fa', '#34c759'
+        ];
+
+        if (config.column && sortedColumns.length > 0) {
+            // Multiple series: show totals per column
+            const columnTotalsArray = sortedColumns.map(col => columnTotals[col] || 0);
+            datasets = [{
+                data: columnTotalsArray,
+                backgroundColor: colors.slice(0, sortedColumns.length),
+                borderColor: '#fff',
+                borderWidth: 2
+            }];
+            // Use column names as labels for pie/doughnut
+            labels.length = 0;
+            labels.push(...sortedColumns);
+        } else {
+            // Single series: show top N rows
+            const topN = Math.min(maxItems, rowsArray.length);
+            const data = rowsArray.slice(0, topN).map(row => {
+                return Object.values(row.columns).reduce((sum, val) => sum + val, 0);
+            });
+            const pieLabels = rowsArray.slice(0, topN).map(row => row.rowValues.join(' → '));
+            datasets = [{
+                data: data,
+                backgroundColor: colors.slice(0, topN),
+                borderColor: '#fff',
+                borderWidth: 2
+            }];
+            labels.length = 0;
+            labels.push(...pieLabels);
+        }
+    }
+
+    // Determine actual chart type for Chart.js
+    let actualChartType = chartType;
+    let indexAxis = 'x';
+    if (chartType === 'horizontalBar') {
+        actualChartType = 'bar';
+        indexAxis = 'y';
+    }
+
+    // Create chart
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: indexAxis,
+        plugins: {
+            legend: {
+                display: true,
+                position: chartType === 'pie' || chartType === 'doughnut' ? 'right' : 'top',
+                labels: {
+                    color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary'),
+                    boxWidth: 15,
+                    padding: 10
+                }
+            },
+            title: {
+                display: false
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        let label = context.dataset.label || context.label || '';
+                        if (label) {
+                            label += ': ';
+                        }
+                        const value = chartType === 'pie' || chartType === 'doughnut'
+                            ? context.parsed
+                            : (indexAxis === 'y' ? context.parsed.x : context.parsed.y);
+                        label += formatNumber(value);
+                        return label;
+                    }
+                }
+            }
+        }
+    };
+
+    // Add scales only for bar/line charts (not pie/doughnut)
+    if (chartType !== 'pie' && chartType !== 'doughnut') {
+        chartOptions.scales = {
+            x: {
+                stacked: false,
+                ticks: {
+                    color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary'),
+                    maxRotation: 45,
+                    minRotation: 0
+                },
+                grid: {
+                    color: getComputedStyle(document.documentElement).getPropertyValue('--border-color')
+                }
+            },
+            y: {
+                stacked: false,
+                beginAtZero: true,
+                ticks: {
+                    color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary'),
+                    callback: function(value) {
+                        return formatNumber(value);
+                    }
+                },
+                grid: {
+                    color: getComputedStyle(document.documentElement).getPropertyValue('--border-color')
+                }
+            }
+        };
+    }
+
+    pivotChartInstance = new Chart(ctx, {
+        type: actualChartType,
+        data: {
+            labels: labels,
+            datasets: datasets
+        },
+        options: chartOptions
+    });
 }
 
 // Save pivot preset to localStorage
@@ -3492,7 +4866,13 @@ function savePivotPreset() {
         sortColumn: pivotBuilderSortState.column,
         sortDirection: pivotBuilderSortState.direction,
         // Save color highlight setting
-        colorHighlight: document.getElementById('pivotColorHighlight').checked
+        colorHighlight: document.getElementById('pivotColorHighlight').checked,
+        // Save chart type
+        chartType: document.getElementById('pivotChartType')?.value || 'bar',
+        // Save chart swap state
+        chartSwapped: document.getElementById('pivotChartSwapAxes')?.dataset.swapped === 'true',
+        // Save max items
+        chartMaxItems: parseInt(document.getElementById('pivotChartMaxItems')?.value) || 20
     };
 
     try {
@@ -3566,6 +4946,34 @@ function loadPivotPreset() {
             } else {
                 // Default to enabled if not saved in preset
                 document.getElementById('pivotColorHighlight').checked = true;
+            }
+
+            // Restore chart type
+            const chartTypeSelect = document.getElementById('pivotChartType');
+            if (chartTypeSelect) {
+                if (config.chartType) {
+                    chartTypeSelect.value = config.chartType;
+                } else {
+                    chartTypeSelect.value = 'bar';
+                }
+            }
+
+            // Restore chart swap state
+            const swapButton = document.getElementById('pivotChartSwapAxes');
+            if (swapButton) {
+                const shouldSwap = config.chartSwapped === true;
+                swapButton.dataset.swapped = shouldSwap ? 'true' : 'false';
+                swapButton.innerHTML = shouldSwap ? '🔄 Swap Axes (Active)' : '🔄 Swap Axes';
+            }
+
+            // Restore max items
+            const maxItemsInput = document.getElementById('pivotChartMaxItems');
+            if (maxItemsInput) {
+                if (config.chartMaxItems) {
+                    maxItemsInput.value = config.chartMaxItems;
+                } else {
+                    maxItemsInput.value = '20';
+                }
             }
 
             // Auto-build pivot table after loading preset
@@ -3731,7 +5139,8 @@ function exportPivotTableToCSV() {
             rowEntry.columns[columnKey] = aggregatedValue;
         });
 
-        const sortedColumns = config.column ? Array.from(columnsSet).sort() : [];
+        // Sort columns - chronologically for months, alphabetically for others
+        const sortedColumns = config.column ? sortColumns(Array.from(columnsSet), config.column) : [];
 
         // Generate CSV content with European format (semicolon delimiter, comma decimals)
         let csvContent = '';
@@ -4071,71 +5480,113 @@ function closeDrilldownModal() {
 // ========== CACHE FUNCTIONS ==========
 
 // Save data to localStorage
-function saveToCache(data) {
+// IndexedDB cache implementation (replaces localStorage to handle large datasets)
+const DB_NAME = 'NetSuiteTimeTrackingDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'dataCache';
+
+// Initialize IndexedDB
+function initDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME);
+            }
+        };
+    });
+}
+
+// Save data to IndexedDB cache
+async function saveToCache(data) {
     try {
-        const cacheKey = 'netsuite_time_tracking_data';
-        const cacheTimestampKey = 'netsuite_time_tracking_timestamp';
+        const db = await initDB();
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
 
-        // Store data and timestamp
-        localStorage.setItem(cacheKey, JSON.stringify(data));
-        localStorage.setItem(cacheTimestampKey, Date.now().toString());
+        // Store data with timestamp
+        store.put({ data: data, timestamp: Date.now() }, 'netsuite_data');
 
-        console.log('Data cached successfully:', data.length, 'rows');
+        return new Promise((resolve, reject) => {
+            transaction.oncomplete = () => {
+                console.log('✅ Data cached successfully in IndexedDB:', data.length, 'rows');
+                resolve();
+            };
+            transaction.onerror = () => {
+                console.error('❌ Failed to cache data:', transaction.error);
+                reject(transaction.error);
+            };
+        });
     } catch (error) {
-        // localStorage quota exceeded or not available
-        console.warn('Failed to cache data:', error.message);
-
-        // Try to clear old cache and retry once
-        try {
-            localStorage.removeItem('netsuite_time_tracking_data');
-            localStorage.setItem('netsuite_time_tracking_data', JSON.stringify(data));
-            localStorage.setItem('netsuite_time_tracking_timestamp', Date.now().toString());
-            console.log('Data cached successfully after clearing old cache');
-        } catch (retryError) {
-            console.error('Cannot cache data - localStorage not available or quota exceeded');
-        }
+        console.error('❌ Cannot cache data:', error.message);
     }
 }
 
-// Load data from localStorage
-function loadFromCache() {
+// Load data from IndexedDB cache
+async function loadFromCache() {
     try {
-        const cacheKey = 'netsuite_time_tracking_data';
-        const cacheTimestampKey = 'netsuite_time_tracking_timestamp';
+        const db = await initDB();
+        const transaction = db.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get('netsuite_data');
 
-        const cachedData = localStorage.getItem(cacheKey);
-        const cacheTimestamp = localStorage.getItem(cacheTimestampKey);
+        return new Promise((resolve, reject) => {
+            request.onsuccess = () => {
+                const result = request.result;
+                if (!result) {
+                    console.log('No cached data found');
+                    resolve(null);
+                    return;
+                }
 
-        if (!cachedData || !cacheTimestamp) {
-            return null;
-        }
+                // Check if cache is older than 7 days
+                const cacheAge = Date.now() - result.timestamp;
+                const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-        // Check if cache is older than 7 days (optional - can adjust or remove)
-        const cacheAge = Date.now() - parseInt(cacheTimestamp);
-        const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+                if (cacheAge > maxAge) {
+                    console.log('Cache expired (>7 days), will reload data');
+                    clearCache();
+                    resolve(null);
+                    return;
+                }
 
-        if (cacheAge > maxAge) {
-            console.log('Cache expired, will reload data');
-            clearCache();
-            return null;
-        }
-
-        const data = JSON.parse(cachedData);
-        console.log('Data loaded from cache:', data.length, 'rows');
-        return data;
+                console.log('✅ Data loaded from IndexedDB cache:', result.data.length, 'rows');
+                resolve(result.data);
+            };
+            request.onerror = () => {
+                console.warn('Failed to load cached data:', request.error);
+                resolve(null);
+            };
+        });
     } catch (error) {
-        console.warn('Failed to load cached data:', error.message);
-        clearCache();
+        console.warn('Failed to access cache:', error.message);
         return null;
     }
 }
 
-// Clear cached data
-function clearCache() {
+// Clear IndexedDB cache
+async function clearCache() {
     try {
-        localStorage.removeItem('netsuite_time_tracking_data');
-        localStorage.removeItem('netsuite_time_tracking_timestamp');
-        console.log('Cache cleared');
+        const db = await initDB();
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        store.delete('netsuite_data');
+
+        return new Promise((resolve, reject) => {
+            transaction.oncomplete = () => {
+                console.log('Cache cleared');
+                resolve();
+            };
+            transaction.onerror = () => {
+                console.warn('Failed to clear cache:', transaction.error);
+                reject(transaction.error);
+            };
+        });
     } catch (error) {
         console.warn('Failed to clear cache:', error.message);
     }
@@ -4242,6 +5693,24 @@ function initializeSettings() {
         decimalSelect.value = appSettings.decimalSeparator || 'comma';
     }
 
+    // Set norm hours inputs
+    if (!appSettings.normHoursPerWeek) {
+        appSettings.normHoursPerWeek = {
+            'EGDK': 37,
+            'EGXX': 37,
+            'ZASE': 37,
+            'EGPL': 40,
+            'EGSU': 40,
+            'Other': 37
+        };
+    }
+    document.getElementById('normHoursEGDK').value = appSettings.normHoursPerWeek.EGDK || 37;
+    document.getElementById('normHoursEGXX').value = appSettings.normHoursPerWeek.EGXX || 37;
+    document.getElementById('normHoursZASE').value = appSettings.normHoursPerWeek.ZASE || 37;
+    document.getElementById('normHoursEGPL').value = appSettings.normHoursPerWeek.EGPL || 40;
+    document.getElementById('normHoursEGSU').value = appSettings.normHoursPerWeek.EGSU || 40;
+    document.getElementById('normHoursOther').value = appSettings.normHoursPerWeek.Other || 37;
+
     // Setup dark mode toggle based on current state
     updateDarkModeToggle();
 
@@ -4263,6 +5732,8 @@ function openSettings() {
         modal.style.display = 'block';
         // Update toggle to reflect current state
         updateDarkModeToggle();
+        // Load anomaly whitelist
+        loadAnomalyWhitelist();
     }
 }
 
@@ -4353,10 +5824,1598 @@ function saveDecimalSeparator() {
     }
 }
 
+// ============================================
+// ANOMALY WHITELIST MANAGEMENT
+// ============================================
+
+// Save anomaly whitelist to localStorage
+function saveAnomalyWhitelist() {
+    const weekendWhitelist = document.getElementById('weekendWhitelist');
+    const timeGapWhitelist = document.getElementById('timeGapWhitelist');
+    const excessiveHoursWhitelist = document.getElementById('excessiveHoursWhitelist');
+
+    if (!weekendWhitelist || !timeGapWhitelist || !excessiveHoursWhitelist) return;
+
+    const whitelist = {
+        weekendWork: weekendWhitelist.value.split('\n').map(name => name.trim()).filter(name => name),
+        timeGap: timeGapWhitelist.value.split('\n').map(name => name.trim()).filter(name => name),
+        excessiveHours: excessiveHoursWhitelist.value.split('\n').map(name => name.trim()).filter(name => name)
+    };
+
+    localStorage.setItem('anomalyWhitelist', JSON.stringify(whitelist));
+    showSuccess('Anomaly whitelist saved. Re-run detection to apply changes.');
+}
+
+// Load anomaly whitelist from localStorage
+function loadAnomalyWhitelist(showMessage = false) {
+    const stored = localStorage.getItem('anomalyWhitelist');
+    if (!stored) {
+        if (showMessage) showInfo('No saved whitelist found.');
+        return;
+    }
+
+    try {
+        const whitelist = JSON.parse(stored);
+        const weekendWhitelist = document.getElementById('weekendWhitelist');
+        const timeGapWhitelist = document.getElementById('timeGapWhitelist');
+        const excessiveHoursWhitelist = document.getElementById('excessiveHoursWhitelist');
+
+        if (weekendWhitelist && whitelist.weekendWork) {
+            weekendWhitelist.value = whitelist.weekendWork.join('\n');
+        }
+        if (timeGapWhitelist && whitelist.timeGap) {
+            timeGapWhitelist.value = whitelist.timeGap.join('\n');
+        }
+        if (excessiveHoursWhitelist && whitelist.excessiveHours) {
+            excessiveHoursWhitelist.value = whitelist.excessiveHours.join('\n');
+        }
+
+        if (showMessage) showSuccess('Whitelist loaded from storage.');
+    } catch (error) {
+        showError('Failed to load whitelist: ' + error.message);
+    }
+}
+
+// Get current whitelist from localStorage
+function getAnomalyWhitelist() {
+    const stored = localStorage.getItem('anomalyWhitelist');
+    if (!stored) {
+        return {
+            weekendWork: [],
+            timeGap: [],
+            excessiveHours: []
+        };
+    }
+
+    try {
+        return JSON.parse(stored);
+    } catch (error) {
+        console.error('Failed to parse anomaly whitelist:', error);
+        return {
+            weekendWork: [],
+            timeGap: [],
+            excessiveHours: []
+        };
+    }
+}
+
+// Clear anomaly whitelist
+function clearAnomalyWhitelist() {
+    const weekendWhitelist = document.getElementById('weekendWhitelist');
+    const timeGapWhitelist = document.getElementById('timeGapWhitelist');
+    const excessiveHoursWhitelist = document.getElementById('excessiveHoursWhitelist');
+
+    if (weekendWhitelist) weekendWhitelist.value = '';
+    if (timeGapWhitelist) timeGapWhitelist.value = '';
+    if (excessiveHoursWhitelist) excessiveHoursWhitelist.value = '';
+
+    localStorage.removeItem('anomalyWhitelist');
+    showSuccess('Anomaly whitelist cleared. Re-run detection to apply changes.');
+}
+
+// Save norm hours settings
+function saveNormHours() {
+    const egdkInput = document.getElementById('normHoursEGDK');
+    const egxxInput = document.getElementById('normHoursEGXX');
+    const zaseInput = document.getElementById('normHoursZASE');
+    const egplInput = document.getElementById('normHoursEGPL');
+    const egsuInput = document.getElementById('normHoursEGSU');
+    const otherInput = document.getElementById('normHoursOther');
+
+    if (egdkInput && egxxInput && zaseInput && egplInput && egsuInput && otherInput) {
+        appSettings.normHoursPerWeek = {
+            'EGDK': parseFloat(egdkInput.value) || 37,
+            'EGXX': parseFloat(egxxInput.value) || 37,
+            'ZASE': parseFloat(zaseInput.value) || 37,
+            'EGPL': parseFloat(egplInput.value) || 40,
+            'EGSU': parseFloat(egsuInput.value) || 40,
+            'Other': parseFloat(otherInput.value) || 37
+        };
+        localStorage.setItem('appSettings', JSON.stringify(appSettings));
+        showSuccess('Norm hours settings saved. Switch to Employee View to see updated calculations.');
+    }
+}
+
 // Format number based on decimal separator setting
 function formatNumberWithSeparator(number) {
     if (appSettings.decimalSeparator === 'comma') {
         return String(number).replace('.', ',');
     }
     return String(number);
+}
+
+// ============================================
+// SMART RECOMMENDATIONS ENGINE
+// ============================================
+
+let allRecommendations = [];
+let allAnomalies = [];
+let currentFilter = 'all';
+
+// Generate all recommendations from current filtered data
+async function generateRecommendations() {
+    if (!filteredData || filteredData.length === 0) {
+        return [];
+    }
+
+    const recommendations = [];
+
+    // Resource Management Recommendations
+    recommendations.push(...analyzeResourceManagement());
+
+    // Billing Optimization Recommendations
+    recommendations.push(...analyzeBillingOptimization());
+
+    // Data Quality Recommendations
+    recommendations.push(...analyzeDataQuality());
+
+    // Project Health Recommendations
+    recommendations.push(...analyzeProjectHealth());
+
+    return recommendations;
+}
+
+// Analyze Resource Management
+function analyzeResourceManagement() {
+    const recommendations = [];
+
+    // Group hours by employee and week
+    const employeeWeeklyHours = new Map();
+    const employeeMonthlyHours = new Map();
+    const departmentHours = new Map();
+
+    filteredData.forEach(row => {
+        const employee = row[COLUMNS.FULL_NAME] || row[COLUMNS.EMPLOYEE] || '(Unknown)';
+        const department = row[COLUMNS.DEPARTMENT] || '(No Department)';
+        const duration = parseFloat(row[COLUMNS.DURATION]) || 0;
+        const date = new Date(row[COLUMNS.DATE]);
+
+        if (isNaN(date.getTime())) return;
+
+        // Get week key (year-week)
+        const weekKey = `${employee}|${date.getFullYear()}-W${getWeekNumber(date)}`;
+        employeeWeeklyHours.set(weekKey, (employeeWeeklyHours.get(weekKey) || 0) + duration);
+
+        // Get month key
+        const monthKey = `${employee}|${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        employeeMonthlyHours.set(monthKey, (employeeMonthlyHours.get(monthKey) || 0) + duration);
+
+        // Department hours
+        departmentHours.set(department, (departmentHours.get(department) || 0) + duration);
+    });
+
+    // Detect overworked employees (>50 hours/week)
+    const overworked = [];
+    employeeWeeklyHours.forEach((hours, key) => {
+        if (hours > 50) {
+            const [employee, week] = key.split('|');
+            overworked.push({ employee, week, hours });
+        }
+    });
+
+    if (overworked.length > 0) {
+        // Group by employee to find repeated overwork
+        const overworkByEmployee = new Map();
+        overworked.forEach(item => {
+            if (!overworkByEmployee.has(item.employee)) {
+                overworkByEmployee.set(item.employee, []);
+            }
+            overworkByEmployee.get(item.employee).push(item);
+        });
+
+        overworkByEmployee.forEach((weeks, employee) => {
+            const severity = weeks.length > 2 ? 'critical' : 'warning';
+            const maxHours = Math.max(...weeks.map(w => w.hours));
+
+            recommendations.push({
+                id: `overwork-${employee.replace(/\s/g, '-')}`,
+                severity: severity,
+                category: 'resource',
+                icon: '⚠️',
+                title: `Potential Overwork: ${employee}`,
+                message: `${employee} logged more than 50 hours in ${weeks.length} week(s). Peak: ${formatNumber(maxHours)} hours in one week.`,
+                action: 'Review workload distribution and consider reallocation',
+                details: {
+                    'Affected Employee': employee,
+                    'Weeks Over 50h': weeks.length,
+                    'Peak Hours': `${formatNumber(maxHours)}h`,
+                    'Risk': severity === 'critical' ? 'Burnout Risk' : 'Monitor Closely'
+                }
+            });
+        });
+    }
+
+    // Detect underutilized employees (<20 hours/week consistently)
+    const underutilized = [];
+    const employeeWeekCounts = new Map();
+
+    employeeWeeklyHours.forEach((hours, key) => {
+        const [employee] = key.split('|');
+        if (hours < 20) {
+            underutilized.push({ employee, hours });
+        }
+        employeeWeekCounts.set(employee, (employeeWeekCounts.get(employee) || 0) + 1);
+    });
+
+    if (underutilized.length > 0) {
+        const underutilByEmployee = new Map();
+        underutilized.forEach(item => {
+            if (!underutilByEmployee.has(item.employee)) {
+                underutilByEmployee.set(item.employee, []);
+            }
+            underutilByEmployee.get(item.employee).push(item);
+        });
+
+        underutilByEmployee.forEach((weeks, employee) => {
+            const totalWeeks = employeeWeekCounts.get(employee) || weeks.length;
+            const utilizationRate = (weeks.length / totalWeeks) * 100;
+
+            if (utilizationRate > 50) { // More than half the weeks are underutilized
+                const avgHours = weeks.reduce((sum, w) => sum + w.hours, 0) / weeks.length;
+
+                recommendations.push({
+                    id: `underutil-${employee.replace(/\s/g, '-')}`,
+                    severity: 'info',
+                    category: 'resource',
+                    icon: '📊',
+                    title: `Low Utilization: ${employee}`,
+                    message: `${employee} logged less than 20 hours/week in ${weeks.length} of ${totalWeeks} weeks (${formatNumber(utilizationRate)}% of time). Average: ${formatNumber(avgHours)} hours/week in those periods.`,
+                    action: 'Review capacity and consider allocating additional projects',
+                    details: {
+                        'Employee': employee,
+                        'Low Weeks': `${weeks.length} of ${totalWeeks}`,
+                        'Avg Hours (Low Weeks)': `${formatNumber(avgHours)}h/week`,
+                        'Opportunity': 'Available Capacity'
+                    }
+                });
+            }
+        });
+    }
+
+    // Analyze department utilization
+    if (employeeAggregatedData && employeeAggregatedData.length > 0) {
+        const deptUtilization = new Map();
+
+        employeeAggregatedData.forEach(emp => {
+            const dept = emp.department || '(No Department)';
+            if (!deptUtilization.has(dept)) {
+                deptUtilization.set(dept, { total: 0, count: 0, norm: 0 });
+            }
+            const data = deptUtilization.get(dept);
+            data.total += emp.totalHours;
+            data.norm += parseFloat(emp.normHours) || 0;
+            data.count++;
+        });
+
+        deptUtilization.forEach((data, dept) => {
+            if (dept === '(No Department)' || data.count === 0) return;
+
+            const avgUtilization = (data.total / data.norm) * 100;
+
+            if (avgUtilization < 60) {
+                recommendations.push({
+                    id: `dept-util-${dept.replace(/\s/g, '-')}`,
+                    severity: 'warning',
+                    category: 'resource',
+                    icon: '📉',
+                    title: `Low Department Utilization: ${dept}`,
+                    message: `${dept} has an average utilization of ${formatNumber(avgUtilization)}% across ${data.count} employees. Total: ${formatNumber(data.total)}h of ${formatNumber(data.norm)}h capacity.`,
+                    action: 'Consider reallocation or investigate causes of low utilization',
+                    details: {
+                        'Department': dept,
+                        'Employees': data.count,
+                        'Utilization': `${formatNumber(avgUtilization)}%`,
+                        'Total Hours': `${formatNumber(data.total)}h`,
+                        'Capacity': `${formatNumber(data.norm)}h`
+                    }
+                });
+            }
+        });
+    }
+
+    return recommendations;
+}
+
+// Analyze Billing Optimization
+function analyzeBillingOptimization() {
+    const recommendations = [];
+
+    // Group by customer/project
+    const projectBilling = new Map();
+    const customerBilling = new Map();
+
+    filteredData.forEach(row => {
+        const project = row[COLUMNS.CUSTOMER_PROJECT] || '(Unknown Project)';
+        const customer = row[COLUMNS.NAME] || row[COLUMNS.CUSTOMER_PROJECT] || '(Unknown)';
+        const duration = parseFloat(row[COLUMNS.DURATION]) || 0;
+        const billable = row[COLUMNS.BILLABLE]?.toLowerCase() === 'true' || row[COLUMNS.BILLABLE] === 'true';
+
+        // Project billing
+        if (!projectBilling.has(project)) {
+            projectBilling.set(project, { total: 0, billable: 0, nonBillable: 0 });
+        }
+        const projData = projectBilling.get(project);
+        projData.total += duration;
+        if (billable) {
+            projData.billable += duration;
+        } else {
+            projData.nonBillable += duration;
+        }
+
+        // Customer billing
+        if (!customerBilling.has(customer)) {
+            customerBilling.set(customer, { total: 0, billable: 0, nonBillable: 0 });
+        }
+        const custData = customerBilling.get(customer);
+        custData.total += duration;
+        if (billable) {
+            custData.billable += duration;
+        } else {
+            custData.nonBillable += duration;
+        }
+    });
+
+    // Detect projects with high non-billable %
+    projectBilling.forEach((data, project) => {
+        if (data.total < 10) return; // Skip small projects
+
+        const nonBillablePercent = (data.nonBillable / data.total) * 100;
+
+        if (nonBillablePercent > 60) {
+            recommendations.push({
+                id: `billing-project-${project.replace(/\s/g, '-').substring(0, 30)}`,
+                severity: nonBillablePercent > 80 ? 'critical' : 'warning',
+                category: 'billing',
+                icon: '💰',
+                title: `High Non-Billable Hours: ${project}`,
+                message: `Project "${project}" has ${formatNumber(nonBillablePercent)}% non-billable hours (${formatNumber(data.nonBillable)}h of ${formatNumber(data.total)}h total).`,
+                action: 'Review project scope and billing codes. Consider renegotiating terms or verifying time categorization.',
+                details: {
+                    'Project': project,
+                    'Total Hours': `${formatNumber(data.total)}h`,
+                    'Non-Billable': `${formatNumber(data.nonBillable)}h (${formatNumber(nonBillablePercent)}%)`,
+                    'Billable': `${formatNumber(data.billable)}h (${formatNumber(100 - nonBillablePercent)}%)`,
+                    'Revenue Impact': 'Potential Loss'
+                }
+            });
+        }
+    });
+
+    // Detect customers with high non-billable %
+    customerBilling.forEach((data, customer) => {
+        if (data.total < 20 || customer === '(Unknown)') return;
+
+        const nonBillablePercent = (data.nonBillable / data.total) * 100;
+
+        if (nonBillablePercent > 50) {
+            recommendations.push({
+                id: `billing-customer-${customer.replace(/\s/g, '-').substring(0, 30)}`,
+                severity: 'warning',
+                category: 'billing',
+                icon: '🏢',
+                title: `High Non-Billable %: ${customer}`,
+                message: `Customer "${customer}" has ${formatNumber(nonBillablePercent)}% non-billable hours across all projects (${formatNumber(data.nonBillable)}h of ${formatNumber(data.total)}h).`,
+                action: 'Review customer relationship and project scopes. Verify billing practices.',
+                details: {
+                    'Customer': customer,
+                    'Total Hours': `${formatNumber(data.total)}h`,
+                    'Non-Billable %': `${formatNumber(nonBillablePercent)}%`,
+                    'Potential Revenue Leak': `${formatNumber(data.nonBillable)}h`
+                }
+            });
+        }
+    });
+
+    // Calculate total unbilled hours
+    const totalHours = filteredData.reduce((sum, row) => sum + (parseFloat(row[COLUMNS.DURATION]) || 0), 0);
+    const billableHours = filteredData.reduce((sum, row) => {
+        const billable = row[COLUMNS.BILLABLE]?.toLowerCase() === 'true' || row[COLUMNS.BILLABLE] === 'true';
+        return sum + (billable ? (parseFloat(row[COLUMNS.DURATION]) || 0) : 0);
+    }, 0);
+    const unbilledHours = totalHours - billableHours;
+    const unbilledPercent = (unbilledHours / totalHours) * 100;
+
+    if (unbilledPercent > 40) {
+        recommendations.push({
+            id: 'total-unbilled',
+            severity: unbilledPercent > 60 ? 'critical' : 'warning',
+            category: 'billing',
+            icon: '⚡',
+            title: `High Overall Non-Billable Rate: ${formatNumber(unbilledPercent)}%`,
+            message: `Across all tracked time, ${formatNumber(unbilledPercent)}% (${formatNumber(unbilledHours)} hours) is non-billable. This represents significant potential revenue.`,
+            action: 'Conduct comprehensive billing review. Investigate root causes: internal projects, training, or miscategorization.',
+            details: {
+                'Total Hours': `${formatNumber(totalHours)}h`,
+                'Billable': `${formatNumber(billableHours)}h (${formatNumber(100 - unbilledPercent)}%)`,
+                'Non-Billable': `${formatNumber(unbilledHours)}h (${formatNumber(unbilledPercent)}%)`,
+                'Impact': 'Revenue Optimization Opportunity'
+            }
+        });
+    }
+
+    return recommendations;
+}
+
+// Analyze Data Quality
+function analyzeDataQuality() {
+    const recommendations = [];
+
+    // Find entries with very short task descriptions
+    const shortDescriptions = filteredData.filter(row => {
+        const task = row[COLUMNS.TASK] || '';
+        return task.length > 0 && task.length < 10;
+    });
+
+    if (shortDescriptions.length > 20) {
+        const percent = (shortDescriptions.length / filteredData.length) * 100;
+        const totalHours = shortDescriptions.reduce((sum, row) => sum + (parseFloat(row[COLUMNS.DURATION]) || 0), 0);
+
+        recommendations.push({
+            id: 'short-descriptions',
+            severity: percent > 10 ? 'warning' : 'info',
+            category: 'quality',
+            icon: '📝',
+            title: `Generic Task Descriptions: ${shortDescriptions.length} entries`,
+            message: `${shortDescriptions.length} time entries (${formatNumber(percent)}%) have very short task descriptions (<10 characters), representing ${formatNumber(totalHours)} hours.`,
+            action: 'Encourage detailed task descriptions for better tracking and billing justification.',
+            details: {
+                'Entries': shortDescriptions.length,
+                'Percentage': `${formatNumber(percent)}%`,
+                'Hours Affected': `${formatNumber(totalHours)}h`,
+                'Issue': 'Lack of Detail'
+            }
+        });
+    }
+
+    // Find entries with no task description
+    const noDescriptions = filteredData.filter(row => {
+        const task = row[COLUMNS.TASK] || '';
+        return task.trim().length === 0;
+    });
+
+    if (noDescriptions.length > 0) {
+        const totalHours = noDescriptions.reduce((sum, row) => sum + (parseFloat(row[COLUMNS.DURATION]) || 0), 0);
+
+        recommendations.push({
+            id: 'missing-descriptions',
+            severity: 'warning',
+            category: 'quality',
+            icon: '⚠️',
+            title: `Missing Task Descriptions: ${noDescriptions.length} entries`,
+            message: `${noDescriptions.length} time entries have no task description, totaling ${formatNumber(totalHours)} hours.`,
+            action: 'Require task descriptions for all time entries. Update data entry policies.',
+            details: {
+                'Entries': noDescriptions.length,
+                'Hours Affected': `${formatNumber(totalHours)}h`,
+                'Impact': 'Reduced Auditability'
+            }
+        });
+    }
+
+    // Check for employees not logging time recently
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
+    const recentEntries = new Map();
+    filteredData.forEach(row => {
+        const employee = row[COLUMNS.FULL_NAME] || row[COLUMNS.EMPLOYEE] || '(Unknown)';
+        const date = new Date(row[COLUMNS.DATE]);
+
+        if (!isNaN(date.getTime())) {
+            if (!recentEntries.has(employee) || date > recentEntries.get(employee)) {
+                recentEntries.set(employee, date);
+            }
+        }
+    });
+
+    const inactiveEmployees = [];
+    recentEntries.forEach((lastDate, employee) => {
+        if (lastDate < twoWeeksAgo && employee !== '(Unknown)') {
+            inactiveEmployees.push({ employee, lastDate });
+        }
+    });
+
+    if (inactiveEmployees.length > 0) {
+        const employeeList = inactiveEmployees.slice(0, 5).map(e => e.employee).join(', ');
+        const moreText = inactiveEmployees.length > 5 ? ` and ${inactiveEmployees.length - 5} more` : '';
+
+        recommendations.push({
+            id: 'inactive-employees',
+            severity: 'info',
+            category: 'quality',
+            icon: '⏰',
+            title: `Employees with No Recent Time Entries: ${inactiveEmployees.length}`,
+            message: `${inactiveEmployees.length} employees haven't logged time in the last 14 days: ${employeeList}${moreText}.`,
+            action: 'Follow up with inactive employees. Ensure time tracking compliance.',
+            details: {
+                'Inactive Count': inactiveEmployees.length,
+                'Threshold': '14 days',
+                'Action Required': 'Time Tracking Reminder'
+            }
+        });
+    }
+
+    // Detect potential duplicate entries (same employee, project, date, duration)
+    const entryKeys = new Map();
+    const duplicates = [];
+
+    filteredData.forEach((row, index) => {
+        const employee = row[COLUMNS.FULL_NAME] || row[COLUMNS.EMPLOYEE] || '(Unknown)';
+        const project = row[COLUMNS.CUSTOMER_PROJECT] || '(Unknown)';
+        const date = row[COLUMNS.DATE];
+        const duration = row[COLUMNS.DURATION];
+
+        const key = `${employee}|${project}|${date}|${duration}`;
+
+        if (entryKeys.has(key)) {
+            duplicates.push({ key, original: entryKeys.get(key), duplicate: index });
+        } else {
+            entryKeys.set(key, index);
+        }
+    });
+
+    if (duplicates.length > 5) {
+        const affectedHours = duplicates.reduce((sum, dup) => {
+            return sum + (parseFloat(filteredData[dup.duplicate][COLUMNS.DURATION]) || 0);
+        }, 0);
+
+        recommendations.push({
+            id: 'duplicate-entries',
+            severity: 'warning',
+            category: 'quality',
+            icon: '🔁',
+            title: `Potential Duplicate Entries: ${duplicates.length} found`,
+            message: `Found ${duplicates.length} potential duplicate time entries (same employee, project, date, and duration), representing ${formatNumber(affectedHours)} hours.`,
+            action: 'Review and remove duplicate entries. Verify data import process.',
+            details: {
+                'Duplicates': duplicates.length,
+                'Hours Affected': `${formatNumber(affectedHours)}h`,
+                'Issue': 'Data Integrity'
+            }
+        });
+    }
+
+    return recommendations;
+}
+
+// Analyze Project Health
+function analyzeProjectHealth() {
+    const recommendations = [];
+
+    // Group entries by project and month
+    const projectMonthly = new Map();
+
+    filteredData.forEach(row => {
+        const project = row[COLUMNS.CUSTOMER_PROJECT] || '(Unknown Project)';
+        const date = new Date(row[COLUMNS.DATE]);
+        const duration = parseFloat(row[COLUMNS.DURATION]) || 0;
+
+        if (isNaN(date.getTime())) return;
+
+        const monthKey = `${project}|${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+        if (!projectMonthly.has(project)) {
+            projectMonthly.set(project, new Map());
+        }
+
+        const projectData = projectMonthly.get(project);
+        projectData.set(monthKey, (projectData.get(monthKey) || 0) + duration);
+    });
+
+    // Detect projects with declining activity
+    projectMonthly.forEach((months, project) => {
+        if (project === '(Unknown Project)' || months.size < 3) return;
+
+        const sortedMonths = Array.from(months.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+        if (sortedMonths.length >= 3) {
+            const recent3 = sortedMonths.slice(-3);
+            const [, hours1] = recent3[0];
+            const [, hours2] = recent3[1];
+            const [, hours3] = recent3[2];
+
+            // Check if consistently declining
+            if (hours3 < hours2 && hours2 < hours1) {
+                const decline = ((hours1 - hours3) / hours1) * 100;
+
+                if (decline > 30) {
+                    recommendations.push({
+                        id: `project-decline-${project.replace(/\s/g, '-').substring(0, 30)}`,
+                        severity: decline > 60 ? 'warning' : 'info',
+                        category: 'project',
+                        icon: '📉',
+                        title: `Declining Project Activity: ${project}`,
+                        message: `Project "${project}" shows ${formatNumber(decline)}% decline in activity over last 3 months (${formatNumber(hours1)}h → ${formatNumber(hours2)}h → ${formatNumber(hours3)}h).`,
+                        action: 'Review project status. May be completing naturally or require attention.',
+                        details: {
+                            'Project': project,
+                            'Trend': `${formatNumber(hours1)}h → ${formatNumber(hours2)}h → ${formatNumber(hours3)}h`,
+                            'Decline': `${formatNumber(decline)}%`,
+                            'Status': 'Declining Activity'
+                        }
+                    });
+                }
+            }
+
+            // Check for sudden spikes
+            const avgHours = sortedMonths.reduce((sum, [, h]) => sum + h, 0) / sortedMonths.length;
+            const lastHours = hours3;
+
+            if (lastHours > avgHours * 2) {
+                const spike = ((lastHours - avgHours) / avgHours) * 100;
+
+                recommendations.push({
+                    id: `project-spike-${project.replace(/\s/g, '-').substring(0, 30)}`,
+                    severity: 'info',
+                    category: 'project',
+                    icon: '📈',
+                    title: `Activity Spike: ${project}`,
+                    message: `Project "${project}" shows unusual activity spike in latest month: ${formatNumber(lastHours)}h vs ${formatNumber(avgHours)}h average (+${formatNumber(spike)}%).`,
+                    action: 'Verify if spike is expected (deadline, issue resolution) or indicates scope creep.',
+                    details: {
+                        'Project': project,
+                        'Current Month': `${formatNumber(lastHours)}h`,
+                        'Average': `${formatNumber(avgHours)}h`,
+                        'Spike': `+${formatNumber(spike)}%`
+                    }
+                });
+            }
+        }
+    });
+
+    // Projects with no activity in last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const projectLastActivity = new Map();
+    filteredData.forEach(row => {
+        const project = row[COLUMNS.CUSTOMER_PROJECT] || '(Unknown Project)';
+        const date = new Date(row[COLUMNS.DATE]);
+
+        if (!isNaN(date.getTime())) {
+            if (!projectLastActivity.has(project) || date > projectLastActivity.get(project)) {
+                projectLastActivity.set(project, date);
+            }
+        }
+    });
+
+    const inactiveProjects = [];
+    projectLastActivity.forEach((lastDate, project) => {
+        if (lastDate < thirtyDaysAgo && project !== '(Unknown Project)') {
+            inactiveProjects.push({ project, lastDate });
+        }
+    });
+
+    if (inactiveProjects.length > 3) {
+        const projectList = inactiveProjects.slice(0, 3).map(p => p.project).join(', ');
+        const moreText = inactiveProjects.length > 3 ? ` and ${inactiveProjects.length - 3} more` : '';
+
+        recommendations.push({
+            id: 'inactive-projects',
+            severity: 'info',
+            category: 'project',
+            icon: '🗃️',
+            title: `Inactive Projects: ${inactiveProjects.length}`,
+            message: `${inactiveProjects.length} projects have no activity in the last 30 days: ${projectList}${moreText}.`,
+            action: 'Review project status. Consider archiving completed projects or investigating stalled work.',
+            details: {
+                'Inactive Projects': inactiveProjects.length,
+                'Threshold': '30 days',
+                'Action': 'Status Review'
+            }
+        });
+    }
+
+    return recommendations;
+}
+
+// Get week number for date
+function getWeekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+// ============================================
+// ANOMALY DETECTION ENGINE
+// ============================================
+
+// Detect all anomalies in filtered data
+async function detectAnomalies() {
+    if (!filteredData || filteredData.length === 0) {
+        return [];
+    }
+
+    const anomalies = [];
+    const MAX_ANOMALIES_PER_TYPE = 100; // Limit to prevent UI overload and improve performance
+    const anomalyCountsByType = {};
+
+    // Get whitelist for filtering false positives
+    const whitelist = getAnomalyWhitelist();
+
+    // Detect zero or negative hours (limit to MAX)
+    let zeroHoursCount = 0;
+    for (let index = 0; index < filteredData.length && zeroHoursCount < MAX_ANOMALIES_PER_TYPE; index++) {
+        const row = filteredData[index];
+        const duration = parseFloat(row[COLUMNS.DURATION]) || 0;
+        const employee = row[COLUMNS.FULL_NAME] || row[COLUMNS.EMPLOYEE] || '(Unknown)';
+        const project = row[COLUMNS.CUSTOMER_PROJECT] || '(Unknown)';
+        const date = row[COLUMNS.DATE];
+
+        if (duration <= 0) {
+            anomalies.push({
+                id: `zero-hours-${index}`,
+                type: 'zero_hours',
+                severity: 'critical',
+                icon: '🚫',
+                title: 'Zero or Negative Hours',
+                message: `Entry has ${duration} hours recorded`,
+                details: {
+                    'Employee': employee,
+                    'Project': project,
+                    'Date': date,
+                    'Hours': `${duration}h`,
+                    'Row': index + 1
+                },
+                rowIndex: index
+            });
+            zeroHoursCount++;
+        }
+    }
+
+    // Detect excessive hours (>12 hours in a day)
+    const dailyHours = new Map();
+    filteredData.forEach((row, index) => {
+        const employee = row[COLUMNS.FULL_NAME] || row[COLUMNS.EMPLOYEE] || '(Unknown)';
+        const date = row[COLUMNS.DATE];
+        const duration = parseFloat(row[COLUMNS.DURATION]) || 0;
+        const key = `${employee}|${date}`;
+
+        if (!dailyHours.has(key)) {
+            dailyHours.set(key, { hours: 0, entries: [] });
+        }
+        const data = dailyHours.get(key);
+        data.hours += duration;
+        data.entries.push(index);
+    });
+
+    let excessiveHoursCount = 0;
+    dailyHours.forEach((data, key) => {
+        if (excessiveHoursCount >= MAX_ANOMALIES_PER_TYPE) return; // Limit reached
+
+        const [employee, date] = key.split('|');
+
+        // Skip if employee is whitelisted for excessive hours
+        if (whitelist.excessiveHours.includes(employee)) return;
+
+        if (data.hours > 12) {
+            anomalies.push({
+                id: `excessive-hours-${key.replace(/\s/g, '-')}`,
+                type: 'excessive_hours',
+                severity: data.hours > 16 ? 'critical' : 'warning',
+                icon: '⏰',
+                title: 'Excessive Daily Hours',
+                message: `${employee} logged ${formatNumber(data.hours)} hours on ${date}`,
+                details: {
+                    'Employee': employee,
+                    'Date': date,
+                    'Total Hours': `${formatNumber(data.hours)}h`,
+                    'Entries': data.entries.length,
+                    'Issue': data.hours > 16 ? 'Extreme Overwork' : 'Possible Error'
+                },
+                rowIndices: data.entries
+            });
+            excessiveHoursCount++;
+        }
+    });
+
+    // Detect weekend entries (limit to MAX per type)
+    let weekendCount = 0;
+    for (let index = 0; index < filteredData.length && weekendCount < MAX_ANOMALIES_PER_TYPE; index++) {
+        const row = filteredData[index];
+        const date = new Date(row[COLUMNS.DATE]);
+        if (!isNaN(date.getTime())) {
+            const dayOfWeek = date.getDay();
+            if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+                const employee = row[COLUMNS.FULL_NAME] || row[COLUMNS.EMPLOYEE] || '(Unknown)';
+
+                // Skip if employee is whitelisted for weekend work
+                if (whitelist.weekendWork.includes(employee)) continue;
+
+                const duration = parseFloat(row[COLUMNS.DURATION]) || 0;
+                const project = row[COLUMNS.CUSTOMER_PROJECT] || '(Unknown)';
+
+                anomalies.push({
+                    id: `weekend-${index}`,
+                    type: 'weekend_entry',
+                    severity: 'info',
+                    icon: '📅',
+                    title: 'Weekend Time Entry',
+                    message: `${employee} logged ${formatNumber(duration)}h on ${dayOfWeek === 0 ? 'Sunday' : 'Saturday'}`,
+                    details: {
+                        'Employee': employee,
+                        'Date': row[COLUMNS.DATE],
+                        'Day': dayOfWeek === 0 ? 'Sunday' : 'Saturday',
+                        'Hours': `${formatNumber(duration)}h`,
+                        'Project': project
+                    },
+                    rowIndex: index
+                });
+                weekendCount++;
+            }
+        }
+    }
+
+    // Detect time gaps (missing consecutive weekdays)
+    const employeeDates = new Map();
+    filteredData.forEach((row, index) => {
+        const employee = row[COLUMNS.FULL_NAME] || row[COLUMNS.EMPLOYEE] || '(Unknown)';
+        const date = new Date(row[COLUMNS.DATE]);
+
+        if (!isNaN(date.getTime())) {
+            if (!employeeDates.has(employee)) {
+                employeeDates.set(employee, []);
+            }
+            employeeDates.get(employee).push(date);
+        }
+    });
+
+    employeeDates.forEach((dates, employee) => {
+        if (dates.length < 5) return; // Need at least 5 entries to detect gaps
+        if ((anomalyCountsByType['time_gap'] || 0) >= MAX_ANOMALIES_PER_TYPE) return; // Limit reached
+
+        // Skip if employee is whitelisted for time gaps
+        if (whitelist.timeGap.includes(employee)) return;
+
+        // Sort dates
+        dates.sort((a, b) => a - b);
+
+        // Find gaps of 5+ consecutive weekdays (limit to first 10 gaps per employee)
+        let gapsFound = 0;
+        for (let i = 0; i < dates.length - 1 && gapsFound < 10; i++) {
+            const current = dates[i];
+            const next = dates[i + 1];
+            const daysDiff = Math.floor((next - current) / (1000 * 60 * 60 * 24));
+
+            // Quick check: if gap is less than 5 days, skip detailed calculation
+            if (daysDiff < 5) continue;
+
+            // Calculate weekdays efficiently without loop
+            // Approximate: total days minus weekends
+            const totalDays = daysDiff;
+            const weekends = Math.floor(totalDays / 7) * 2;
+            let weekdaysGap = totalDays - weekends;
+
+            // Adjust for partial weeks
+            const startDay = current.getDay();
+            const endDay = next.getDay();
+            if (startDay === 0) weekdaysGap--; // Sunday
+            if (startDay === 6) weekdaysGap--; // Saturday
+            if (endDay === 0) weekdaysGap--; // Sunday
+            if (endDay === 6) weekdaysGap--; // Saturday
+
+            if (weekdaysGap >= 5 && (anomalyCountsByType['time_gap'] || 0) < MAX_ANOMALIES_PER_TYPE) {
+                anomalies.push({
+                    id: `gap-${employee.replace(/\s/g, '-')}-${current.getTime()}`,
+                    type: 'time_gap',
+                    severity: weekdaysGap >= 10 ? 'warning' : 'info',
+                    icon: '📉',
+                    title: 'Time Tracking Gap',
+                    message: `${employee} has a ${weekdaysGap}-day gap in time tracking`,
+                    details: {
+                        'Employee': employee,
+                        'Gap Start': current.toISOString().split('T')[0],
+                        'Gap End': next.toISOString().split('T')[0],
+                        'Weekdays Missing': weekdaysGap,
+                        'Issue': weekdaysGap >= 10 ? 'Extended Gap' : 'Short Gap'
+                    }
+                });
+                anomalyCountsByType['time_gap'] = (anomalyCountsByType['time_gap'] || 0) + 1;
+                gapsFound++;
+            }
+        }
+    });
+
+    // Detect unusual task descriptions (too short or too long) - limit both types
+    let shortDescCount = 0;
+    let longDescCount = 0;
+    for (let index = 0; index < filteredData.length && (shortDescCount < MAX_ANOMALIES_PER_TYPE || longDescCount < MAX_ANOMALIES_PER_TYPE); index++) {
+        const row = filteredData[index];
+        const task = row[COLUMNS.TASK] || '';
+        const employee = row[COLUMNS.FULL_NAME] || row[COLUMNS.EMPLOYEE] || '(Unknown)';
+        const duration = parseFloat(row[COLUMNS.DURATION]) || 0;
+
+        if (task.length > 0 && task.length < 5 && shortDescCount < MAX_ANOMALIES_PER_TYPE) {
+            anomalies.push({
+                id: `short-task-${index}`,
+                type: 'short_description',
+                severity: 'info',
+                icon: '📝',
+                title: 'Very Short Task Description',
+                message: `Task description is only ${task.length} characters: "${task}"`,
+                details: {
+                    'Employee': employee,
+                    'Task': task.length === 0 ? '(empty)' : task,
+                    'Length': `${task.length} chars`,
+                    'Hours': `${formatNumber(duration)}h`,
+                    'Issue': 'Insufficient Detail'
+                },
+                rowIndex: index
+            });
+            shortDescCount++;
+        }
+
+        if (task.length > 500 && longDescCount < MAX_ANOMALIES_PER_TYPE) {
+            anomalies.push({
+                id: `long-task-${index}`,
+                type: 'long_description',
+                severity: 'info',
+                icon: '📄',
+                title: 'Extremely Long Task Description',
+                message: `Task description is ${task.length} characters (>500)`,
+                details: {
+                    'Employee': employee,
+                    'Length': `${task.length} chars`,
+                    'Hours': `${formatNumber(duration)}h`,
+                    'Preview': task.substring(0, 100) + '...',
+                    'Issue': 'Possible Data Entry Error'
+                },
+                rowIndex: index
+            });
+            longDescCount++;
+        }
+    }
+
+    // Detect sudden hour spikes (>200% increase week-over-week)
+    const weeklyHours = new Map();
+    filteredData.forEach((row, index) => {
+        const employee = row[COLUMNS.FULL_NAME] || row[COLUMNS.EMPLOYEE] || '(Unknown)';
+        const date = new Date(row[COLUMNS.DATE]);
+        const duration = parseFloat(row[COLUMNS.DURATION]) || 0;
+
+        if (!isNaN(date.getTime())) {
+            const weekKey = `${employee}|${date.getFullYear()}-W${getWeekNumber(date)}`;
+            weeklyHours.set(weekKey, (weeklyHours.get(weekKey) || 0) + duration);
+        }
+    });
+
+    const employeeWeeks = new Map();
+    weeklyHours.forEach((hours, key) => {
+        const [employee, week] = key.split('|');
+        if (!employeeWeeks.has(employee)) {
+            employeeWeeks.set(employee, []);
+        }
+        employeeWeeks.get(employee).push({ week, hours });
+    });
+
+    let spikeCount = 0;
+    employeeWeeks.forEach((weeks, employee) => {
+        if (spikeCount >= MAX_ANOMALIES_PER_TYPE) return; // Limit reached
+
+        weeks.sort((a, b) => a.week.localeCompare(b.week));
+
+        for (let i = 1; i < weeks.length && spikeCount < MAX_ANOMALIES_PER_TYPE; i++) {
+            const prev = weeks[i - 1];
+            const curr = weeks[i];
+
+            if (prev.hours > 0 && curr.hours > prev.hours * 3) { // 200%+ increase
+                const increase = ((curr.hours - prev.hours) / prev.hours) * 100;
+
+                anomalies.push({
+                    id: `spike-${employee.replace(/\s/g, '-')}-${curr.week}`,
+                    type: 'hour_spike',
+                    severity: increase > 400 ? 'warning' : 'info',
+                    icon: '📈',
+                    title: 'Sudden Hour Spike',
+                    message: `${employee} hours jumped ${formatNumber(increase)}% in ${curr.week}`,
+                    details: {
+                        'Employee': employee,
+                        'Previous Week': `${prev.week}: ${formatNumber(prev.hours)}h`,
+                        'Current Week': `${curr.week}: ${formatNumber(curr.hours)}h`,
+                        'Increase': `+${formatNumber(increase)}%`,
+                        'Issue': increase > 400 ? 'Extreme Spike' : 'Unusual Spike'
+                    }
+                });
+                spikeCount++;
+            }
+        }
+    });
+
+    // Detect entries with suspicious patterns (same time every day)
+    const employeeDailyHours = new Map();
+    filteredData.forEach((row, index) => {
+        const employee = row[COLUMNS.FULL_NAME] || row[COLUMNS.EMPLOYEE] || '(Unknown)';
+        const date = row[COLUMNS.DATE];
+        const duration = parseFloat(row[COLUMNS.DURATION]) || 0;
+        const key = `${employee}|${date}`;
+
+        employeeDailyHours.set(key, duration);
+    });
+
+    const employeeHourPatterns = new Map();
+    employeeDailyHours.forEach((hours, key) => {
+        const [employee] = key.split('|');
+        if (!employeeHourPatterns.has(employee)) {
+            employeeHourPatterns.set(employee, []);
+        }
+        employeeHourPatterns.get(employee).push(hours);
+    });
+
+    let patternCount = 0;
+    employeeHourPatterns.forEach((hoursList, employee) => {
+        if (patternCount >= MAX_ANOMALIES_PER_TYPE) return; // Limit reached
+        if (hoursList.length < 10) return; // Need sufficient data
+
+        // Check if too many identical values
+        const hourCounts = new Map();
+        hoursList.forEach(h => {
+            hourCounts.set(h, (hourCounts.get(h) || 0) + 1);
+        });
+
+        hourCounts.forEach((count, hours) => {
+            if (patternCount >= MAX_ANOMALIES_PER_TYPE) return; // Limit reached
+            const percentage = (count / hoursList.length) * 100;
+            if (percentage > 80 && count > 10) { // >80% of days are identical
+                anomalies.push({
+                    id: `pattern-${employee.replace(/\s/g, '-')}-${hours}`,
+                    type: 'suspicious_pattern',
+                    severity: 'warning',
+                    icon: '🔍',
+                    title: 'Suspicious Time Pattern',
+                    message: `${employee} logs exactly ${formatNumber(hours)}h on ${formatNumber(percentage)}% of days (${count} times)`,
+                    details: {
+                        'Employee': employee,
+                        'Repeated Value': `${formatNumber(hours)}h`,
+                        'Occurrences': count,
+                        'Percentage': `${formatNumber(percentage)}%`,
+                        'Total Days': hoursList.length,
+                        'Issue': 'Possible Copy-Paste or Automatic Entry'
+                    }
+                });
+                patternCount++;
+            }
+        });
+    });
+
+    console.log(`✅ Anomaly detection completed: ${anomalies.length} anomalies found`);
+    return anomalies;
+}
+
+// Display recommendations
+async function displayRecommendations() {
+    const listContainer = document.getElementById('recommendationsList');
+    const anomaliesContainer = document.getElementById('anomaliesContainer');
+
+    if (!listContainer) return;
+
+    // Show loading
+    listContainer.innerHTML = '<div class="loading"><div class="spinner"></div><p>Analyzing your data...</p></div>';
+    if (anomaliesContainer) {
+        anomaliesContainer.innerHTML = '<div class="loading"><div class="spinner"></div><p>Detecting anomalies...</p></div>';
+    }
+
+    // Generate recommendations and detect anomalies in parallel
+    const [recommendations, anomalies] = await Promise.all([
+        generateRecommendations(),
+        detectAnomalies()
+    ]);
+
+    allRecommendations = recommendations;
+    allAnomalies = anomalies;
+
+    // Update summary counts
+    updateRecommendationSummary();
+
+    // Display anomalies
+    displayAnomalies();
+
+    // Apply current filter
+    filterRecommendations(currentFilter);
+
+    // Update tab badge
+    updateAnomalyBadge();
+}
+
+// Update summary counts
+function updateRecommendationSummary() {
+    const criticalCount = allRecommendations.filter(r => r.severity === 'critical').length;
+    const warningCount = allRecommendations.filter(r => r.severity === 'warning').length;
+    const infoCount = allRecommendations.filter(r => r.severity === 'info').length;
+    const successCount = allRecommendations.filter(r => r.severity === 'success').length;
+
+    // Safely update DOM elements (may not exist if view not loaded)
+    const criticalEl = document.getElementById('criticalCount');
+    const warningEl = document.getElementById('warningCount');
+    const infoEl = document.getElementById('infoCount');
+    const successEl = document.getElementById('successCount');
+
+    if (criticalEl) criticalEl.textContent = criticalCount;
+    if (warningEl) warningEl.textContent = warningCount;
+    if (infoEl) infoEl.textContent = infoCount;
+    if (successEl) successEl.textContent = successCount;
+}
+
+// Filter recommendations
+function filterRecommendations(filter) {
+    currentFilter = filter;
+
+    // Update active filter chip
+    document.querySelectorAll('.filter-chip').forEach(chip => {
+        chip.classList.remove('active');
+        if (chip.dataset.filter === filter) {
+            chip.classList.add('active');
+        }
+    });
+
+    // Filter recommendations
+    let filtered = allRecommendations;
+
+    if (filter !== 'all') {
+        if (filter === 'critical' || filter === 'warning' || filter === 'info' || filter === 'success') {
+            filtered = allRecommendations.filter(r => r.severity === filter);
+        } else {
+            filtered = allRecommendations.filter(r => r.category === filter);
+        }
+    }
+
+    // Display filtered recommendations
+    const listContainer = document.getElementById('recommendationsList');
+
+    if (filtered.length === 0) {
+        listContainer.innerHTML = `
+            <div class="no-recommendations">
+                <div class="no-recommendations-icon">✨</div>
+                <div class="no-recommendations-title">No Recommendations Found</div>
+                <div class="no-recommendations-message">
+                    ${filter === 'all' ? 'Your data looks great! No issues detected.' : `No ${filter} recommendations found.`}
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    // Build HTML for recommendations
+    let html = '';
+    filtered.forEach(rec => {
+        const detailsHtml = Object.entries(rec.details).map(([label, value]) => `
+            <div class="rec-detail-item">
+                <span class="rec-detail-label">${label}:</span>
+                <span class="rec-detail-value">${value}</span>
+            </div>
+        `).join('');
+
+        html += `
+            <div class="recommendation-card ${rec.severity}" data-id="${rec.id}">
+                <div class="rec-header">
+                    <div class="rec-title-row">
+                        <div class="rec-icon">${rec.icon}</div>
+                        <h3 class="rec-title">${rec.title}</h3>
+                    </div>
+                    <span class="rec-category ${rec.category}">${rec.category}</span>
+                </div>
+                <div class="rec-message">${rec.message}</div>
+                <div class="rec-action">💡 ${rec.action}</div>
+                <div class="rec-details">
+                    ${detailsHtml}
+                </div>
+            </div>
+        `;
+    });
+
+    listContainer.innerHTML = html;
+}
+
+// Refresh recommendations
+async function refreshRecommendations() {
+    await displayRecommendations();
+}
+
+// Display anomalies
+function displayAnomalies() {
+    const anomaliesContainer = document.getElementById('anomaliesContainer');
+
+    if (!anomaliesContainer) return;
+
+    if (allAnomalies.length === 0) {
+        anomaliesContainer.innerHTML = `
+            <div class="no-recommendations">
+                <div class="no-recommendations-icon">✅</div>
+                <div class="no-recommendations-title">No Anomalies Detected</div>
+                <div class="no-recommendations-message">
+                    Your data looks clean! No quality issues found.
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    // Group anomalies by type
+    const groupedAnomalies = new Map();
+    allAnomalies.forEach(anomaly => {
+        if (!groupedAnomalies.has(anomaly.type)) {
+            groupedAnomalies.set(anomaly.type, []);
+        }
+        groupedAnomalies.get(anomaly.type).push(anomaly);
+    });
+
+    // Build HTML
+    let html = `
+        <div style="background: var(--bg-secondary); border-left: 4px solid #dc3545; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0; color: var(--text-primary); display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.5em;">⚠️</span>
+                    Data Quality Anomalies Detected
+                </h3>
+                <span style="background: #dc3545; color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold;">
+                    ${allAnomalies.length} Total
+                </span>
+            </div>
+            <p style="color: var(--text-secondary); margin: 0;">
+                The following data quality issues were detected in your filtered dataset. Review these anomalies to ensure data integrity.
+            </p>
+        </div>
+    `;
+
+    // Display anomalies by type
+    const typeLabels = {
+        'zero_hours': 'Zero or Negative Hours',
+        'excessive_hours': 'Excessive Daily Hours (>12h)',
+        'weekend_entry': 'Weekend Time Entries',
+        'time_gap': 'Time Tracking Gaps',
+        'short_description': 'Very Short Task Descriptions',
+        'long_description': 'Extremely Long Task Descriptions',
+        'hour_spike': 'Sudden Hour Spikes',
+        'suspicious_pattern': 'Suspicious Time Patterns'
+    };
+
+    groupedAnomalies.forEach((anomalies, type) => {
+        const label = typeLabels[type] || type;
+        const count = anomalies.length;
+
+        html += `
+            <div style="margin-bottom: 20px;">
+                <div style="background: var(--bg-primary); border: 2px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 10px; cursor: pointer;"
+                     onclick="toggleAnomalyGroup('${type}')">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 1.2em;">${anomalies[0].icon}</span>
+                            <h4 style="margin: 0; color: var(--text-primary);">${label}</h4>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <span style="background: var(--border-color); padding: 4px 12px; border-radius: 12px; font-weight: 600;">
+                                ${count} ${count === 1 ? 'issue' : 'issues'}
+                            </span>
+                            <span id="toggle-icon-${type}">▼</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="anomaly-group-${type}" style="display: none;">
+        `;
+
+        // Aggregate anomalies by employee
+        const byEmployee = new Map();
+        anomalies.forEach(anomaly => {
+            const employee = anomaly.details['Employee'] || '(Unknown)';
+            if (!byEmployee.has(employee)) {
+                byEmployee.set(employee, []);
+            }
+            byEmployee.get(employee).push(anomaly);
+        });
+
+        // Display aggregated anomalies (limit to 20 employees shown)
+        const employeeEntries = Array.from(byEmployee.entries()).slice(0, 20);
+        employeeEntries.forEach(([employee, empAnomalies]) => {
+            const empCount = empAnomalies.length;
+            const highestSeverity = empAnomalies.some(a => a.severity === 'critical') ? 'critical' :
+                                  empAnomalies.some(a => a.severity === 'warning') ? 'warning' : 'info';
+
+            // Build summary based on type
+            let summary = '';
+            if (type === 'weekend_entry') {
+                const dates = empAnomalies.slice(0, 5).map(a => a.details['Date']).join(', ');
+                const more = empAnomalies.length > 5 ? ` and ${empAnomalies.length - 5} more` : '';
+                summary = `Worked on weekends: ${dates}${more}`;
+            } else if (type === 'excessive_hours') {
+                const dates = empAnomalies.slice(0, 3).map(a => `${a.details['Date']} (${a.details['Hours']})`).join(', ');
+                const more = empAnomalies.length > 3 ? ` and ${empAnomalies.length - 3} more days` : '';
+                summary = `Excessive hours on: ${dates}${more}`;
+            } else if (type === 'zero_hours') {
+                const dates = empAnomalies.slice(0, 3).map(a => a.details['Date']).join(', ');
+                const more = empAnomalies.length > 3 ? ` and ${empAnomalies.length - 3} more` : '';
+                summary = `Zero hours entries on: ${dates}${more}`;
+            } else if (type === 'time_gap') {
+                const gaps = empAnomalies.slice(0, 3).map(a => `${a.details['Gap']}`).join(', ');
+                const more = empAnomalies.length > 3 ? ` and ${empAnomalies.length - 3} more gaps` : '';
+                summary = `Time gaps detected: ${gaps}${more}`;
+            } else if (type === 'short_description' || type === 'long_description') {
+                const projects = [...new Set(empAnomalies.slice(0, 3).map(a => a.details['Project']))].join(', ');
+                const more = empAnomalies.length > 3 ? ` and ${empAnomalies.length - 3} more` : '';
+                summary = `Issues on projects: ${projects}${more}`;
+            } else if (type === 'hour_spike') {
+                const weeks = empAnomalies.slice(0, 3).map(a => `Week ${a.details['Week']} (${a.details['Change']})`).join(', ');
+                const more = empAnomalies.length > 3 ? ` and ${empAnomalies.length - 3} more spikes` : '';
+                summary = `Hour spikes: ${weeks}${more}`;
+            } else if (type === 'suspicious_pattern') {
+                summary = `${empAnomalies.length} suspicious ${empAnomalies.length === 1 ? 'pattern' : 'patterns'} detected`;
+            }
+
+            const aggregateId = `aggregate-${type}-${employee.replace(/\s/g, '-')}`;
+
+            html += `
+                <div class="recommendation-card ${highestSeverity}" style="margin-bottom: 10px;">
+                    <div class="rec-header">
+                        <div class="rec-title-row">
+                            <div class="rec-icon">${empAnomalies[0].icon}</div>
+                            <h3 class="rec-title">${employee}</h3>
+                        </div>
+                    </div>
+                    <div class="rec-message">${summary}</div>
+                    <div class="rec-details">
+                        <div class="rec-detail-item">
+                            <span class="rec-detail-label">Total Occurrences:</span>
+                            <span class="rec-detail-value" style="font-weight: bold; color: ${highestSeverity === 'critical' ? '#dc3545' : highestSeverity === 'warning' ? '#ffc107' : '#17a2b8'};">${empCount}</span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 10px; text-align: center;">
+                        <button onclick="toggleAnomalyDetails('${aggregateId}')"
+                                style="background: var(--border-color); border: 1px solid var(--text-tertiary); color: var(--text-primary); padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9em;">
+                            <span id="toggle-btn-${aggregateId}">Show Details ▼</span>
+                        </button>
+                    </div>
+                    <div id="${aggregateId}" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+            `;
+
+            // Show individual anomaly details when expanded
+            empAnomalies.forEach(anomaly => {
+                const detailsHtml = Object.entries(anomaly.details)
+                    .filter(([key]) => key !== 'Employee') // Don't repeat employee name
+                    .map(([label, value]) => `
+                        <div class="rec-detail-item">
+                            <span class="rec-detail-label">${label}:</span>
+                            <span class="rec-detail-value">${value}</span>
+                        </div>
+                    `).join('');
+
+                html += `
+                    <div style="background: var(--bg-secondary); border-left: 3px solid ${highestSeverity === 'critical' ? '#dc3545' : highestSeverity === 'warning' ? '#ffc107' : '#17a2b8'}; padding: 10px; margin-bottom: 8px; border-radius: 4px;">
+                        <div style="font-size: 0.9em; color: var(--text-secondary); margin-bottom: 5px;">${anomaly.message}</div>
+                        <div style="font-size: 0.85em;">
+                            ${detailsHtml}
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+
+        if (byEmployee.size > 20) {
+            html += `
+                <div style="text-align: center; padding: 15px; color: var(--text-tertiary); font-style: italic;">
+                    ... and ${byEmployee.size - 20} more employees with ${label}
+                </div>
+            `;
+        }
+
+        html += `
+                </div>
+            </div>
+        `;
+    });
+
+    anomaliesContainer.innerHTML = html;
+}
+
+// Toggle anomaly group visibility
+function toggleAnomalyGroup(type) {
+    const group = document.getElementById(`anomaly-group-${type}`);
+    const icon = document.getElementById(`toggle-icon-${type}`);
+
+    if (group && icon) {
+        if (group.style.display === 'none') {
+            group.style.display = 'block';
+            icon.textContent = '▲';
+        } else {
+            group.style.display = 'none';
+            icon.textContent = '▼';
+        }
+    }
+}
+
+// Toggle individual anomaly details within aggregate view
+function toggleAnomalyDetails(aggregateId) {
+    const details = document.getElementById(aggregateId);
+    const btn = document.getElementById(`toggle-btn-${aggregateId}`);
+
+    if (details && btn) {
+        if (details.style.display === 'none') {
+            details.style.display = 'block';
+            btn.textContent = 'Hide Details ▲';
+        } else {
+            details.style.display = 'none';
+            btn.textContent = 'Show Details ▼';
+        }
+    }
+}
+
+// Update anomaly badge on tab
+function updateAnomalyBadge() {
+    const tab = document.querySelector('.tab[onclick*="recommendations"]');
+    if (!tab) return;
+
+    // Remove existing badge
+    const existingBadge = tab.querySelector('.anomaly-badge');
+    if (existingBadge) {
+        existingBadge.remove();
+    }
+
+    // Add new badge if anomalies exist
+    if (allAnomalies.length > 0) {
+        const badge = document.createElement('span');
+        badge.className = 'anomaly-badge';
+        badge.textContent = allAnomalies.length;
+        badge.style.cssText = 'background: #dc3545; color: white; padding: 2px 8px; border-radius: 12px; margin-left: 8px; font-size: 0.85em; font-weight: bold;';
+        tab.appendChild(badge);
+    }
+}
+
+// Open import statistics modal
+function openImportStats() {
+    const modal = document.getElementById('importStatsModal');
+    if (!modal) return;
+
+    // Display the import statistics
+    displayImportStatistics();
+
+    // Show modal
+    modal.style.display = 'block';
+}
+
+// Close import statistics modal
+function closeImportStats() {
+    const modal = document.getElementById('importStatsModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Display import statistics in modal
+function displayImportStatistics() {
+    const container = document.getElementById('importStatsContent');
+    if (!container) return;
+
+    // Check if import stats exist
+    if (!importStats || importStats.totalLines === 0) {
+        container.innerHTML = `
+            <div style="padding: 40px; text-align: center; color: var(--text-secondary);">
+                <div style="font-size: 3em; margin-bottom: 16px;">📂</div>
+                <div style="font-size: 1.2em; font-weight: 600; margin-bottom: 8px;">No Import Data</div>
+                <div>Import a CSV file to view statistics</div>
+            </div>
+        `;
+        return;
+    }
+
+    const successRate = ((importStats.imported / (importStats.totalLines - importStats.headerSkipped)) * 100).toFixed(2);
+    const timestamp = importStats.timestamp ? new Date(importStats.timestamp).toLocaleString() : 'Unknown';
+
+    // Build HTML
+    let html = `
+        <div style="padding: 24px;">
+            <!-- File Info -->
+            <div style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; margin-bottom: 24px; border-left: 4px solid #667eea;">
+                <div style="font-size: 1.1em; font-weight: 600; margin-bottom: 8px;">📄 ${importStats.fileName}</div>
+                <div style="color: var(--text-secondary); font-size: 0.9em;">Imported: ${timestamp}</div>
+            </div>
+
+            <!-- Summary Stats -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                <div style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 2em; font-weight: 700; color: #667eea;">${importStats.totalLines.toLocaleString()}</div>
+                    <div style="color: var(--text-secondary); font-size: 0.9em; margin-top: 4px;">Total Lines</div>
+                </div>
+                <div style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 2em; font-weight: 700; color: #28a745;">${importStats.imported.toLocaleString()}</div>
+                    <div style="color: var(--text-secondary); font-size: 0.9em; margin-top: 4px;">✅ Imported</div>
+                </div>
+                <div style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 2em; font-weight: 700; color: #dc3545;">${importStats.rejected.toLocaleString()}</div>
+                    <div style="color: var(--text-secondary); font-size: 0.9em; margin-top: 4px;">❌ Rejected</div>
+                </div>
+                <div style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 2em; font-weight: 700; color: ${successRate >= 95 ? '#28a745' : successRate >= 80 ? '#ffc107' : '#dc3545'};">${successRate}%</div>
+                    <div style="color: var(--text-secondary); font-size: 0.9em; margin-top: 4px;">Success Rate</div>
+                </div>
+            </div>
+
+            <!-- Rejection Breakdown -->
+            ${importStats.rejected > 0 ? `
+            <div style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; margin-bottom: 24px; border-left: 4px solid #ffc107;">
+                <h3 style="margin-top: 0; font-size: 1.1em;">⚠️ Rejection Breakdown</h3>
+                <div style="display: grid; gap: 12px;">
+                    ${importStats.headerSkipped > 0 ? `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+                        <span>Header row</span>
+                        <span style="font-weight: 600;">${importStats.headerSkipped.toLocaleString()}</span>
+                    </div>
+                    ` : ''}
+                    ${importStats.emptyLines > 0 ? `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+                        <span>Empty lines</span>
+                        <span style="font-weight: 600;">${importStats.emptyLines.toLocaleString()}</span>
+                    </div>
+                    ` : ''}
+                    ${importStats.invalidLines > 0 ? `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
+                        <span>Invalid rows (< 50 columns)</span>
+                        <span style="font-weight: 600; color: #dc3545;">${importStats.invalidLines.toLocaleString()}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+            ` : ''}
+
+            <!-- Error Log -->
+            ${importStats.errorLog && importStats.errorLog.length > 0 ? `
+            <div style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; border-left: 4px solid #dc3545;">
+                <h3 style="margin-top: 0; font-size: 1.1em;">🔴 Error Log (Showing ${Math.min(importStats.errorLog.length, 100)} of ${importStats.errorLog.length} errors)</h3>
+                <div style="max-height: 400px; overflow-y: auto; background: var(--bg-primary); padding: 12px; border-radius: 4px; font-family: monospace; font-size: 0.85em;">
+                    ${importStats.errorLog.slice(0, 100).map((error, index) => `
+                        <div style="padding: 8px; margin-bottom: 8px; background: var(--bg-secondary); border-radius: 4px; border-left: 3px solid #dc3545;">
+                            <div style="font-weight: 600; color: #dc3545; margin-bottom: 4px;">Line ${error.line}</div>
+                            <div style="color: var(--text-primary);">${error.message}</div>
+                            ${error.columnCount ? `<div style="color: var(--text-secondary); font-size: 0.9em; margin-top: 4px;">Columns found: ${error.columnCount}</div>` : ''}
+                        </div>
+                    `).join('')}
+                    ${importStats.errorLog.length > 100 ? `
+                        <div style="padding: 12px; text-align: center; color: var(--text-secondary);">
+                            ... and ${importStats.errorLog.length - 100} more errors
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+            ` : `
+            <div style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; border-left: 4px solid #28a745; text-align: center;">
+                <div style="font-size: 2em; margin-bottom: 8px;">✅</div>
+                <div style="font-weight: 600; font-size: 1.1em;">No Errors Detected</div>
+                <div style="color: var(--text-secondary); margin-top: 4px;">All rows imported successfully</div>
+            </div>
+            `}
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+// Close modals when clicking outside
+window.onclick = function(event) {
+    const importStatsModal = document.getElementById('importStatsModal');
+    if (event.target === importStatsModal) {
+        closeImportStats();
+    }
 }
