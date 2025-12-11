@@ -3612,7 +3612,6 @@ function updateEmployeeStats() {
 
 // Create employee 12-month trend chart
 let employeeTrendChartInstance = null;
-let pivotChartInstance = null;
 
 function createEmployeeTrendChart() {
     const ctx = document.getElementById('employeeTrendChart');
