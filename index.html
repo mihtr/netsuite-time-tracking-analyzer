@@ -1863,173 +1863,70 @@
 
                     <!-- Rows Configuration -->
                     <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; border: 2px solid var(--border-color);">
-                        <h3 style="color: var(--text-secondary); margin-bottom: 10px; font-size: 1em;">📊 Rows (Multi-level grouping)</h3>
-                        <p style="font-size: 0.85em; color: var(--text-tertiary); margin-bottom: 10px;">Select fields to group data by rows</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h3 style="color: var(--text-secondary); margin: 0; font-size: 1em;">📊 Rows</h3>
+                            <button onclick="addPivotRowField()" class="btn-secondary" style="padding: 4px 12px; font-size: 0.85em;">+ Add Row</button>
+                        </div>
+                        <p style="font-size: 0.85em; color: var(--text-tertiary); margin-bottom: 15px;">Drag to reorder • Click × to remove</p>
 
-                        <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em; color: var(--text-primary);">Row Field 1:</label>
-                        <select id="pivotRow1" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
-                            <option value="">-- None --</option>
-                            <optgroup label="Project & Product">
-                                <option value="mainProduct">Main Product</option>
-                                <option value="customerProject">Customer:Project</option>
-                                <option value="projectType">Project Type</option>
-                            </optgroup>
-                            <optgroup label="Employee & Organization">
-                                <option value="name">Name (Employee)</option>
-                                <option value="fullName">Full Name</option>
-                                <option value="department">Department</option>
-                                <option value="jobGroup">Job Group</option>
-                                <option value="manager">Manager</option>
-                                <option value="team">Team</option>
-                                <option value="supervisor">Supervisor</option>
-                                <option value="subsidiary">Subsidiary</option>
-                            </optgroup>
-                            <optgroup label="Task & Billing">
-                                <option value="mtype2">Type (MTYPE2)</option>
-                                <option value="task">Task</option>
-                                <option value="billable">Billable Status</option>
-                                <option value="activityCode">Activity Code</option>
-                            </optgroup>
-                        </select>
-
-                        <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Row Field 2:</label>
-                        <select id="pivotRow2" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
-                            <option value="">-- None --</option>
-                            <optgroup label="Project & Product">
-                                <option value="mainProduct">Main Product</option>
-                                <option value="customerProject">Customer:Project</option>
-                                <option value="projectType">Project Type</option>
-                            </optgroup>
-                            <optgroup label="Employee & Organization">
-                                <option value="name">Name (Employee)</option>
-                                <option value="fullName">Full Name</option>
-                                <option value="department">Department</option>
-                                <option value="jobGroup">Job Group</option>
-                                <option value="manager">Manager</option>
-                                <option value="team">Team</option>
-                                <option value="supervisor">Supervisor</option>
-                                <option value="subsidiary">Subsidiary</option>
-                            </optgroup>
-                            <optgroup label="Task & Billing">
-                                <option value="mtype2">Type (MTYPE2)</option>
-                                <option value="task">Task</option>
-                                <option value="billable">Billable Status</option>
-                                <option value="activityCode">Activity Code</option>
-                            </optgroup>
-                        </select>
-
-                        <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Row Field 3:</label>
-                        <select id="pivotRow3" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
-                            <option value="">-- None --</option>
-                            <optgroup label="Project & Product">
-                                <option value="mainProduct">Main Product</option>
-                                <option value="customerProject">Customer:Project</option>
-                                <option value="projectType">Project Type</option>
-                            </optgroup>
-                            <optgroup label="Employee & Organization">
-                                <option value="name">Name (Employee)</option>
-                                <option value="fullName">Full Name</option>
-                                <option value="department">Department</option>
-                                <option value="jobGroup">Job Group</option>
-                                <option value="manager">Manager</option>
-                                <option value="team">Team</option>
-                                <option value="supervisor">Supervisor</option>
-                                <option value="subsidiary">Subsidiary</option>
-                            </optgroup>
-                            <optgroup label="Task & Billing">
-                                <option value="mtype2">Type (MTYPE2)</option>
-                                <option value="task">Task</option>
-                                <option value="billable">Billable Status</option>
-                                <option value="activityCode">Activity Code</option>
-                            </optgroup>
-                        </select>
+                        <div id="pivotRowsContainer" style="min-height: 50px;">
+                            <!-- Dynamic row fields will be added here -->
+                        </div>
                     </div>
 
                     <!-- Columns Configuration -->
-                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 2px solid #dee2e6;">
-                        <h3 style="color: #495057; margin-bottom: 10px; font-size: 1em;">📋 Columns (Cross-tabulation)</h3>
-                        <p style="font-size: 0.85em; color: #6c757d; margin-bottom: 10px;">Select field to pivot as columns</p>
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; border: 2px solid var(--border-color);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h3 style="color: var(--text-secondary); margin: 0; font-size: 1em;">📋 Columns</h3>
+                            <button onclick="addPivotColumnField()" class="btn-secondary" style="padding: 4px 12px; font-size: 0.85em;">+ Add Column</button>
+                        </div>
+                        <p style="font-size: 0.85em; color: var(--text-tertiary); margin-bottom: 15px;">Drag to reorder • Click × to remove</p>
 
-                        <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Column Field:</label>
-                        <select id="pivotColumn" style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
-                            <option value="">-- None (No columns) --</option>
-                            <optgroup label="Time">
-                                <option value="month">Date (Month)</option>
-                            </optgroup>
-                            <optgroup label="Project & Product">
-                                <option value="mainProduct">Main Product</option>
-                                <option value="projectType">Project Type</option>
-                            </optgroup>
-                            <optgroup label="Employee & Organization">
-                                <option value="department">Department</option>
-                                <option value="jobGroup">Job Group</option>
-                                <option value="manager">Manager</option>
-                                <option value="team">Team</option>
-                                <option value="subsidiary">Subsidiary</option>
-                            </optgroup>
-                            <optgroup label="Task & Billing">
-                                <option value="mtype2">Type (MTYPE2)</option>
-                                <option value="billable">Billable Status</option>
-                                <option value="activityCode">Activity Code</option>
-                            </optgroup>
-                        </select>
-
-                        <h3 style="color: #495057; margin-top: 20px; margin-bottom: 10px; font-size: 1em;">📈 Values (Measure)</h3>
-                        <p style="font-size: 0.85em; color: #6c757d; margin-bottom: 10px;">Select what to calculate</p>
-
-                        <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Measure Field:</label>
-                        <select id="pivotMeasureField" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ced4da;">
-                            <option value="durDec">Duration Hours (dur_dec)</option>
-                            <option value="count">Record Count</option>
-                        </select>
-
-                        <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Aggregation:</label>
-                        <select id="pivotAggregation" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ced4da;">
-                            <optgroup label="Basic Aggregations">
-                                <option value="sum">Sum</option>
-                                <option value="avg">Average</option>
-                                <option value="count">Count</option>
-                                <option value="min">Minimum</option>
-                                <option value="max">Maximum</option>
-                            </optgroup>
-                            <optgroup label="Statistical Aggregations">
-                                <option value="median">Median</option>
-                                <option value="stddev">Standard Deviation</option>
-                                <option value="mode">Mode (Most Frequent)</option>
-                            </optgroup>
-                            <optgroup label="Percentiles">
-                                <option value="percentile_25">25th Percentile</option>
-                                <option value="percentile_50">50th Percentile (Median)</option>
-                                <option value="percentile_75">75th Percentile</option>
-                                <option value="percentile_90">90th Percentile</option>
-                            </optgroup>
-                        </select>
+                        <div id="pivotColumnsContainer" style="min-height: 50px;">
+                            <!-- Dynamic column fields will be added here -->
+                        </div>
                     </div>
 
-                    <!-- Presets Configuration -->
-                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 2px solid #dee2e6;">
-                        <h3 style="color: #495057; margin-bottom: 10px; font-size: 1em;">💾 Pivot Presets</h3>
-                        <p style="font-size: 0.85em; color: #6c757d; margin-bottom: 10px;">Save and load configurations</p>
+                    <!-- Values/Measures Configuration -->
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; border: 2px solid var(--border-color);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h3 style="color: var(--text-secondary); margin: 0; font-size: 1em;">📈 Values</h3>
+                            <button onclick="addPivotMeasureField()" class="btn-secondary" style="padding: 4px 12px; font-size: 0.85em;">+ Add Measure</button>
+                        </div>
+                        <p style="font-size: 0.85em; color: var(--text-tertiary); margin-bottom: 15px;">Multiple measures • Click × to remove</p>
 
-                        <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Load Preset:</label>
-                        <select id="pivotPresetSelector" onchange="loadPivotPreset()" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ced4da;">
-                            <option value="">-- Select Preset --</option>
-                        </select>
+                        <div id="pivotMeasuresContainer" style="min-height: 50px;">
+                            <!-- Dynamic measure fields will be added here -->
+                        </div>
+                    </div>
+                </div>
 
-                        <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Preset Name:</label>
-                        <input type="text" id="pivotPresetName" placeholder="My Pivot Config" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ced4da;">
+                <!-- Presets Configuration -->
+                <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; border: 2px solid var(--border-color); margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="color: var(--text-secondary); margin: 0; font-size: 1em;">💾 Pivot Presets</h3>
+                        <div style="display: flex; gap: 10px;">
+                            <button onclick="loadQuickPivot('monthlyByProduct')" class="btn-secondary" style="padding: 6px 12px; font-size: 0.85em;">📅 Monthly</button>
+                            <button onclick="loadQuickPivot('billingByProject')" class="btn-secondary" style="padding: 6px 12px; font-size: 0.85em;">💰 Billing</button>
+                            <button onclick="loadQuickPivot('employeeByMonth')" class="btn-secondary" style="padding: 6px 12px; font-size: 0.85em;">👤 Employee</button>
+                        </div>
+                    </div>
 
-                        <div style="display: flex; gap: 5px; margin-bottom: 15px;">
-                            <button onclick="savePivotPreset()" class="btn-secondary" style="flex: 1; padding: 8px; font-size: 0.9em;">💾 Save</button>
-                            <button onclick="deletePivotPreset()" class="btn-secondary" style="flex: 1; padding: 8px; font-size: 0.9em;">🗑️ Delete</button>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 10px; align-items: end;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em; color: var(--text-primary);">Load Preset:</label>
+                            <select id="pivotPresetSelector" onchange="loadPivotPreset()" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
+                                <option value="">-- Select Preset --</option>
+                            </select>
                         </div>
 
-                        <hr style="margin: 15px 0; border: none; border-top: 1px solid #dee2e6;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em; color: var(--text-primary);">Preset Name:</label>
+                            <input type="text" id="pivotPresetName" placeholder="My Pivot Config" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
+                        </div>
 
-                        <h4 style="color: #495057; margin-bottom: 10px; font-size: 0.95em;">Quick Presets</h4>
-                        <button onclick="loadQuickPivot('monthlyByProduct')" class="btn-secondary" style="width: 100%; padding: 6px; font-size: 0.85em; margin-bottom: 5px;">📅 Monthly by Product</button>
-                        <button onclick="loadQuickPivot('billingByProject')" class="btn-secondary" style="width: 100%; padding: 6px; font-size: 0.85em; margin-bottom: 5px;">💰 Billing by Project</button>
-                        <button onclick="loadQuickPivot('employeeByMonth')" class="btn-secondary" style="width: 100%; padding: 6px; font-size: 0.85em;">👤 Employee by Month</button>
+                        <button onclick="savePivotPreset()" class="btn-secondary" style="padding: 8px 16px; font-size: 0.9em; white-space: nowrap;">💾 Save</button>
+                        <button onclick="deletePivotPreset()" class="btn-secondary" style="padding: 8px 16px; font-size: 0.9em; white-space: nowrap;">🗑️ Delete</button>
                     </div>
                 </div>
 

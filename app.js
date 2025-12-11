@@ -3977,10 +3977,177 @@ function clearEmployeeFilter() {
 
 // ========== PIVOT BUILDER FUNCTIONS ==========
 
+// Counters for unique IDs
+let pivotFieldCounter = 0;
+
+// Generate field options HTML
+function generatePivotFieldOptions(includeNone = true) {
+    const options = [];
+
+    if (includeNone) {
+        options.push('<option value="">-- None --</option>');
+    }
+
+    options.push(`
+        <optgroup label="Time">
+            <option value="month">Date (Month)</option>
+        </optgroup>
+        <optgroup label="Project & Product">
+            <option value="mainProduct">Main Product</option>
+            <option value="customerProject">Customer:Project</option>
+            <option value="projectType">Project Type</option>
+        </optgroup>
+        <optgroup label="Employee & Organization">
+            <option value="name">Name (Employee)</option>
+            <option value="fullName">Full Name</option>
+            <option value="department">Department</option>
+            <option value="jobGroup">Job Group</option>
+            <option value="manager">Manager</option>
+            <option value="team">Team</option>
+            <option value="supervisor">Supervisor</option>
+            <option value="subsidiary">Subsidiary</option>
+        </optgroup>
+        <optgroup label="Task & Billing">
+            <option value="mtype2">Type (MTYPE2)</option>
+            <option value="task">Task</option>
+            <option value="billable">Billable Status</option>
+            <option value="activityCode">Activity Code</option>
+        </optgroup>
+    `);
+
+    return options.join('');
+}
+
+// Generate aggregation options HTML
+function generateAggregationOptions() {
+    return `
+        <optgroup label="Basic Aggregations">
+            <option value="sum">Sum</option>
+            <option value="avg">Average</option>
+            <option value="count">Count</option>
+            <option value="min">Minimum</option>
+            <option value="max">Maximum</option>
+        </optgroup>
+        <optgroup label="Statistical Aggregations">
+            <option value="median">Median</option>
+            <option value="stddev">Standard Deviation</option>
+            <option value="mode">Mode</option>
+        </optgroup>
+        <optgroup label="Percentiles">
+            <option value="percentile_25">25th Percentile</option>
+            <option value="percentile_50">50th Percentile</option>
+            <option value="percentile_75">75th Percentile</option>
+            <option value="percentile_90">90th Percentile</option>
+        </optgroup>
+    `;
+}
+
+// Add row field
+function addPivotRowField(fieldValue = '') {
+    const container = document.getElementById('pivotRowsContainer');
+    const fieldId = `pivotRow_${pivotFieldCounter++}`;
+
+    const fieldHtml = `
+        <div class="pivot-field-item" id="${fieldId}" style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center;">
+            <span style="cursor: move; color: var(--text-tertiary); font-size: 1.2em;" title="Drag to reorder">⋮⋮</span>
+            <select class="pivot-row-field" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
+                ${generatePivotFieldOptions(true)}
+            </select>
+            <button onclick="removePivotField('${fieldId}')" style="padding: 6px 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Remove field">×</button>
+        </div>
+    `;
+
+    container.insertAdjacentHTML('beforeend', fieldHtml);
+
+    // Set value if provided
+    if (fieldValue) {
+        const select = document.querySelector(`#${fieldId} .pivot-row-field`);
+        if (select) select.value = fieldValue;
+    }
+}
+
+// Add column field
+function addPivotColumnField(fieldValue = '') {
+    const container = document.getElementById('pivotColumnsContainer');
+    const fieldId = `pivotCol_${pivotFieldCounter++}`;
+
+    const fieldHtml = `
+        <div class="pivot-field-item" id="${fieldId}" style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center;">
+            <span style="cursor: move; color: var(--text-tertiary); font-size: 1.2em;" title="Drag to reorder">⋮⋮</span>
+            <select class="pivot-column-field" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
+                ${generatePivotFieldOptions(true)}
+            </select>
+            <button onclick="removePivotField('${fieldId}')" style="padding: 6px 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Remove field">×</button>
+        </div>
+    `;
+
+    container.insertAdjacentHTML('beforeend', fieldHtml);
+
+    // Set value if provided
+    if (fieldValue) {
+        const select = document.querySelector(`#${fieldId} .pivot-column-field`);
+        if (select) select.value = fieldValue;
+    }
+}
+
+// Add measure field
+function addPivotMeasureField(measureValue = 'durDec', aggregationValue = 'sum') {
+    const container = document.getElementById('pivotMeasuresContainer');
+    const fieldId = `pivotMeasure_${pivotFieldCounter++}`;
+
+    const fieldHtml = `
+        <div class="pivot-field-item" id="${fieldId}" style="margin-bottom: 12px; padding: 12px; background: rgba(102, 126, 234, 0.05); border-radius: 6px; border: 1px solid rgba(102, 126, 234, 0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.9em; font-weight: 600; color: var(--text-primary);">Measure ${container.children.length + 1}</span>
+                <button onclick="removePivotField('${fieldId}')" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.85em;" title="Remove measure">× Remove</button>
+            </div>
+
+            <label style="display: block; margin-bottom: 4px; font-size: 0.85em; color: var(--text-secondary);">Field:</label>
+            <select class="pivot-measure-field" style="width: 100%; padding: 6px; margin-bottom: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 0.9em;">
+                <option value="durDec">Duration Hours</option>
+                <option value="count">Record Count</option>
+            </select>
+
+            <label style="display: block; margin-bottom: 4px; font-size: 0.85em; color: var(--text-secondary);">Aggregation:</label>
+            <select class="pivot-aggregation-field" style="width: 100%; padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 0.9em;">
+                ${generateAggregationOptions()}
+            </select>
+        </div>
+    `;
+
+    container.insertAdjacentHTML('beforeend', fieldHtml);
+
+    // Set values if provided
+    const measureSelect = document.querySelector(`#${fieldId} .pivot-measure-field`);
+    const aggregationSelect = document.querySelector(`#${fieldId} .pivot-aggregation-field`);
+    if (measureSelect) measureSelect.value = measureValue;
+    if (aggregationSelect) aggregationSelect.value = aggregationValue;
+}
+
+// Remove field
+function removePivotField(fieldId) {
+    const element = document.getElementById(fieldId);
+    if (element) {
+        element.remove();
+
+        // Renumber measures
+        const measuresContainer = document.getElementById('pivotMeasuresContainer');
+        const measures = measuresContainer.querySelectorAll('.pivot-field-item');
+        measures.forEach((measure, index) => {
+            const label = measure.querySelector('span');
+            if (label) label.textContent = `Measure ${index + 1}`;
+        });
+    }
+}
+
 // Initialize Pivot Builder view
 function initializePivotBuilder() {
     loadPivotPresetsIntoDropdown();
     loadCalculatedFields();
+
+    // Initialize with one field in each area
+    addPivotRowField();
+    addPivotMeasureField();
 }
 
 // Build custom pivot table based on user configuration
@@ -3988,22 +4155,57 @@ async function buildPivotTable() {
     const loading = document.getElementById('loadingIndicatorPivotBuilder');
     const resultsDiv = document.getElementById('pivotBuilderResults');
 
+    // Collect all row fields
+    const rowFields = Array.from(document.querySelectorAll('.pivot-row-field'))
+        .map(select => select.value)
+        .filter(value => value !== '');
+
+    // Collect all column fields (use first non-empty for now)
+    const columnFields = Array.from(document.querySelectorAll('.pivot-column-field'))
+        .map(select => select.value)
+        .filter(value => value !== '');
+
+    // Collect all measures (use first one for now)
+    const measures = Array.from(document.querySelectorAll('.pivot-field-item')).map(item => {
+        const measureField = item.querySelector('.pivot-measure-field');
+        const aggregationField = item.querySelector('.pivot-aggregation-field');
+
+        if (measureField && aggregationField) {
+            return {
+                measure: measureField.value,
+                aggregation: aggregationField.value
+            };
+        }
+        return null;
+    }).filter(m => m !== null);
+
     // Get configuration
     const config = {
-        rows: [
-            document.getElementById('pivotRow1').value,
-            document.getElementById('pivotRow2').value,
-            document.getElementById('pivotRow3').value
-        ].filter(r => r !== ''), // Remove empty selections
-        column: document.getElementById('pivotColumn').value,
-        measureField: document.getElementById('pivotMeasureField').value,
-        aggregation: document.getElementById('pivotAggregation').value
+        rows: rowFields,
+        column: columnFields[0] || '', // Use first column field for now
+        measureField: measures[0]?.measure || 'durDec',
+        aggregation: measures[0]?.aggregation || 'sum'
     };
 
     // Validate configuration
     if (config.rows.length === 0) {
-        alert('Please select at least one Row field');
+        showError('Please add at least one Row field');
         return;
+    }
+
+    if (measures.length === 0) {
+        showError('Please add at least one Measure');
+        return;
+    }
+
+    // TODO: Multiple measures support coming soon
+    if (measures.length > 1) {
+        showSuccess(`Note: Multiple measures added. Currently using first measure "${measures[0].measure}" with "${measures[0].aggregation}". Full multi-measure support coming soon!`);
+    }
+
+    // TODO: Multiple columns support coming soon
+    if (columnFields.length > 1) {
+        showSuccess(`Note: Multiple columns added. Currently using first column "${columnFields[0]}". Full multi-column support coming soon!`);
     }
 
     // Show loading
