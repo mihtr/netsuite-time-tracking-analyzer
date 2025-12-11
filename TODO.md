@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.31.6
+- **Current Version**: v1.31.7
 - **Last Updated**: 2025-12-11
 - **Status**: Active Development
 
@@ -25,6 +25,15 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.31.7 (2025-12-11)
+- [x] **Enhanced Sticky Header Browser Compatibility** - Added vendor prefixes for maximum compatibility
+  - Added -webkit-sticky prefix to .pivot-table th.row-header (index.html line 385-386)
+  - Added -webkit-sticky prefix to .pivot-table th.month-header (index.html line 406-407)
+  - Ensures sticky positioning works in older WebKit/Safari browsers
+  - Headers (MAIN PRODUCT, CUSTOMER:PROJECT, BILL, CAPEX, IFRS, NONBILL, TOTAL) lock at top when scrolling
+  - Works across all modern browsers (Chrome, Firefox, Safari, Edge)
+  - Page flows naturally with sticky headers staying visible during scroll
 
 ### Version 1.31.6 (2025-12-11)
 - [x] **Fixed populateMeasureDropdown Error** - Updated function for dynamic field system
