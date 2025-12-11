@@ -4733,13 +4733,28 @@ function sortColumns(columns, fieldType) {
 // Get field value from row
 function getFieldValue(row, field) {
     const fieldMap = {
+        // Project & Product
         'mainProduct': row[COLUMNS.MAIN_PRODUCT] || '(Empty)',
         'customerProject': row[COLUMNS.CUSTOMER_PROJECT] || '(Empty)',
+        'projectType': row[COLUMNS.PROJECT_TYPE] || '(Empty)',
+
+        // Employee & Organization
         'name': row[COLUMNS.NAME] || '(Empty)',
+        'fullName': row[COLUMNS.FULL_NAME] || '(Empty)',
+        'department': row[COLUMNS.DEPARTMENT] || '(Empty)',
+        'jobGroup': row[COLUMNS.JOB_GROUP] || '(Empty)',
+        'manager': row[COLUMNS.MANAGER] || '(Empty)',
+        'team': row[COLUMNS.TEAM] || '(Empty)',
+        'supervisor': row[COLUMNS.SUPERVISOR] || '(Empty)',
+        'subsidiary': row[COLUMNS.SUBSIDIARY] || '(Empty)',
+
+        // Task & Billing
         'mtype2': row[COLUMNS.MTYPE2] || '(Empty)',
         'task': row[COLUMNS.TASK] || '(Empty)',
-        'department': row[COLUMNS.DEPARTMENT] || '(Empty)',
-        'projectType': row[COLUMNS.PROJECT_TYPE] || '(Empty)',
+        'billable': row[COLUMNS.BILLABLE] === 'true' || row[COLUMNS.BILLABLE] === 'T' ? 'Billable' : 'Non-Billable',
+        'activityCode': row[COLUMNS.ACTIVITY_CODE] || '(Empty)',
+
+        // Time
         'month': (() => {
             const dateStr = row[COLUMNS.DATE];
             const rowDate = parseDate(dateStr);

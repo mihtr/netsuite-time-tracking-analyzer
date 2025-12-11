@@ -1869,37 +1869,79 @@
                         <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em; color: var(--text-primary);">Row Field 1:</label>
                         <select id="pivotRow1" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
                             <option value="">-- None --</option>
-                            <option value="mainProduct">Main Product</option>
-                            <option value="customerProject">Customer:Project</option>
-                            <option value="name">Name (Employee)</option>
-                            <option value="mtype2">Type (MTYPE2)</option>
-                            <option value="task">Task</option>
-                            <option value="department">Department</option>
-                            <option value="projectType">Project Type</option>
+                            <optgroup label="Project & Product">
+                                <option value="mainProduct">Main Product</option>
+                                <option value="customerProject">Customer:Project</option>
+                                <option value="projectType">Project Type</option>
+                            </optgroup>
+                            <optgroup label="Employee & Organization">
+                                <option value="name">Name (Employee)</option>
+                                <option value="fullName">Full Name</option>
+                                <option value="department">Department</option>
+                                <option value="jobGroup">Job Group</option>
+                                <option value="manager">Manager</option>
+                                <option value="team">Team</option>
+                                <option value="supervisor">Supervisor</option>
+                                <option value="subsidiary">Subsidiary</option>
+                            </optgroup>
+                            <optgroup label="Task & Billing">
+                                <option value="mtype2">Type (MTYPE2)</option>
+                                <option value="task">Task</option>
+                                <option value="billable">Billable Status</option>
+                                <option value="activityCode">Activity Code</option>
+                            </optgroup>
                         </select>
 
                         <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Row Field 2:</label>
-                        <select id="pivotRow2" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ced4da;">
+                        <select id="pivotRow2" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
                             <option value="">-- None --</option>
-                            <option value="mainProduct">Main Product</option>
-                            <option value="customerProject">Customer:Project</option>
-                            <option value="name">Name (Employee)</option>
-                            <option value="mtype2">Type (MTYPE2)</option>
-                            <option value="task">Task</option>
-                            <option value="department">Department</option>
-                            <option value="projectType">Project Type</option>
+                            <optgroup label="Project & Product">
+                                <option value="mainProduct">Main Product</option>
+                                <option value="customerProject">Customer:Project</option>
+                                <option value="projectType">Project Type</option>
+                            </optgroup>
+                            <optgroup label="Employee & Organization">
+                                <option value="name">Name (Employee)</option>
+                                <option value="fullName">Full Name</option>
+                                <option value="department">Department</option>
+                                <option value="jobGroup">Job Group</option>
+                                <option value="manager">Manager</option>
+                                <option value="team">Team</option>
+                                <option value="supervisor">Supervisor</option>
+                                <option value="subsidiary">Subsidiary</option>
+                            </optgroup>
+                            <optgroup label="Task & Billing">
+                                <option value="mtype2">Type (MTYPE2)</option>
+                                <option value="task">Task</option>
+                                <option value="billable">Billable Status</option>
+                                <option value="activityCode">Activity Code</option>
+                            </optgroup>
                         </select>
 
                         <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Row Field 3:</label>
-                        <select id="pivotRow3" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ced4da;">
+                        <select id="pivotRow3" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
                             <option value="">-- None --</option>
-                            <option value="mainProduct">Main Product</option>
-                            <option value="customerProject">Customer:Project</option>
-                            <option value="name">Name (Employee)</option>
-                            <option value="mtype2">Type (MTYPE2)</option>
-                            <option value="task">Task</option>
-                            <option value="department">Department</option>
-                            <option value="projectType">Project Type</option>
+                            <optgroup label="Project & Product">
+                                <option value="mainProduct">Main Product</option>
+                                <option value="customerProject">Customer:Project</option>
+                                <option value="projectType">Project Type</option>
+                            </optgroup>
+                            <optgroup label="Employee & Organization">
+                                <option value="name">Name (Employee)</option>
+                                <option value="fullName">Full Name</option>
+                                <option value="department">Department</option>
+                                <option value="jobGroup">Job Group</option>
+                                <option value="manager">Manager</option>
+                                <option value="team">Team</option>
+                                <option value="supervisor">Supervisor</option>
+                                <option value="subsidiary">Subsidiary</option>
+                            </optgroup>
+                            <optgroup label="Task & Billing">
+                                <option value="mtype2">Type (MTYPE2)</option>
+                                <option value="task">Task</option>
+                                <option value="billable">Billable Status</option>
+                                <option value="activityCode">Activity Code</option>
+                            </optgroup>
                         </select>
                     </div>
 
@@ -1909,13 +1951,27 @@
                         <p style="font-size: 0.85em; color: #6c757d; margin-bottom: 10px;">Select field to pivot as columns</p>
 
                         <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Column Field:</label>
-                        <select id="pivotColumn" style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #ced4da;">
+                        <select id="pivotColumn" style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
                             <option value="">-- None (No columns) --</option>
-                            <option value="month">Date (Month)</option>
-                            <option value="mtype2">Type (MTYPE2)</option>
-                            <option value="projectType">Project Type</option>
-                            <option value="department">Department</option>
-                            <option value="mainProduct">Main Product</option>
+                            <optgroup label="Time">
+                                <option value="month">Date (Month)</option>
+                            </optgroup>
+                            <optgroup label="Project & Product">
+                                <option value="mainProduct">Main Product</option>
+                                <option value="projectType">Project Type</option>
+                            </optgroup>
+                            <optgroup label="Employee & Organization">
+                                <option value="department">Department</option>
+                                <option value="jobGroup">Job Group</option>
+                                <option value="manager">Manager</option>
+                                <option value="team">Team</option>
+                                <option value="subsidiary">Subsidiary</option>
+                            </optgroup>
+                            <optgroup label="Task & Billing">
+                                <option value="mtype2">Type (MTYPE2)</option>
+                                <option value="billable">Billable Status</option>
+                                <option value="activityCode">Activity Code</option>
+                            </optgroup>
                         </select>
 
                         <h3 style="color: #495057; margin-top: 20px; margin-bottom: 10px; font-size: 1em;">📈 Values (Measure)</h3>
