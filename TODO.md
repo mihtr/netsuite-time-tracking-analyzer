@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.29.0
+- **Current Version**: v1.30.0
 - **Last Updated**: 2025-12-11
 - **Status**: Active Development
 
@@ -25,6 +25,22 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.30.0 (2025-12-11)
+- [x] **Dynamic PowerBI-like Pivot Builder** - Redesigned with add/remove field functionality
+  - Dynamic field containers replacing static dropdowns
+  - Add/Remove buttons for rows, columns, and measures (+ Add Row, + Add Column, + Add Measure)
+  - Visual drag handles (⋮⋮) for each field (reordering coming soon)
+  - Remove buttons (×) for each field
+  - Unlimited row fields (previously limited to 3)
+  - Multiple column fields (uses first for now, full multi-column support coming)
+  - Multiple measures (uses first for now, full multi-measure support coming)
+  - JavaScript functions: generatePivotFieldOptions(), addPivotRowField(), addPivotColumnField(), addPivotMeasureField(), removePivotField()
+  - Updated buildPivotTable() to collect all dynamic fields
+  - Validation: Requires at least 1 row and 1 measure
+  - Reorganized Presets section with horizontal layout and quick buttons
+  - Modern card-based design for measures with rgba backgrounds
+  - Foundation for advanced multi-measure and multi-column rendering
 
 ### Version 1.29.0 (2025-12-11)
 - [x] **Expanded Pivot Builder Fields** - Added 8 new fields with organized PowerBI-like layout
