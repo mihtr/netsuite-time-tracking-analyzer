@@ -1615,6 +1615,19 @@
                 <span class="file-name" id="fileName">Loading from directory...</span>
             </div>
 
+            <!-- Import Statistics Section -->
+            <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid #667eea;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h3 style="margin: 0 0 5px 0; font-size: 1.0em; color: var(--text-primary);">📊 Import Statistics</h3>
+                        <p style="margin: 0; font-size: 0.85em; color: var(--text-secondary);">View detailed statistics and error log from last data import</p>
+                    </div>
+                    <button onclick="openImportStats()" style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; white-space: nowrap;">
+                        View Stats
+                    </button>
+                </div>
+            </div>
+
             <div class="filter-section">
                 <div class="filter-group" style="grid-column: 1 / -1;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -2227,64 +2240,6 @@
                         <input type="number" id="normHoursOther" class="setting-input" min="1" max="80" step="0.5" value="37" onchange="saveNormHours()">
                     </div>
                 </div>
-
-                <div class="settings-section">
-                    <div class="settings-section-title">Data Import</div>
-
-                    <div class="setting-item">
-                        <div class="setting-label">
-                            <div class="setting-name">📊 Import Statistics</div>
-                            <div class="setting-description">View detailed statistics and error log from last data import</div>
-                        </div>
-                        <button class="setting-button" onclick="openImportStats()">View Stats</button>
-                    </div>
-                </div>
-
-                <div class="settings-section">
-                    <div class="settings-section-title">Anomaly Detection</div>
-
-                    <div class="setting-item">
-                        <div class="setting-label">
-                            <div class="setting-name">⚠️ Anomaly Whitelist</div>
-                            <div class="setting-description">Configure employees who should be excluded from certain anomaly checks</div>
-                        </div>
-                    </div>
-
-                    <div class="setting-item" style="padding-left: 20px;">
-                        <div class="setting-label">
-                            <div class="setting-name" style="font-size: 0.9em;">Weekend Work Exemptions</div>
-                            <div class="setting-description" style="font-size: 0.85em;">Employees allowed to work weekends (e.g., IT support, consultants)</div>
-                        </div>
-                    </div>
-                    <div style="padding-left: 20px; margin-bottom: 15px;">
-                        <textarea id="weekendWhitelist" class="setting-textarea" rows="3" placeholder="Enter employee names, one per line&#10;Example:&#10;John Smith&#10;Jane Doe" onchange="saveAnomalyWhitelist()"></textarea>
-                    </div>
-
-                    <div class="setting-item" style="padding-left: 20px;">
-                        <div class="setting-label">
-                            <div class="setting-name" style="font-size: 0.9em;">Time Gap Exemptions</div>
-                            <div class="setting-description" style="font-size: 0.85em;">Employees exempt from time tracking gap detection (e.g., part-time, contractors)</div>
-                        </div>
-                    </div>
-                    <div style="padding-left: 20px; margin-bottom: 15px;">
-                        <textarea id="timeGapWhitelist" class="setting-textarea" rows="3" placeholder="Enter employee names, one per line&#10;Example:&#10;Part Time Employee&#10;Contractor Name" onchange="saveAnomalyWhitelist()"></textarea>
-                    </div>
-
-                    <div class="setting-item" style="padding-left: 20px;">
-                        <div class="setting-label">
-                            <div class="setting-name" style="font-size: 0.9em;">Excessive Hours Exemptions</div>
-                            <div class="setting-description" style="font-size: 0.85em;">Employees exempt from excessive hours detection (e.g., managers, special roles)</div>
-                        </div>
-                    </div>
-                    <div style="padding-left: 20px; margin-bottom: 15px;">
-                        <textarea id="excessiveHoursWhitelist" class="setting-textarea" rows="3" placeholder="Enter employee names, one per line&#10;Example:&#10;Manager Name&#10;On-Call Engineer" onchange="saveAnomalyWhitelist()"></textarea>
-                    </div>
-
-                    <div class="setting-item" style="padding-left: 20px; margin-top: 15px;">
-                        <button class="setting-button" onclick="clearAnomalyWhitelist()" style="background: #dc3545; margin-right: 10px;">Clear All Whitelists</button>
-                        <button class="setting-button" onclick="loadAnomalyWhitelist(true)">Reload from Storage</button>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -2353,6 +2308,43 @@
                     <button onclick="refreshRecommendations()" style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
                         🔄 Refresh Analysis
                     </button>
+                </div>
+
+                <!-- Anomaly Whitelist Section -->
+                <div style="margin-bottom: 25px; padding: 20px; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid #ffc107;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 1.1em; color: var(--text-primary);">⚠️ Anomaly Whitelist</h3>
+                    <p style="margin: 0 0 20px 0; font-size: 0.9em; color: var(--text-secondary);">Configure employees who should be excluded from certain anomaly checks</p>
+
+                    <!-- Weekend Work Exemptions -->
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 5px 0; font-size: 0.95em; color: var(--text-primary);">Weekend Work Exemptions</h4>
+                        <p style="margin: 0 0 8px 0; font-size: 0.85em; color: var(--text-tertiary);">Employees allowed to work weekends (e.g., IT support, consultants)</p>
+                        <textarea id="weekendWhitelist" rows="3" placeholder="Enter employee names, one per line&#10;Example:&#10;John Smith&#10;Jane Doe" onchange="saveAnomalyWhitelist()" style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-family: inherit; font-size: 0.9em; background: var(--bg-primary); color: var(--text-primary);"></textarea>
+                    </div>
+
+                    <!-- Time Gap Exemptions -->
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 5px 0; font-size: 0.95em; color: var(--text-primary);">Time Gap Exemptions</h4>
+                        <p style="margin: 0 0 8px 0; font-size: 0.85em; color: var(--text-tertiary);">Employees exempt from time tracking gap detection (e.g., part-time, contractors)</p>
+                        <textarea id="timeGapWhitelist" rows="3" placeholder="Enter employee names, one per line&#10;Example:&#10;Part Time Employee&#10;Contractor Name" onchange="saveAnomalyWhitelist()" style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-family: inherit; font-size: 0.9em; background: var(--bg-primary); color: var(--text-primary);"></textarea>
+                    </div>
+
+                    <!-- Excessive Hours Exemptions -->
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 5px 0; font-size: 0.95em; color: var(--text-primary);">Excessive Hours Exemptions</h4>
+                        <p style="margin: 0 0 8px 0; font-size: 0.85em; color: var(--text-tertiary);">Employees exempt from excessive hours detection (e.g., managers, special roles)</p>
+                        <textarea id="excessiveHoursWhitelist" rows="3" placeholder="Enter employee names, one per line&#10;Example:&#10;Manager Name&#10;On-Call Engineer" onchange="saveAnomalyWhitelist()" style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-family: inherit; font-size: 0.9em; background: var(--bg-primary); color: var(--text-primary);"></textarea>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="clearAnomalyWhitelist()" style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            Clear All Whitelists
+                        </button>
+                        <button onclick="loadAnomalyWhitelist(true)" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            Reload from Storage
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Summary Cards -->
