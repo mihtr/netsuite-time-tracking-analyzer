@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.31.3
+- **Current Version**: v1.31.4
 - **Last Updated**: 2025-12-11
 - **Status**: Active Development
 
@@ -25,6 +25,15 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.31.4 (2025-12-11)
+- [x] **Fixed "Cannot set properties of null" Error** - Added safety checks for preset loading
+  - Error: "Error loading preset: Cannot set properties of null (setting 'innerHTML')"
+  - Root cause: loadPivotPreset() and loadQuickPivot() tried to access pivot containers before Pivot Builder tab was active
+  - Added existence checks for pivotRowsContainer, pivotColumnsContainer, pivotMeasuresContainer (app.js lines 6004-6011, 6229-6236)
+  - Functions now gracefully return with console.warn if containers don't exist
+  - Prevents errors when page loads with filter presets auto-loading before pivot builder is initialized
+  - Fixes issue where preset loading on non-Pivot-Builder tabs caused JavaScript errors
 
 ### Version 1.31.3 (2025-12-11)
 - [x] **Fixed Preset Functionality for Dynamic Pivot Builder** - Presets now work with dynamic fields

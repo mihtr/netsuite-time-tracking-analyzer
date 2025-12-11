@@ -6000,10 +6000,20 @@ function loadPivotPreset() {
         const config = presets[presetName];
 
         if (config) {
+            // Check if pivot builder containers exist (they won't if pivot builder view isn't active)
+            const rowsContainer = document.getElementById('pivotRowsContainer');
+            const columnsContainer = document.getElementById('pivotColumnsContainer');
+            const measuresContainer = document.getElementById('pivotMeasuresContainer');
+
+            if (!rowsContainer || !columnsContainer || !measuresContainer) {
+                console.warn('Pivot builder containers not found. Make sure you are on the Pivot Builder tab.');
+                return;
+            }
+
             // Clear existing dynamic fields
-            document.getElementById('pivotRowsContainer').innerHTML = '';
-            document.getElementById('pivotColumnsContainer').innerHTML = '';
-            document.getElementById('pivotMeasuresContainer').innerHTML = '';
+            rowsContainer.innerHTML = '';
+            columnsContainer.innerHTML = '';
+            measuresContainer.innerHTML = '';
 
             // Check if this is a new format preset (with arrays) or old format (with row1/row2/row3)
             if (config.rows && Array.isArray(config.rows)) {
@@ -6215,10 +6225,20 @@ function loadQuickPivot(type) {
 
     const config = configs[type];
     if (config) {
+        // Check if pivot builder containers exist (they won't if pivot builder view isn't active)
+        const rowsContainer = document.getElementById('pivotRowsContainer');
+        const columnsContainer = document.getElementById('pivotColumnsContainer');
+        const measuresContainer = document.getElementById('pivotMeasuresContainer');
+
+        if (!rowsContainer || !columnsContainer || !measuresContainer) {
+            console.warn('Pivot builder containers not found. Make sure you are on the Pivot Builder tab.');
+            return;
+        }
+
         // Clear existing dynamic fields
-        document.getElementById('pivotRowsContainer').innerHTML = '';
-        document.getElementById('pivotColumnsContainer').innerHTML = '';
-        document.getElementById('pivotMeasuresContainer').innerHTML = '';
+        rowsContainer.innerHTML = '';
+        columnsContainer.innerHTML = '';
+        measuresContainer.innerHTML = '';
 
         // Load dynamic fields
         config.rows.forEach(fieldValue => {
