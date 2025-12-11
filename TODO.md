@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.32.1
+- **Current Version**: v1.32.2
 - **Last Updated**: 2025-12-11
 - **Status**: Active Development
 
@@ -1178,6 +1178,24 @@
 ## 🔄 Change Log
 
 **Documentation**: MAINTENANCE_RULES.md created (2025-12-10) - Comprehensive guidelines for keeping documentation synchronized with code changes, including version management workflow, commit standards, and maintenance procedures.
+
+### v1.32.2 - Edge Browser Sticky Header Fix (Scroll Container Restructure) (2025-12-11)
+- **Fix: Restructured Scroll Container Hierarchy for Edge Browser**
+  - **Problem**: Sticky headers still not working in Edge despite vendor prefixes and CSS properties
+  - **Root Cause**: Parent element with `overflow-x: auto` creates scroll container that breaks viewport-relative sticky positioning
+  - **Solution**: Removed overflow from intermediate containers, allowing sticky to work relative to viewport
+  - **Implementation**:
+    - Added `.pivot-table-wrapper` div layer between container and table (app.js:5492-5493, 5701-5702)
+      - Wrapper has no overflow properties, just acts as structural container
+      - Table appended to wrapper, wrapper appended to container
+    - Updated `.pivot-table-wrapper` CSS (index.html:373-376)
+      - Removed `overflow-x: auto` and `overflow-y: visible`
+      - Now just has `position: relative` and `width: 100%`
+      - Allows sticky positioning to work relative to viewport, not scroll container
+    - Maintained `.pivot-table-container` with `overflow: visible` (index.html:367-371)
+  - **User Experience**: Headers now stick to viewport top in Edge during vertical scrolling
+  - **Trade-off**: Wide pivot tables will cause horizontal page-level scrolling instead of container-level scrolling
+  - **Code**: index.html lines 373-376, app.js lines 5492-5493, 5701-5702
 
 ### v1.32.1 - Edge Browser Sticky Header Compatibility (2025-12-11)
 - **Fix: Sticky Headers in Microsoft Edge Browser**

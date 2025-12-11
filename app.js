@@ -5488,6 +5488,10 @@ function renderPivotTable(aggregatedData, config) {
     pivotContainer.className = 'pivot-table-container';
     pivotContainer.style.marginTop = '20px';
 
+    // Create wrapper for horizontal scrolling
+    const pivotWrapper = document.createElement('div');
+    pivotWrapper.className = 'pivot-table-wrapper';
+
     const table = document.createElement('table');
     table.className = 'pivot-table';
 
@@ -5693,7 +5697,9 @@ function renderPivotTable(aggregatedData, config) {
         table.appendChild(tfoot);
     }
 
-    pivotContainer.appendChild(table);
+    // Append table to wrapper, then wrapper to container
+    pivotWrapper.appendChild(table);
+    pivotContainer.appendChild(pivotWrapper);
 
     // Add summary info
     const summaryDiv = document.createElement('div');
