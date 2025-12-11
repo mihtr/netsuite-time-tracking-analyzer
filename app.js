@@ -5904,13 +5904,35 @@ function savePivotPreset() {
         return;
     }
 
+    // Collect all dynamic row fields
+    const rowFields = Array.from(document.querySelectorAll('.pivot-row-field'))
+        .map(select => select.value)
+        .filter(value => value !== '');
+
+    // Collect all dynamic column fields
+    const columnFields = Array.from(document.querySelectorAll('.pivot-column-field'))
+        .map(select => select.value)
+        .filter(value => value !== '');
+
+    // Collect all measures (field + aggregation pairs)
+    const measures = Array.from(document.querySelectorAll('.pivot-field-item')).map(item => {
+        const measureField = item.querySelector('.pivot-measure-field');
+        const aggregationField = item.querySelector('.pivot-aggregation-field');
+
+        if (measureField && aggregationField) {
+            return {
+                measure: measureField.value,
+                aggregation: aggregationField.value
+            };
+        }
+        return null;
+    }).filter(m => m !== null);
+
     const config = {
-        row1: document.getElementById('pivotRow1').value,
-        row2: document.getElementById('pivotRow2').value,
-        row3: document.getElementById('pivotRow3').value,
-        column: document.getElementById('pivotColumn').value,
-        measureField: document.getElementById('pivotMeasureField').value,
-        aggregation: document.getElementById('pivotAggregation').value,
+        // New dynamic field format
+        rows: rowFields,
+        columns: columnFields,
+        measures: measures,
         // Save sort state
         sortColumn: pivotBuilderSortState.column,
         sortDirection: pivotBuilderSortState.direction,
@@ -5978,12 +6000,54 @@ function loadPivotPreset() {
         const config = presets[presetName];
 
         if (config) {
-            document.getElementById('pivotRow1').value = config.row1 || '';
-            document.getElementById('pivotRow2').value = config.row2 || '';
-            document.getElementById('pivotRow3').value = config.row3 || '';
-            document.getElementById('pivotColumn').value = config.column || '';
-            document.getElementById('pivotMeasureField').value = config.measureField || 'durDec';
-            document.getElementById('pivotAggregation').value = config.aggregation || 'sum';
+            // Clear existing dynamic fields
+            document.getElementById('pivotRowsContainer').innerHTML = '';
+            document.getElementById('pivotColumnsContainer').innerHTML = '';
+            document.getElementById('pivotMeasuresContainer').innerHTML = '';
+
+            // Check if this is a new format preset (with arrays) or old format (with row1/row2/row3)
+            if (config.rows && Array.isArray(config.rows)) {
+                // New format: Load dynamic fields
+                config.rows.forEach(fieldValue => {
+                    addPivotRowField(fieldValue);
+                });
+
+                if (config.columns && Array.isArray(config.columns)) {
+                    config.columns.forEach(fieldValue => {
+                        addPivotColumnField(fieldValue);
+                    });
+                }
+
+                if (config.measures && Array.isArray(config.measures)) {
+                    config.measures.forEach(measure => {
+                        addPivotMeasureField(measure.measure, measure.aggregation);
+                    });
+                }
+            } else {
+                // Old format: Convert row1/row2/row3 to dynamic fields for backwards compatibility
+                const oldRows = [config.row1, config.row2, config.row3].filter(r => r && r !== '');
+                oldRows.forEach(fieldValue => {
+                    addPivotRowField(fieldValue);
+                });
+
+                if (config.column) {
+                    addPivotColumnField(config.column);
+                }
+
+                addPivotMeasureField(
+                    config.measureField || 'durDec',
+                    config.aggregation || 'sum'
+                );
+            }
+
+            // Ensure at least one row field and one measure
+            if (document.querySelectorAll('.pivot-row-field').length === 0) {
+                addPivotRowField('');
+            }
+            if (document.querySelectorAll('.pivot-measure-field').length === 0) {
+                addPivotMeasureField('durDec', 'sum');
+            }
+
             document.getElementById('pivotPresetName').value = presetName;
 
             // Restore sort state
@@ -6133,43 +6197,48 @@ function setupPivotBuilderSorting() {
 function loadQuickPivot(type) {
     const configs = {
         'monthlyByProduct': {
-            row1: 'mainProduct',
-            row2: 'customerProject',
-            row3: '',
-            column: 'month',
-            measureField: 'durDec',
-            aggregation: 'sum'
+            rows: ['mainProduct', 'customerProject'],
+            columns: ['month'],
+            measures: [{ measure: 'durDec', aggregation: 'sum' }]
         },
         'billingByProject': {
-            row1: 'mainProduct',
-            row2: 'customerProject',
-            row3: '',
-            column: 'mtype2',
-            measureField: 'durDec',
-            aggregation: 'sum'
+            rows: ['mainProduct', 'customerProject'],
+            columns: ['mtype2'],
+            measures: [{ measure: 'durDec', aggregation: 'sum' }]
         },
         'employeeByMonth': {
-            row1: 'name',
-            row2: 'customerProject',
-            row3: '',
-            column: 'month',
-            measureField: 'durDec',
-            aggregation: 'sum'
+            rows: ['name', 'customerProject'],
+            columns: ['month'],
+            measures: [{ measure: 'durDec', aggregation: 'sum' }]
         }
     };
 
     const config = configs[type];
     if (config) {
-        document.getElementById('pivotRow1').value = config.row1 || '';
-        document.getElementById('pivotRow2').value = config.row2 || '';
-        document.getElementById('pivotRow3').value = config.row3 || '';
-        document.getElementById('pivotColumn').value = config.column || '';
-        document.getElementById('pivotMeasureField').value = config.measureField || 'durDec';
-        document.getElementById('pivotAggregation').value = config.aggregation || 'sum';
+        // Clear existing dynamic fields
+        document.getElementById('pivotRowsContainer').innerHTML = '';
+        document.getElementById('pivotColumnsContainer').innerHTML = '';
+        document.getElementById('pivotMeasuresContainer').innerHTML = '';
+
+        // Load dynamic fields
+        config.rows.forEach(fieldValue => {
+            addPivotRowField(fieldValue);
+        });
+
+        config.columns.forEach(fieldValue => {
+            addPivotColumnField(fieldValue);
+        });
+
+        config.measures.forEach(measure => {
+            addPivotMeasureField(measure.measure, measure.aggregation);
+        });
 
         // Reset sort state for quick presets
         pivotBuilderSortState.column = null;
         pivotBuilderSortState.direction = 'desc';
+
+        // Auto-build pivot table
+        setTimeout(() => buildPivotTable(), 100);
     }
 }
 

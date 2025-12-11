@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.31.2
+- **Current Version**: v1.31.3
 - **Last Updated**: 2025-12-11
 - **Status**: Active Development
 
@@ -25,6 +25,16 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.31.3 (2025-12-11)
+- [x] **Fixed Preset Functionality for Dynamic Pivot Builder** - Presets now work with dynamic fields
+  - Updated savePivotPreset() to collect all dynamic row/column/measure fields into arrays (app.js lines 5899-5967)
+  - Updated loadPivotPreset() to restore dynamic fields from arrays (app.js lines 5992-6138)
+  - Added backwards compatibility: Old presets with row1/row2/row3 format automatically convert to dynamic fields
+  - Updated loadQuickPivot() to use dynamic field system for quick preset buttons (app.js lines 6197-6243)
+  - Quick preset buttons (📅 Monthly, 💰 Billing, 👤 Employee) now working properly
+  - Preset save/load/delete functionality fully restored
+  - New preset format stores: rows (array), columns (array), measures (array of {measure, aggregation})
 
 ### Version 1.31.2 (2025-12-11)
 - [x] **Improved Sticky Header Alignment** - Headers now align to the very top of viewport when scrolling
