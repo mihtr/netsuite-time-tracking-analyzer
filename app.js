@@ -9135,7 +9135,7 @@ function createTopProjectsInsightChart(topProjects) {
     }
 
     topProjectsInsightChartInstance = new Chart(canvas, {
-        type: 'horizontalBar',
+        type: 'bar',
         data: {
             labels: topProjects.map(proj => proj.name.substring(0, 30) + (proj.name.length > 30 ? '...' : '')),
             datasets: [{
