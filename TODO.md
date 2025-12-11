@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.28.0
+- **Current Version**: v1.29.0
 - **Last Updated**: 2025-12-11
 - **Status**: Active Development
 
@@ -25,6 +25,15 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.29.0 (2025-12-11)
+- [x] **Expanded Pivot Builder Fields** - Added 8 new fields with organized PowerBI-like layout
+  - New Employee & Organization fields: Full Name, Job Group, Manager, Team, Supervisor, Subsidiary
+  - New Task & Billing fields: Billable Status, Activity Code
+  - Organized all 15 fields into logical optgroups (Project & Product, Employee & Organization, Task & Billing, Time)
+  - Enhanced field selection UI with categorized dropdowns
+  - Total available fields increased from 7 to 15
+  - Better PowerBI-like user experience with field categorization
 
 ### Version 1.28.0 (2025-12-11)
 - [x] **Full Pivot Builder Editor (Phase 1)** - PowerBI-like capabilities with calculated fields and custom aggregations

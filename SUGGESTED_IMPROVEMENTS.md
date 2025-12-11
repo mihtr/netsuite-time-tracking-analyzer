@@ -403,13 +403,13 @@ function extractJiraKeys(text) {
 
 ---
 
-### 13. **Full Pivot Builder Editor (Phase 1)** 🎛️ ✅ COMPLETED (v1.28.0)
+### 13. **Full Pivot Builder Editor (Phase 1)** 🎛️ ✅ COMPLETED (v1.28.0) + Enhanced (v1.29.0)
 
 **Priority**: ~~MEDIUM-HIGH~~ COMPLETED
 **Effort**: Medium
 **Impact**: Power user productivity
 
-**Status**: Phase 1 fully implemented in v1.28.0 with calculated fields, custom aggregations, and Excel export.
+**Status**: Phase 1 fully implemented in v1.28.0 with calculated fields, custom aggregations, and Excel export. Enhanced in v1.29.0 with expanded field selection (15 fields with organized layout).
 
 **Description**: Enhance the existing Pivot Builder (v1.12.0) with advanced editing capabilities for professional-grade analysis.
 
@@ -452,6 +452,25 @@ function extractJiraKeys(text) {
   - Extended savePivotPreset() to include calculated field definitions
   - Extended loadPivotPreset() to restore and recompile formulas
   - Seamless integration with existing preset system
+
+**Enhancement in v1.29.0 - Expanded Field Selection**:
+- ✅ **8 New Data Fields** - Expanded from 7 to 15 total fields
+  - Full Name (detailed employee identification)
+  - Job Group (employee role classification)
+  - Manager (organizational hierarchy)
+  - Team (team assignments)
+  - Supervisor (direct supervisor tracking)
+  - Subsidiary (business unit)
+  - Billable Status (billable vs non-billable labels)
+  - Activity Code (work categorization)
+
+- ✅ **Organized Field Layout** - PowerBI-like field categorization
+  - Project & Product category (3 fields)
+  - Employee & Organization category (8 fields)
+  - Task & Billing category (4 fields)
+  - Time category (1 field)
+  - Optgroup organization in all 4 field dropdowns
+  - Enhanced visual hierarchy and usability
 
 **Phase 2/3 features remaining** (not yet implemented):
 - **Advanced Filtering** (Phase 2)
@@ -914,8 +933,8 @@ To implement any of these improvements:
 ## 📝 Document Status
 
 **Last Updated**: 2025-12-11
-**Current Version**: v1.28.0
-**Active Suggestions**: 27 items (1 item completed in v1.28.0)
+**Current Version**: v1.29.0
+**Active Suggestions**: 27 items (1 item enhanced in v1.29.0)
 **Archived Completed**: 14 major features (v1.4.0 → v1.28.0)
 **Next Review**: Q1 2026
 
