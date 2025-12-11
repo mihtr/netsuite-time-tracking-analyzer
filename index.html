@@ -356,8 +356,8 @@
         }
 
         .view-container.active {
-            display: flex;
-            flex-direction: column;
+            display: block;
+            min-height: 100vh;
         }
 
         .table-container {
@@ -389,6 +389,7 @@
             z-index: 5;
             box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
             border-right: 2px solid #5568d3;
+            will-change: transform;
         }
 
         .pivot-table th.row-header:hover {
@@ -407,6 +408,7 @@
             position: sticky;
             top: 0;
             z-index: 4;
+            will-change: transform;
         }
 
         .pivot-table th.month-header:hover {
@@ -423,10 +425,12 @@
             text-align: left;
             font-weight: 500;
             background: #f8f9fa;
+            position: -webkit-sticky;
             position: sticky;
             z-index: 2;
             box-shadow: 2px 0 5px rgba(0,0,0,0.05);
             padding: 10px 12px;
+            will-change: transform;
         }
 
         /* Position each sticky column progressively */
@@ -1604,7 +1608,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.32.0</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.32.1</span></p>
 
             <!-- Top Menu Bar -->
             <div class="top-menu-bar">

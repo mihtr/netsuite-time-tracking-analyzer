@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.32.0
+- **Current Version**: v1.32.1
 - **Last Updated**: 2025-12-11
 - **Status**: Active Development
 
@@ -1178,6 +1178,53 @@
 ## 🔄 Change Log
 
 **Documentation**: MAINTENANCE_RULES.md created (2025-12-10) - Comprehensive guidelines for keeping documentation synchronized with code changes, including version management workflow, commit standards, and maintenance procedures.
+
+### v1.32.1 - Edge Browser Sticky Header Compatibility (2025-12-11)
+- **Fix: Sticky Headers in Microsoft Edge Browser**
+  - **Problem**: Column headers and row labels not sticking to viewport when scrolling in Edge browser
+  - **Solution**: Added vendor prefixes and browser-specific CSS properties
+  - **Implementation**:
+    - Changed `.view-container.active` from `display: flex` to `display: block` (index.html:358-361)
+      - Flex containers can interfere with sticky positioning in some browsers
+      - Block display with `min-height: 100vh` provides better compatibility
+    - Added `will-change: transform` to all sticky elements for performance optimization:
+      - `.pivot-table th.row-header` (index.html:392) - Left-side row headers
+      - `.pivot-table th.month-header` (index.html:411) - Top column headers
+      - `.pivot-table td.row-label` (index.html:433) - Data row labels
+    - Added `-webkit-sticky` vendor prefix to `td.row-label` (index.html:428-429)
+      - Ensures compatibility with WebKit-based browsers
+  - **User Experience**: Headers now properly stick in Edge browser during scrolling
+  - **Code**: index.html lines 358-361, 392, 411, 428-429, 433
+
+### v1.32.0 - Advanced Filtering for Pivot Builder (2025-12-11)
+- **Major Feature: Advanced Filters with AND/OR Logic**
+  - **Problem**: Users need more granular control over pivot data filtering beyond top filters
+  - **Solution**: Comprehensive filter system with 12 operators and boolean logic
+  - **Implementation**:
+    - Advanced Filters Panel UI (index.html:1973-2005):
+      - Filter logic toggle: AND (all conditions) vs OR (any condition)
+      - Dynamic filter rules list with add/remove capability
+      - 12 filter operators supported: equals, notEquals, contains, notContains, startsWith, endsWith, greaterThan, lessThan, greaterOrEqual, lessOrEqual, isEmpty, isNotEmpty
+      - All 59 dataset fields available for filtering
+      - Clear visual feedback with info message about top filter integration
+    - Filter Management Functions (app.js:4968-5131):
+      - `addPivotFilterRule()`: Creates dynamic filter rule UI element
+      - `removePivotFilterRule(id)`: Removes specific filter rule
+      - `updatePivotFilterLogic()`: Toggles between AND/OR logic
+      - `collectPivotFilterRules()`: Extracts filter configuration from UI
+      - `applyPivotFilters(data, rules, logic)`: Applies filters to data array
+      - `evaluateFilterRule(row, rule)`: Evaluates single condition against row
+      - `clearAllPivotFilters()`: Removes all filters and resets UI
+    - Two-Layer Filtering Architecture:
+      - Layer 1: Top filters (date range, main product, project type, department) → creates `filteredData`
+      - Layer 2: Pivot-specific filters → applied in `aggregatePivotData()` (app.js:5133-5146)
+      - Seamless integration ensures both filter sets work together
+    - Global state variables (app.js:4968-4970):
+      - `pivotFilterRules`: Array of active filter rules
+      - `pivotFilterLogic`: Current logic mode ('AND' or 'OR')
+      - `pivotFilterCounter`: Unique ID generator for filter rules
+  - **User Experience**: Power users can create complex multi-condition filters (e.g., "Department contains 'DevOps' AND Duration > 8 OR Billable = true")
+  - **Code**: index.html lines 1973-2005, app.js lines 4968-5146
 
 ### v1.28.0 - Full Pivot Builder Editor with Calculated Fields & Excel Export (2025-12-11)
 - **Major Feature: Calculated Fields System**
