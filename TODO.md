@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.31.4
+- **Current Version**: v1.31.5
 - **Last Updated**: 2025-12-11
 - **Status**: Active Development
 
@@ -25,6 +25,15 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.31.5 (2025-12-11)
+- [x] **Removed Inner Scrollbar and Fixed Sticky Headers** - Pivot table now flows with page
+  - Removed max-height and overflow-y from .pivot-table-container (index.html line 367-371)
+  - Eliminated inner scrollbar - pivot table and chart now part of main page flow
+  - Header row (MKUNDENAVN, etc.) now sticks to top of viewport when scrolling main page
+  - Table headers use position: sticky with top: 0 - works properly without container constraints
+  - Improved UX: Single unified scroll experience instead of nested scrolling
+  - Pivot table and pivot chart now behave as one continuous page
 
 ### Version 1.31.4 (2025-12-11)
 - [x] **Fixed "Cannot set properties of null" Error** - Added safety checks for preset loading
