@@ -8589,7 +8589,7 @@ function getTopPerformers(data, limit = 10) {
 
     data.forEach(row => {
         const employee = row[COLUMNS.EMPLOYEE] || '(Unknown)';
-        const hours = parseFloat(row[COLUMNS.DURATION_DECIMAL]) || 0;
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
         const project = row[COLUMNS.CUSTOMER_PROJECT];
 
         if (!employeeStats[employee]) {
@@ -8634,7 +8634,7 @@ function getTopProjects(data, limit = 10) {
 
     data.forEach(row => {
         const project = row[COLUMNS.CUSTOMER_PROJECT] || '(No Project)';
-        const hours = parseFloat(row[COLUMNS.DURATION_DECIMAL]) || 0;
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
         const employee = row[COLUMNS.EMPLOYEE];
 
         if (!projectStats[project]) {
@@ -8672,7 +8672,7 @@ function getTimeDistribution(data) {
 
     data.forEach(row => {
         const dateStr = row[COLUMNS.DATE];
-        const hours = parseFloat(row[COLUMNS.DURATION_DECIMAL]) || 0;
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
 
         if (!dateStr) return;
 
@@ -8727,7 +8727,7 @@ function getBillingBreakdown(data) {
     };
 
     data.forEach(row => {
-        const hours = parseFloat(row[COLUMNS.DURATION_DECIMAL]) || 0;
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
         const billable = row[COLUMNS.BILLABLE];
         const billingClass = row[COLUMNS.MTYPE2] || '(Unknown)';
         const projectType = row[COLUMNS.PROJECT_TYPE] || '(Unknown)';
@@ -8760,7 +8760,7 @@ function getUtilizationMetrics(data) {
     data.forEach(row => {
         const employee = row[COLUMNS.EMPLOYEE] || '(Unknown)';
         const department = row[COLUMNS.DEPARTMENT] || '(Unknown)';
-        const hours = parseFloat(row[COLUMNS.DURATION_DECIMAL]) || 0;
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
         const billable = row[COLUMNS.BILLABLE];
         const dateStr = row[COLUMNS.DATE];
 
