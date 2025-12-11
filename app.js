@@ -67,6 +67,7 @@ let appSettings = {
 
 // CSV Column indices (0-based, subtract 1 from FIELD_CATALOG.md numbers)
 const COLUMNS = {
+    // Core existing fields
     MAIN_PRODUCT: 31,           // EG - Main Product (Project Task Time Tracking) - Field #32
     CUSTOMER_PROJECT: 2,        // Customer:Project - Field #3
     NAME: 1,                    // Name - Field #2
@@ -84,7 +85,50 @@ const COLUMNS = {
     MANAGER: 41,                // MManager - Field #42
     TEAM: 42,                   // Mteam - Field #43
     SUPERVISOR: 51,             // Supervisor - Field #52
-    JOB_GROUP: 58               // EG - Job Group - Field #59
+    JOB_GROUP: 58,              // EG - Job Group - Field #59
+
+    // Additional fields for comprehensive analysis
+    MKUNDENAVN: 0,              // MKundenavn (Customer Name) - Field #1
+    EXTERNAL_REFERENCE: 3,      // EG - External Reference - Field #4
+    PROJECT_NAME: 5,            // Project Name - Field #6
+    TIME_TRACKING: 6,           // Time Tracking - Field #7
+    TYPE: 7,                    // Type - Field #8
+    IFRS_ADJUSTED: 9,           // EG - To be IFRS adjusted - Field #10
+    ELIGIBLE_CAPITALIZATION: 10, // EG - Eligible for Capitalization - Field #11
+    SI: 11,                     // SI - Field #12
+    MTYPE: 12,                  // MTYPE - Field #13
+    NON_BILLABLE: 13,           // Non-billable - Field #14
+    BILLING_CLASS: 14,          // Billing Class - Field #15
+    DURATION: 17,               // Duration - Field #18
+    REVENUE_CATEGORY: 20,       // EG - Default Revenue Category - Field #21
+    UTILIZED: 21,               // Utilized - Field #22
+    SERVICE_ITEM: 23,           // Service Item - Field #24
+    INTERNAL_ID: 24,            // Internal ID - Field #25
+    PRODUCTIVE: 25,             // Productive - Field #26
+    MEMO: 27,                   // Memo - Field #28
+    DUR_R: 28,                  // Dur_r - Field #29
+    INTERNAL_MEMO: 29,          // EG - Internal Memo - Field #30
+    TASK_DELIVERY: 30,          // EG - Task Delivery - Field #31
+    MAIN_PRODUCT_ALT: 32,       // EG - Main Product - Field #33
+    SUB_PRODUCT: 33,            // EG - Sub Product - Field #34
+    EXTERNAL_ISSUE_NUMBER: 34,  // EG - External Issue Number - Field #35
+    APPROVAL_STATUS: 35,        // Approval Status - Field #36
+    AMOUNT_425: 36,             // amount_425 - Field #37
+    WEEK_OF: 37,                // Week Of - Field #38
+    MIS_JIRA: 38,               // MisJira - Field #39
+    MBILLABLE: 39,              // MBillable - Field #40
+    MBILLABLE_TYPE: 40,         // MBillableType - Field #41
+    HOURS_TO_BE_BILLED: 44,     // EG - Hours to be billed - Field #45
+    PRICE_LEVEL: 45,            // Price Level - Field #46
+    MEG_HTB_DEC: 46,            // MEGhtb_dec - Field #47
+    LOCATION: 48,               // Location - Field #49
+    BILLING_SUBSIDIARY: 49,     // Billing Subsidiary - Field #50
+    SUBSIDIARY_ALT: 52,         // Subsidiary (duplicate) - Field #53
+    TASK_DELIVERY_FIXED_PRICE: 53, // EG - Task Delivery Fixed Price Amount - Field #54
+    PARENT_TASK: 54,            // Parent Task - Field #55
+    FIXED_OR_TIME_BASED: 55,    // EG - Fixed or Time-based Item? - Field #56
+    RATE: 56,                   // Rate - Field #57
+    WORK_CALENDAR_HOURS: 57     // Work Calendar Hours - Field #58
 };
 
 // Auto-load CSV file on page load
@@ -3989,16 +4033,27 @@ function generatePivotFieldOptions(includeNone = true) {
     }
 
     options.push(`
-        <optgroup label="Time">
+        <optgroup label="⏰ Time & Date">
             <option value="month">Date (Month)</option>
+            <option value="date">Date</option>
+            <option value="weekOf">Week Of</option>
         </optgroup>
-        <optgroup label="Project & Product">
-            <option value="mainProduct">Main Product</option>
+        <optgroup label="🏢 Customer & Project">
+            <option value="mkundenavn">Customer Name (MKundenavn)</option>
+            <option value="name">Name</option>
             <option value="customerProject">Customer:Project</option>
+            <option value="projectName">Project Name</option>
             <option value="projectType">Project Type</option>
+            <option value="externalReference">External Reference</option>
         </optgroup>
-        <optgroup label="Employee & Organization">
-            <option value="name">Name (Employee)</option>
+        <optgroup label="📦 Product & Services">
+            <option value="mainProduct">Main Product (Time Tracking)</option>
+            <option value="mainProductAlt">Main Product (Alt)</option>
+            <option value="subProduct">Sub Product</option>
+            <option value="serviceItem">Service Item</option>
+        </optgroup>
+        <optgroup label="👤 Employee & Organization">
+            <option value="employee">Employee</option>
             <option value="fullName">Full Name</option>
             <option value="department">Department</option>
             <option value="jobGroup">Job Group</option>
@@ -4006,12 +4061,53 @@ function generatePivotFieldOptions(includeNone = true) {
             <option value="team">Team</option>
             <option value="supervisor">Supervisor</option>
             <option value="subsidiary">Subsidiary</option>
+            <option value="location">Location</option>
         </optgroup>
-        <optgroup label="Task & Billing">
-            <option value="mtype2">Type (MTYPE2)</option>
+        <optgroup label="📋 Task & Work">
             <option value="task">Task</option>
-            <option value="billable">Billable Status</option>
+            <option value="parentTask">Parent Task</option>
+            <option value="taskDelivery">Task Delivery</option>
             <option value="activityCode">Activity Code</option>
+            <option value="memo">Memo</option>
+            <option value="internalMemo">Internal Memo</option>
+            <option value="timeTracking">Time Tracking</option>
+        </optgroup>
+        <optgroup label="💰 Billing & Finance">
+            <option value="billable">Billable Status</option>
+            <option value="mbillable">MBillable</option>
+            <option value="mbillableType">MBillable Type</option>
+            <option value="billingClass">Billing Class</option>
+            <option value="nonBillable">Non-Billable</option>
+            <option value="billingSubsidiary">Billing Subsidiary</option>
+            <option value="priceLevel">Price Level</option>
+            <option value="rate">Rate</option>
+            <option value="hoursToBeBilled">Hours to be Billed</option>
+            <option value="fixedOrTimeBased">Fixed or Time-based</option>
+            <option value="taskDeliveryFixedPrice">Task Delivery Fixed Price</option>
+        </optgroup>
+        <optgroup label="📊 Classification & Type">
+            <option value="type">Type</option>
+            <option value="mtype">MTYPE</option>
+            <option value="mtype2">MTYPE2</option>
+            <option value="si">SI</option>
+            <option value="revenueCategory">Revenue Category</option>
+        </optgroup>
+        <optgroup label="✅ Status & Approval">
+            <option value="approvalStatus">Approval Status</option>
+            <option value="productive">Productive</option>
+            <option value="utilized">Utilized</option>
+        </optgroup>
+        <optgroup label="🔗 Integration & Reference">
+            <option value="externalIssueNumber">External Issue Number (JIRA)</option>
+            <option value="misJira">MisJira</option>
+            <option value="internalId">Internal ID</option>
+        </optgroup>
+        <optgroup label="📈 Finance & Accounting">
+            <option value="ifrsAdjusted">IFRS Adjusted</option>
+            <option value="eligibleCapitalization">Eligible for Capitalization</option>
+            <option value="amount425">Amount 425</option>
+            <option value="megHtbDec">MEGhtb_dec</option>
+            <option value="workCalendarHours">Work Calendar Hours</option>
         </optgroup>
     `);
 
@@ -4935,28 +5031,9 @@ function sortColumns(columns, fieldType) {
 // Get field value from row
 function getFieldValue(row, field) {
     const fieldMap = {
-        // Project & Product
-        'mainProduct': row[COLUMNS.MAIN_PRODUCT] || '(Empty)',
-        'customerProject': row[COLUMNS.CUSTOMER_PROJECT] || '(Empty)',
-        'projectType': row[COLUMNS.PROJECT_TYPE] || '(Empty)',
-
-        // Employee & Organization
-        'name': row[COLUMNS.NAME] || '(Empty)',
-        'fullName': row[COLUMNS.FULL_NAME] || '(Empty)',
-        'department': row[COLUMNS.DEPARTMENT] || '(Empty)',
-        'jobGroup': row[COLUMNS.JOB_GROUP] || '(Empty)',
-        'manager': row[COLUMNS.MANAGER] || '(Empty)',
-        'team': row[COLUMNS.TEAM] || '(Empty)',
-        'supervisor': row[COLUMNS.SUPERVISOR] || '(Empty)',
-        'subsidiary': row[COLUMNS.SUBSIDIARY] || '(Empty)',
-
-        // Task & Billing
-        'mtype2': row[COLUMNS.MTYPE2] || '(Empty)',
-        'task': row[COLUMNS.TASK] || '(Empty)',
-        'billable': row[COLUMNS.BILLABLE] === 'true' || row[COLUMNS.BILLABLE] === 'T' ? 'Billable' : 'Non-Billable',
-        'activityCode': row[COLUMNS.ACTIVITY_CODE] || '(Empty)',
-
-        // Time
+        // Time & Date
+        'date': row[COLUMNS.DATE] || '(Empty)',
+        'weekOf': row[COLUMNS.WEEK_OF] || '(Empty)',
         'month': (() => {
             const dateStr = row[COLUMNS.DATE];
             const rowDate = parseDate(dateStr);
@@ -4965,7 +5042,78 @@ function getFieldValue(row, field) {
                 return `${monthNames[rowDate.getMonth()]} ${rowDate.getFullYear()}`;
             }
             return '(Unknown)';
-        })()
+        })(),
+
+        // Customer & Project
+        'mkundenavn': row[COLUMNS.MKUNDENAVN] || '(Empty)',
+        'name': row[COLUMNS.NAME] || '(Empty)',
+        'customerProject': row[COLUMNS.CUSTOMER_PROJECT] || '(Empty)',
+        'projectName': row[COLUMNS.PROJECT_NAME] || '(Empty)',
+        'projectType': row[COLUMNS.PROJECT_TYPE] || '(Empty)',
+        'externalReference': row[COLUMNS.EXTERNAL_REFERENCE] || '(Empty)',
+
+        // Product & Services
+        'mainProduct': row[COLUMNS.MAIN_PRODUCT] || '(Empty)',
+        'mainProductAlt': row[COLUMNS.MAIN_PRODUCT_ALT] || '(Empty)',
+        'subProduct': row[COLUMNS.SUB_PRODUCT] || '(Empty)',
+        'serviceItem': row[COLUMNS.SERVICE_ITEM] || '(Empty)',
+
+        // Employee & Organization
+        'employee': row[COLUMNS.EMPLOYEE] || '(Empty)',
+        'fullName': row[COLUMNS.FULL_NAME] || '(Empty)',
+        'department': row[COLUMNS.DEPARTMENT] || '(Empty)',
+        'jobGroup': row[COLUMNS.JOB_GROUP] || '(Empty)',
+        'manager': row[COLUMNS.MANAGER] || '(Empty)',
+        'team': row[COLUMNS.TEAM] || '(Empty)',
+        'supervisor': row[COLUMNS.SUPERVISOR] || '(Empty)',
+        'subsidiary': row[COLUMNS.SUBSIDIARY] || '(Empty)',
+        'location': row[COLUMNS.LOCATION] || '(Empty)',
+
+        // Task & Work
+        'task': row[COLUMNS.TASK] || '(Empty)',
+        'parentTask': row[COLUMNS.PARENT_TASK] || '(Empty)',
+        'taskDelivery': row[COLUMNS.TASK_DELIVERY] || '(Empty)',
+        'activityCode': row[COLUMNS.ACTIVITY_CODE] || '(Empty)',
+        'memo': row[COLUMNS.MEMO] || '(Empty)',
+        'internalMemo': row[COLUMNS.INTERNAL_MEMO] || '(Empty)',
+        'timeTracking': row[COLUMNS.TIME_TRACKING] || '(Empty)',
+
+        // Billing & Finance
+        'billable': row[COLUMNS.BILLABLE] === 'true' || row[COLUMNS.BILLABLE] === 'T' ? 'Billable' : 'Non-Billable',
+        'mbillable': row[COLUMNS.MBILLABLE] || '(Empty)',
+        'mbillableType': row[COLUMNS.MBILLABLE_TYPE] || '(Empty)',
+        'billingClass': row[COLUMNS.BILLING_CLASS] || '(Empty)',
+        'nonBillable': row[COLUMNS.NON_BILLABLE] || '(Empty)',
+        'billingSubsidiary': row[COLUMNS.BILLING_SUBSIDIARY] || '(Empty)',
+        'priceLevel': row[COLUMNS.PRICE_LEVEL] || '(Empty)',
+        'rate': row[COLUMNS.RATE] || '(Empty)',
+        'hoursToBeBilled': row[COLUMNS.HOURS_TO_BE_BILLED] || '(Empty)',
+        'fixedOrTimeBased': row[COLUMNS.FIXED_OR_TIME_BASED] || '(Empty)',
+        'taskDeliveryFixedPrice': row[COLUMNS.TASK_DELIVERY_FIXED_PRICE] || '(Empty)',
+
+        // Classification & Type
+        'type': row[COLUMNS.TYPE] || '(Empty)',
+        'mtype': row[COLUMNS.MTYPE] || '(Empty)',
+        'mtype2': row[COLUMNS.MTYPE2] || '(Empty)',
+        'si': row[COLUMNS.SI] || '(Empty)',
+        'revenueCategory': row[COLUMNS.REVENUE_CATEGORY] || '(Empty)',
+
+        // Status & Approval
+        'approvalStatus': row[COLUMNS.APPROVAL_STATUS] || '(Empty)',
+        'productive': row[COLUMNS.PRODUCTIVE] || '(Empty)',
+        'utilized': row[COLUMNS.UTILIZED] || '(Empty)',
+
+        // Integration & Reference
+        'externalIssueNumber': row[COLUMNS.EXTERNAL_ISSUE_NUMBER] || '(Empty)',
+        'misJira': row[COLUMNS.MIS_JIRA] || '(Empty)',
+        'internalId': row[COLUMNS.INTERNAL_ID] || '(Empty)',
+
+        // Finance & Accounting
+        'ifrsAdjusted': row[COLUMNS.IFRS_ADJUSTED] || '(Empty)',
+        'eligibleCapitalization': row[COLUMNS.ELIGIBLE_CAPITALIZATION] || '(Empty)',
+        'amount425': row[COLUMNS.AMOUNT_425] || '(Empty)',
+        'megHtbDec': row[COLUMNS.MEG_HTB_DEC] || '(Empty)',
+        'workCalendarHours': row[COLUMNS.WORK_CALENDAR_HOURS] || '(Empty)'
     };
 
     return fieldMap[field] || '(Unknown)';

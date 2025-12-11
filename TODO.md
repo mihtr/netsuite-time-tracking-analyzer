@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.30.0
+- **Current Version**: v1.31.0
 - **Last Updated**: 2025-12-11
 - **Status**: Active Development
 
@@ -25,6 +25,24 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.31.0 (2025-12-11)
+- [x] **Complete Dataset Coverage in Pivot Builder** - All 59 CSV fields now available
+  - Expanded COLUMNS constant from 18 to 59 field mappings (app.js lines 69-132)
+  - Added 40+ new fields across all categories:
+    - ⏰ Time & Date (3 fields): Date, Week Of, Month
+    - 🏢 Customer & Project (6 fields): MKundenavn, Name, Customer:Project, Project Name, Project Type, External Reference
+    - 📦 Product & Services (4 fields): Main Product, Main Product Alt, Sub Product, Service Item
+    - 👤 Employee & Organization (9 fields): Employee, Full Name, Job Group, Department, Manager, Team, Supervisor, Subsidiary, Location
+    - 📋 Task & Work (7 fields): Task Name, Parent Task, Task Delivery, Memo, Internal Memo, Time Tracking, Activity Code
+    - 💰 Billing & Finance (11 fields): Billable, Billable Type, Billing Class, Class, Price Level, Rate, Hours to be Billed, Fixed/Time-based, Task Delivery Fixed Price, Duration, Duration Decimal
+    - 📊 Classification & Type (5 fields): Type, MTYPE, SI, Revenue Category, Main Product Task
+    - ✅ Status & Approval (3 fields): Approval Status, Productive, Utilized
+    - 🔗 Integration & Reference (3 fields): External Issue Number, MisJira, Internal ID
+    - 📈 Finance & Accounting (5 fields): IFRS Adjusted, Eligible Capitalization, Amount 425, MEGhtb_dec, Work Calendar Hours
+  - Updated generatePivotFieldOptions() with 10 organized optgroups with emoji icons (app.js lines 4027-4115)
+  - Updated getFieldValue() to handle all 59 field mappings (app.js lines 5032-5120)
+  - Enables comprehensive analysis across all dataset dimensions
 
 ### Version 1.30.0 (2025-12-11)
 - [x] **Dynamic PowerBI-like Pivot Builder** - Redesigned with add/remove field functionality
