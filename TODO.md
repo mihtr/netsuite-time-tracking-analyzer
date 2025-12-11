@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.31.1
+- **Current Version**: v1.31.2
 - **Last Updated**: 2025-12-11
 - **Status**: Active Development
 
@@ -25,6 +25,13 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.31.2 (2025-12-11)
+- [x] **Improved Sticky Header Alignment** - Headers now align to the very top of viewport when scrolling
+  - Removed top padding from .pivot-table-container (changed from padding: 20px 30px to padding: 0 30px 20px 30px)
+  - Adjusted max-height from calc(100vh - 400px) to calc(100vh - 380px) for more vertical space
+  - Sticky headers now flush with top edge when scrolling (no gap)
+  - Better visual experience matching PowerBI-style table behavior
 
 ### Version 1.31.1 (2025-12-11)
 - [x] **Sticky Headers in Pivot Builder** - Column headers now stay fixed when scrolling
