@@ -367,7 +367,9 @@
         .pivot-table-container {
             padding: 20px 30px;
             overflow-x: auto;
-            overflow-y: visible;
+            overflow-y: auto;
+            max-height: calc(100vh - 400px);
+            position: relative;
         }
 
         .pivot-table {
@@ -474,6 +476,16 @@
         .pivot-table td.has-value {
             color: #212529;
             font-weight: 500;
+        }
+
+        /* Dark mode support for pivot table sticky row labels */
+        body.dark-mode .pivot-table td.row-label {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        body.dark-mode .pivot-table td.has-value {
+            color: var(--text-primary);
         }
 
         table {
@@ -1592,7 +1604,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.31.0</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.31.1</span></p>
 
             <!-- Top Menu Bar -->
             <div class="top-menu-bar">

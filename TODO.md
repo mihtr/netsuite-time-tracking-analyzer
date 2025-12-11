@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.31.0
+- **Current Version**: v1.31.1
 - **Last Updated**: 2025-12-11
 - **Status**: Active Development
 
@@ -25,6 +25,14 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.31.1 (2025-12-11)
+- [x] **Sticky Headers in Pivot Builder** - Column headers now stay fixed when scrolling
+  - Updated `.pivot-table-container` CSS to enable vertical scrolling (overflow-y: auto)
+  - Added max-height constraint (calc(100vh - 400px)) to enable scrolling for large tables
+  - Sticky positioning already implemented: th.row-header (z-index: 5), th.month-header (z-index: 4), td.row-label (z-index: 2)
+  - Added dark mode support for sticky row labels (using CSS variables)
+  - Improved UX for analyzing large pivot tables with many rows
 
 ### Version 1.31.0 (2025-12-11)
 - [x] **Complete Dataset Coverage in Pivot Builder** - All 59 CSV fields now available
