@@ -1604,7 +1604,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.31.7</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.32.0</span></p>
 
             <!-- Top Menu Bar -->
             <div class="top-menu-bar">
@@ -1967,6 +1967,40 @@
                     <!-- Add Field Button -->
                     <button onclick="openCalcFieldEditor()" class="btn-secondary" style="width: 100%;">
                         ➕ Add Calculated Field
+                    </button>
+                </div>
+
+                <!-- Advanced Filters Panel -->
+                <div id="pivotFiltersPanel" style="margin: 20px 0; padding: 20px; background: var(--bg-secondary); border-radius: 8px; border: 2px solid #17a2b8;">
+                    <h3 style="color: #17a2b8; margin-bottom: 15px; font-size: 1.1em;">🔍 Advanced Filters</h3>
+                    <p style="font-size: 0.85em; color: var(--text-tertiary); margin-bottom: 15px;">
+                        Add additional filters beyond the top filters. Note: Top filters (date range, main product, etc.) already apply automatically.
+                    </p>
+
+                    <!-- Filter Logic Toggle -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-weight: 500; margin-right: 15px;">Filter Logic:</label>
+                        <label style="margin-right: 20px; cursor: pointer;">
+                            <input type="radio" name="pivotFilterLogic" value="AND" checked onchange="updatePivotFilterLogic()"> AND (all conditions must match)
+                        </label>
+                        <label style="cursor: pointer;">
+                            <input type="radio" name="pivotFilterLogic" value="OR" onchange="updatePivotFilterLogic()"> OR (any condition matches)
+                        </label>
+                    </div>
+
+                    <!-- Filter Rules List -->
+                    <div id="pivotFilterRules" style="margin-bottom: 15px; min-height: 40px;">
+                        <div style="text-align: center; color: var(--text-tertiary); font-size: 0.9em; padding: 10px;">
+                            No filters added. Top filters (date, product, department) still apply. Click "Add Filter" to add more conditions.
+                        </div>
+                    </div>
+
+                    <!-- Add Filter Button -->
+                    <button onclick="addPivotFilterRule()" class="btn-secondary" style="width: 100%;">
+                        ➕ Add Filter
+                    </button>
+                    <button onclick="clearAllPivotFilters()" class="btn-secondary" style="width: 100%; margin-top: 10px;">
+                        🗑️ Clear All Filters
                     </button>
                 </div>
 

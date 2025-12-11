@@ -4965,14 +4965,185 @@ function loadCalculatedFields() {
     }
 }
 
+// =============================================================================
+// PIVOT BUILDER ADVANCED FILTERS
+// =============================================================================
+
+// Global variable to store pivot filter rules
+let pivotFilterRules = [];
+let pivotFilterLogic = 'AND'; // 'AND' or 'OR'
+let pivotFilterCounter = 0;
+
+// Add a new filter rule
+function addPivotFilterRule() {
+    const ruleId = `filter_${pivotFilterCounter++}`;
+    const rulesContainer = document.getElementById('pivotFilterRules');
+
+    // Clear "no filters" message if this is the first rule
+    if (pivotFilterRules.length === 0) {
+        rulesContainer.innerHTML = '';
+    }
+
+    // Create filter rule HTML
+    const ruleHtml = `
+        <div id="${ruleId}" class="pivot-filter-rule" style="display: flex; gap: 8px; margin-bottom: 10px; padding: 10px; background: var(--bg-primary); border-radius: 4px; align-items: center;">
+            <!-- Field Selector -->
+            <select class="filter-field" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
+                ${generatePivotFieldOptions(false)}
+            </select>
+
+            <!-- Operator Selector -->
+            <select class="filter-operator" style="flex: 0 0 150px; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
+                <option value="equals">Equals</option>
+                <option value="notEquals">Not Equals</option>
+                <option value="contains">Contains</option>
+                <option value="notContains">Not Contains</option>
+                <option value="startsWith">Starts With</option>
+                <option value="endsWith">Ends With</option>
+                <option value="greaterThan">Greater Than</option>
+                <option value="lessThan">Less Than</option>
+                <option value="greaterOrEqual">Greater or Equal</option>
+                <option value="lessOrEqual">Less or Equal</option>
+                <option value="isEmpty">Is Empty</option>
+                <option value="isNotEmpty">Is Not Empty</option>
+            </select>
+
+            <!-- Value Input -->
+            <input type="text" class="filter-value" placeholder="Filter value" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
+
+            <!-- Remove Button -->
+            <button onclick="removePivotFilterRule('${ruleId}')" style="padding: 6px 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Remove filter">×</button>
+        </div>
+    `;
+
+    rulesContainer.insertAdjacentHTML('beforeend', ruleHtml);
+
+    // Add to rules array
+    pivotFilterRules.push({
+        id: ruleId,
+        field: '',
+        operator: 'equals',
+        value: ''
+    });
+}
+
+// Remove a filter rule
+function removePivotFilterRule(ruleId) {
+    const element = document.getElementById(ruleId);
+    if (element) {
+        element.remove();
+    }
+
+    // Remove from rules array
+    pivotFilterRules = pivotFilterRules.filter(rule => rule.id !== ruleId);
+
+    // Show "no filters" message if all rules removed
+    if (pivotFilterRules.length === 0) {
+        document.getElementById('pivotFilterRules').innerHTML = `
+            <div style="text-align: center; color: var(--text-tertiary); font-size: 0.9em; padding: 10px;">
+                No filters added. Top filters (date, product, department) still apply. Click "Add Filter" to add more conditions.
+            </div>
+        `;
+    }
+}
+
+// Update filter logic (AND/OR)
+function updatePivotFilterLogic() {
+    const selected = document.querySelector('input[name="pivotFilterLogic"]:checked');
+    pivotFilterLogic = selected ? selected.value : 'AND';
+}
+
+// Clear all filters
+function clearAllPivotFilters() {
+    pivotFilterRules = [];
+    document.getElementById('pivotFilterRules').innerHTML = `
+        <div style="text-align: center; color: var(--text-tertiary); font-size: 0.9em; padding: 10px;">
+            No filters added. Top filters (date, product, department) still apply. Click "Add Filter" to add more conditions.
+        </div>
+    `;
+}
+
+// Collect current filter rules from UI
+function collectPivotFilterRules() {
+    const rules = [];
+    document.querySelectorAll('.pivot-filter-rule').forEach(ruleElement => {
+        const field = ruleElement.querySelector('.filter-field').value;
+        const operator = ruleElement.querySelector('.filter-operator').value;
+        const value = ruleElement.querySelector('.filter-value').value;
+
+        if (field) {  // Only include if field is selected
+            rules.push({ field, operator, value });
+        }
+    });
+    return rules;
+}
+
+// Apply pivot filters to data
+function applyPivotFilters(data, rules, logic) {
+    if (!rules || rules.length === 0) {
+        return data;  // No filters, return all data
+    }
+
+    return data.filter(row => {
+        const results = rules.map(rule => evaluateFilterRule(row, rule));
+
+        if (logic === 'AND') {
+            return results.every(r => r === true);
+        } else {  // OR
+            return results.some(r => r === true);
+        }
+    });
+}
+
+// Evaluate a single filter rule against a row
+function evaluateFilterRule(row, rule) {
+    const fieldValue = String(getFieldValue(row, rule.field) || '').toLowerCase();
+    const filterValue = String(rule.value || '').toLowerCase();
+
+    switch (rule.operator) {
+        case 'equals':
+            return fieldValue === filterValue;
+        case 'notEquals':
+            return fieldValue !== filterValue;
+        case 'contains':
+            return fieldValue.includes(filterValue);
+        case 'notContains':
+            return !fieldValue.includes(filterValue);
+        case 'startsWith':
+            return fieldValue.startsWith(filterValue);
+        case 'endsWith':
+            return fieldValue.endsWith(filterValue);
+        case 'greaterThan':
+            return parseFloat(fieldValue) > parseFloat(filterValue);
+        case 'lessThan':
+            return parseFloat(fieldValue) < parseFloat(filterValue);
+        case 'greaterOrEqual':
+            return parseFloat(fieldValue) >= parseFloat(filterValue);
+        case 'lessOrEqual':
+            return parseFloat(fieldValue) <= parseFloat(filterValue);
+        case 'isEmpty':
+            return fieldValue === '' || fieldValue === '(empty)';
+        case 'isNotEmpty':
+            return fieldValue !== '' && fieldValue !== '(empty)';
+        default:
+            return true;
+    }
+}
+
 // Aggregate data based on pivot configuration
 async function aggregatePivotData(config) {
+    // Collect pivot-specific filter rules
+    const pivotRules = collectPivotFilterRules();
+
+    // Apply pivot filters on top of already filtered data (from top filters)
+    const pivotFilteredData = applyPivotFilters(filteredData, pivotRules, pivotFilterLogic);
+
     const aggregationMap = new Map();
     const chunkSize = 5000;
-    const totalRows = filteredData.length;
+    const totalRows = pivotFilteredData.length;
 
     for (let i = 0; i < totalRows; i += chunkSize) {
-        const chunk = filteredData.slice(i, Math.min(i + chunkSize, totalRows));
+        const chunk = pivotFilteredData.slice(i, Math.min(i + chunkSize, totalRows));
 
         chunk.forEach(row => {
             // Get row field values

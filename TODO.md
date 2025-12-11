@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.31.7
+- **Current Version**: v1.32.0
 - **Last Updated**: 2025-12-11
 - **Status**: Active Development
 
@@ -25,6 +25,29 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.32.0 (2025-12-11)
+- [x] **Advanced Filtering with AND/OR Conditions** - Comprehensive filtering system for Pivot Builder
+  - **Top filters already work**: Date range, Main Product, Project Type, Department filters automatically apply to pivot tables
+  - Added Advanced Filters panel to Pivot Builder with dynamic filter rules (index.html lines 1973-2005)
+  - Filter Logic: Toggle between AND (all conditions must match) and OR (any condition matches)
+  - 12 Filter Operators:
+    - Text: Equals, Not Equals, Contains, Not Contains, Starts With, Ends With
+    - Numeric: Greater Than, Less Than, Greater or Equal, Less or Equal
+    - Special: Is Empty, Is Not Empty
+  - All 59 dataset fields available for filtering (using generatePivotFieldOptions)
+  - Dynamic add/remove filter rules with × button
+  - Clear All Filters button to remove all custom filters
+  - Filter functions (app.js lines 4968-5131):
+    - addPivotFilterRule() - Adds filter rule UI
+    - removePivotFilterRule() - Removes filter rule
+    - updatePivotFilterLogic() - Toggles AND/OR logic
+    - clearAllPivotFilters() - Clears all rules
+    - collectPivotFilterRules() - Collects rules from UI
+    - applyPivotFilters() - Applies filters to data
+    - evaluateFilterRule() - Evaluates single rule
+  - Integration: aggregatePivotData() applies pivot filters on top of existing top filters (lines 5135-5139)
+  - Filters respect existing filtered data and add additional conditions
 
 ### Version 1.31.7 (2025-12-11)
 - [x] **Enhanced Sticky Header Browser Compatibility** - Added vendor prefixes for maximum compatibility
