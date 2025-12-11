@@ -8874,12 +8874,14 @@ function renderInsightsDashboard() {
     // Set all HTML at once
     container.innerHTML = html;
 
-    // Create all charts
-    createTopPerformersCharts(insights.topPerformers);
-    createTopProjectsInsightChart(insights.topProjects);
-    createTimeDistributionCharts(insights.timeDistribution);
-    createBillingCharts(insights.billingBreakdown);
-    createDepartmentUtilizationChart(insights.utilization.departments);
+    // Create all charts after DOM update
+    setTimeout(() => {
+        createTopPerformersCharts(insights.topPerformers);
+        createTopProjectsInsightChart(insights.topProjects);
+        createTimeDistributionCharts(insights.timeDistribution);
+        createBillingCharts(insights.billingBreakdown);
+        createDepartmentUtilizationChart(insights.utilization.departments);
+    }, 100);
 }
 
 // Build Top Performers HTML
