@@ -4908,7 +4908,15 @@ function renderCalcFieldsList() {
  * Populate the measure field dropdown with standard and calculated fields
  */
 function populateMeasureDropdown() {
-    const select = document.getElementById('pivotMeasureField');
+    // Note: This function was for the old static measure dropdown
+    // With the dynamic field system, measure dropdowns are created on-the-fly
+    // Check if we have any dynamic measure fields to update
+    const measureFields = document.querySelectorAll('.pivot-measure-field');
+
+    if (measureFields.length === 0) {
+        // No measure fields exist yet (probably not on Pivot Builder tab)
+        return;
+    }
 
     // Build options HTML
     let html = `
@@ -4926,7 +4934,15 @@ function populateMeasureDropdown() {
         html += '</optgroup>';
     }
 
-    select.innerHTML = html;
+    // Update all dynamic measure field dropdowns
+    measureFields.forEach(select => {
+        const currentValue = select.value;
+        select.innerHTML = html;
+        // Restore previous selection if it still exists
+        if (currentValue && select.querySelector(`option[value="${currentValue}"]`)) {
+            select.value = currentValue;
+        }
+    });
 }
 
 /**

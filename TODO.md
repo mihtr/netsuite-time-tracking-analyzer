@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.31.5
+- **Current Version**: v1.31.6
 - **Last Updated**: 2025-12-11
 - **Status**: Active Development
 
@@ -25,6 +25,16 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.31.6 (2025-12-11)
+- [x] **Fixed populateMeasureDropdown Error** - Updated function for dynamic field system
+  - Error: "TypeError: Cannot set properties of null (setting 'innerHTML')" in populateMeasureDropdown()
+  - Root cause: Function still referenced old static dropdown 'pivotMeasureField' that no longer exists
+  - Updated function to work with dynamic .pivot-measure-field elements (app.js lines 4910-4946)
+  - Added safety check: Returns early if no measure fields exist (not on Pivot Builder tab)
+  - Now updates all dynamic measure field dropdowns with calculated fields
+  - Preserves current selection when updating dropdown options
+  - Preset loading now works without errors
 
 ### Version 1.31.5 (2025-12-11)
 - [x] **Removed Inner Scrollbar and Fixed Sticky Headers** - Pivot table now flows with page
