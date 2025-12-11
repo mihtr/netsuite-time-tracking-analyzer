@@ -2244,23 +2244,34 @@
                         <div class="file-upload">
                             <label for="csvFileModal" class="file-label">Choose CSV File</label>
                             <input type="file" id="csvFileModal" accept=".csv" style="display: none;">
-                            <p style="margin: 10px 0 0 0; font-size: 0.9em; color: var(--text-secondary);">
+                            <p id="fileNameModal" style="margin: 10px 0 0 0; font-size: 0.9em; color: var(--text-secondary);">
                                 Select a NetSuite time tracking CSV file to import
                             </p>
+                        </div>
+
+                        <!-- Progress Indicator -->
+                        <div id="modalProgress" style="display: none; margin-top: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 6px; border-left: 4px solid #667eea;">
+                            <div class="loading" style="display: flex; align-items: center; gap: 15px;">
+                                <div class="spinner"></div>
+                                <div>
+                                    <div id="modalProgressText" style="font-weight: 600; margin-bottom: 5px;">Loading...</div>
+                                    <div id="modalProgressDetail" style="font-size: 0.85em; color: var(--text-secondary);">Preparing to load file...</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Import Statistics Section -->
-                    <div style="border-top: 2px solid var(--border-color); padding-top: 25px;">
+                    <div id="modalStatsSection" style="border-top: 2px solid var(--border-color); padding-top: 25px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            <h3 style="margin: 0; font-size: 1.1em; color: var(--text-primary);">📊 Import Statistics</h3>
+                            <h3 style="margin: 0; font-size: 1.1em; color: var(--text-primary);">📊 Last Import Statistics</h3>
                             <button onclick="openImportStats()" style="padding: 8px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9em;">
                                 View Details
                             </button>
                         </div>
-                        <p style="margin: 0; font-size: 0.9em; color: var(--text-secondary);">
-                            View detailed statistics and error log from last data import
-                        </p>
+                        <div id="modalStatsSummary" style="font-size: 0.9em; color: var(--text-secondary);">
+                            No import data available yet. Upload a file to see statistics.
+                        </div>
                     </div>
                 </div>
             </div>

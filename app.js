@@ -680,6 +680,28 @@ function parseCSVRows(text) {
     return rows;
 }
 
+// Get import statistics object with calculated fields
+function getImportStats() {
+    if (!rawData || rawData.length === 0) return null;
+
+    // Calculate additional stats
+    const totalHours = rawData.reduce((sum, row) => {
+        const dur = parseDecimal(row[COLUMNS.DUR_DEC]);
+        return sum + (isNaN(dur) ? 0 : dur);
+    }, 0);
+
+    const uniqueEmployees = new Set(rawData.map(row => row[COLUMNS.NAME])).size;
+
+    return {
+        totalRows: importStats.imported,
+        parseErrors: importStats.rejected,
+        totalHours: totalHours,
+        uniqueEmployees: uniqueEmployees,
+        fileName: importStats.fileName || currentFileName,
+        importTime: importStats.timestamp
+    };
+}
+
 // Generate import summary message
 function getImportSummary() {
     const stats = importStats;
@@ -6705,20 +6727,119 @@ function openDataImport() {
     const modal = document.getElementById('dataImportModal');
     if (modal) {
         modal.style.display = 'flex';
+        // Update stats summary if data exists
+        updateModalStatsSummary();
         // Setup file input handler if not already done
         const fileInput = document.getElementById('csvFileModal');
         if (fileInput && !fileInput.hasAttribute('data-listener-added')) {
-            fileInput.addEventListener('change', async function(e) {
+            fileInput.addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if (file) {
-                    await handleFileUpload(file);
-                    // Close modal after successful upload
-                    closeDataImportModal();
+                    document.getElementById('fileNameModal').textContent = `Selected: ${file.name}`;
+                    loadCSVFromFileModal(file);
                 }
             });
             fileInput.setAttribute('data-listener-added', 'true');
         }
     }
+}
+
+// Load CSV from modal with progress display
+function loadCSVFromFileModal(file) {
+    // Show progress indicator
+    const progressDiv = document.getElementById('modalProgress');
+    const progressText = document.getElementById('modalProgressText');
+    const progressDetail = document.getElementById('modalProgressDetail');
+
+    if (progressDiv) progressDiv.style.display = 'block';
+    if (progressText) progressText.textContent = 'Reading file...';
+    if (progressDetail) progressDetail.textContent = `Loading ${file.name}`;
+
+    currentFileName = file.name; // Store filename for import stats
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const text = e.target.result;
+            if (progressText) progressText.textContent = 'Parsing CSV data...';
+            if (progressDetail) progressDetail.textContent = 'Processing rows...';
+
+            await parseCSV(text, true); // Enable progress tracking
+
+            // Hide progress
+            if (progressDiv) progressDiv.style.display = 'none';
+
+            logImportStats(); // Log detailed import statistics
+            await saveToCache(rawData); // Cache the parsed data in IndexedDB
+
+            // Update statistics summary in modal
+            updateModalStatsSummary();
+
+            // Show success message
+            showSuccess(getImportSummary());
+
+            populateFilters();
+            updatePresetDropdown();
+
+            // Try to load "default" preset, otherwise apply filters normally
+            const presets = getFilterPresets();
+            if (presets['default']) {
+                loadDefaultPreset();
+            } else {
+                applyFilters();
+            }
+        } catch (error) {
+            if (progressDiv) progressDiv.style.display = 'none';
+            showError('Error parsing CSV file: ' + error.message);
+            console.error(error);
+        }
+    };
+    reader.onerror = function() {
+        if (progressDiv) progressDiv.style.display = 'none';
+        showError('Error reading file');
+    };
+    reader.readAsText(file, 'UTF-8');
+}
+
+// Update modal statistics summary
+function updateModalStatsSummary() {
+    const summaryDiv = document.getElementById('modalStatsSummary');
+    if (!summaryDiv) return;
+
+    if (!rawData || rawData.length === 0) {
+        summaryDiv.innerHTML = '<p style="margin: 0; color: var(--text-secondary);">No import data available yet. Upload a file to see statistics.</p>';
+        return;
+    }
+
+    const stats = getImportStats();
+    if (!stats) {
+        summaryDiv.innerHTML = '<p style="margin: 0; color: var(--text-secondary);">No import statistics available.</p>';
+        return;
+    }
+
+    summaryDiv.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+            <div style="padding: 12px; background: var(--bg-primary); border-radius: 6px; border: 1px solid var(--border-color);">
+                <div style="font-size: 0.8em; color: var(--text-tertiary); margin-bottom: 5px;">Total Records</div>
+                <div style="font-size: 1.3em; font-weight: 600; color: var(--text-primary);">${formatNumber(stats.totalRows)}</div>
+            </div>
+            <div style="padding: 12px; background: var(--bg-primary); border-radius: 6px; border: 1px solid var(--border-color);">
+                <div style="font-size: 0.8em; color: var(--text-tertiary); margin-bottom: 5px;">Parse Errors</div>
+                <div style="font-size: 1.3em; font-weight: 600; color: ${stats.parseErrors > 0 ? '#dc3545' : '#28a745'};">${stats.parseErrors}</div>
+            </div>
+            <div style="padding: 12px; background: var(--bg-primary); border-radius: 6px; border: 1px solid var(--border-color);">
+                <div style="font-size: 0.8em; color: var(--text-tertiary); margin-bottom: 5px;">Total Hours</div>
+                <div style="font-size: 1.3em; font-weight: 600; color: var(--text-primary);">${formatNumber(stats.totalHours)}</div>
+            </div>
+            <div style="padding: 12px; background: var(--bg-primary); border-radius: 6px; border: 1px solid var(--border-color);">
+                <div style="font-size: 0.8em; color: var(--text-tertiary); margin-bottom: 5px;">Unique Employees</div>
+                <div style="font-size: 1.3em; font-weight: 600; color: var(--text-primary);">${stats.uniqueEmployees}</div>
+            </div>
+        </div>
+        <p style="margin: 15px 0 0 0; font-size: 0.85em; color: var(--text-tertiary);">
+            File: ${stats.fileName || 'Unknown'} • Imported: ${stats.importTime ? new Date(stats.importTime).toLocaleString() : 'Unknown'}
+        </p>
+    `;
 }
 
 // Close Data Import Modal
