@@ -22,6 +22,9 @@ let pivotBuilderSortState = {
 let pivotDrilldownData = new Map(); // Store detail records for drill-down
 let drilldownRecords = []; // Current drilldown records for sorting/export
 let drilldownSortState = { column: null, direction: 'asc' };
+let pivotCalculatedFields = []; // Calculated field definitions for Pivot Builder
+let calculatedFieldEngine = null; // Formula engine instance
+let pivotChartInstance = null; // Chart.js instance for pivot charts
 let importStats = {
     totalLines: 0,
     headerSkipped: 0,
@@ -3956,6 +3959,7 @@ function clearEmployeeFilter() {
 // Initialize Pivot Builder view
 function initializePivotBuilder() {
     loadPivotPresetsIntoDropdown();
+    loadCalculatedFields();
 }
 
 // Build custom pivot table based on user configuration
@@ -4003,6 +4007,626 @@ async function buildPivotTable() {
         alert('Error building pivot table: ' + error.message);
     } finally {
         loading.style.display = 'none';
+    }
+}
+
+// =============================================================================
+// AGGREGATION LIBRARY - Statistical Functions for Pivot Builder
+// =============================================================================
+
+const AggregationLibrary = {
+    /**
+     * Calculate median value from array
+     */
+    median(values) {
+        if (!values || values.length === 0) return 0;
+        const sorted = [...values].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 === 0
+            ? (sorted[mid - 1] + sorted[mid]) / 2
+            : sorted[mid];
+    },
+
+    /**
+     * Calculate standard deviation
+     */
+    stddev(values) {
+        if (!values || values.length === 0) return 0;
+        const avg = values.reduce((a, b) => a + b, 0) / values.length;
+        const variance = values.reduce((sum, val) =>
+            sum + Math.pow(val - avg, 2), 0) / values.length;
+        return Math.sqrt(variance);
+    },
+
+    /**
+     * Calculate percentile (0-100)
+     */
+    percentile(values, p) {
+        if (!values || values.length === 0) return 0;
+        const sorted = [...values].sort((a, b) => a - b);
+        const index = (p / 100) * (sorted.length - 1);
+        const lower = Math.floor(index);
+        const upper = Math.ceil(index);
+        const weight = index - lower;
+        return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+    },
+
+    /**
+     * Find most frequent value (mode)
+     */
+    mode(values) {
+        if (!values || values.length === 0) return 0;
+        const frequency = {};
+        let maxFreq = 0;
+        let mode = values[0];
+
+        values.forEach(val => {
+            frequency[val] = (frequency[val] || 0) + 1;
+            if (frequency[val] > maxFreq) {
+                maxFreq = frequency[val];
+                mode = val;
+            }
+        });
+
+        return mode;
+    }
+};
+
+// =============================================================================
+// CALCULATED FIELD ENGINE - Excel-like Formula Parser and Evaluator
+// =============================================================================
+
+class CalculatedFieldEngine {
+    constructor() {
+        // Available functions for formulas
+        this.functions = {
+            'IF': this.funcIf.bind(this),
+            'SUM': this.funcSum.bind(this),
+            'AVG': this.funcAvg.bind(this),
+            'COUNT': this.funcCount.bind(this),
+            'CONCAT': this.funcConcat.bind(this),
+            'MAX': this.funcMax.bind(this),
+            'MIN': this.funcMin.bind(this),
+            'ABS': this.funcAbs.bind(this),
+            'ROUND': this.funcRound.bind(this)
+        };
+
+        // Field name to COLUMNS mapping
+        this.fieldMap = {
+            'DURATION': 'durDec',
+            'BILLABLE': 'billable',
+            'EMPLOYEE': 'name',
+            'PROJECT': 'customerProject',
+            'DEPARTMENT': 'department',
+            'TYPE': 'mtype2',
+            'TASK': 'task',
+            'MAIN_PRODUCT': 'mainProduct',
+            'PROJECT_TYPE': 'projectType',
+            'DATE': 'date',
+            'ACTIVITY_CODE': 'activityCode',
+            'MANAGER': 'manager',
+            'TEAM': 'mteam',
+            'SUPERVISOR': 'supervisor',
+            'JOB_GROUP': 'jobGroup'
+        };
+    }
+
+    // Function implementations
+    funcIf(condition, trueVal, falseVal) {
+        return condition ? trueVal : falseVal;
+    }
+
+    funcSum(...args) {
+        return args.reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+    }
+
+    funcAvg(...args) {
+        const nums = args.filter(v => !isNaN(parseFloat(v)));
+        if (nums.length === 0) return 0;
+        return nums.reduce((sum, val) => sum + parseFloat(val), 0) / nums.length;
+    }
+
+    funcCount(...args) {
+        return args.length;
+    }
+
+    funcConcat(...args) {
+        return args.join('');
+    }
+
+    funcMax(...args) {
+        const nums = args.map(v => parseFloat(v)).filter(v => !isNaN(v));
+        return nums.length > 0 ? Math.max(...nums) : 0;
+    }
+
+    funcMin(...args) {
+        const nums = args.map(v => parseFloat(v)).filter(v => !isNaN(v));
+        return nums.length > 0 ? Math.min(...nums) : 0;
+    }
+
+    funcAbs(val) {
+        return Math.abs(parseFloat(val) || 0);
+    }
+
+    funcRound(val, decimals = 0) {
+        return Math.round((parseFloat(val) || 0) * Math.pow(10, decimals)) / Math.pow(10, decimals);
+    }
+
+    /**
+     * Validate formula syntax and field references
+     */
+    validateFormula(formula) {
+        const errors = [];
+
+        if (!formula || formula.trim().length === 0) {
+            errors.push('Formula cannot be empty');
+            return { valid: false, errors };
+        }
+
+        try {
+            // Check for balanced parentheses
+            let parenCount = 0;
+            for (let char of formula) {
+                if (char === '(') parenCount++;
+                if (char === ')') parenCount--;
+                if (parenCount < 0) {
+                    errors.push('Unmatched closing parenthesis');
+                    break;
+                }
+            }
+            if (parenCount > 0) {
+                errors.push('Unmatched opening parenthesis');
+            }
+
+            // Check for valid function names
+            const funcPattern = /([A-Z_]+)\s*\(/g;
+            let match;
+            while ((match = funcPattern.exec(formula)) !== null) {
+                const funcName = match[1];
+                if (!this.functions[funcName]) {
+                    errors.push(`Unknown function: ${funcName}`);
+                }
+            }
+
+            // Check for field references
+            const fieldPattern = /[A-Z_]+/g;
+            const fieldMatches = formula.match(fieldPattern);
+            if (fieldMatches) {
+                fieldMatches.forEach(field => {
+                    // Skip if it's a function name
+                    if (this.functions[field]) return;
+                    // Check if it's a valid field
+                    if (!this.fieldMap[field]) {
+                        errors.push(`Unknown field: ${field}`);
+                    }
+                });
+            }
+
+        } catch (error) {
+            errors.push(`Syntax error: ${error.message}`);
+        }
+
+        return {
+            valid: errors.length === 0,
+            errors
+        };
+    }
+
+    /**
+     * Compile formula into executable function
+     */
+    compileFormula(formula) {
+        // Replace field names with row data access
+        let compiledFormula = formula;
+
+        // Replace field references
+        Object.keys(this.fieldMap).forEach(fieldName => {
+            const fieldKey = this.fieldMap[fieldName];
+            const regex = new RegExp(`\\b${fieldName}\\b`, 'g');
+            compiledFormula = compiledFormula.replace(regex, `(row['${fieldKey}'])`);
+        });
+
+        // Replace function calls with engine methods
+        Object.keys(this.functions).forEach(funcName => {
+            const regex = new RegExp(`\\b${funcName}\\s*\\(`, 'g');
+            compiledFormula = compiledFormula.replace(regex, `engine.functions['${funcName}'](`);
+        });
+
+        // Create executable function
+        try {
+            return new Function('row', 'engine', `
+                try {
+                    return ${compiledFormula};
+                } catch (error) {
+                    console.error('Formula execution error:', error);
+                    return 0;
+                }
+            `);
+        } catch (error) {
+            console.error('Formula compilation error:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Evaluate formula for a given row
+     */
+    evaluateFormula(compiledFn, row) {
+        if (!compiledFn) return 0;
+
+        try {
+            const result = compiledFn(row, this);
+            return isNaN(result) ? 0 : result;
+        } catch (error) {
+            console.error('Formula evaluation error:', error);
+            return 0;
+        }
+    }
+
+    /**
+     * Parse number from row data (handles decimal comma)
+     */
+    parseNumber(value) {
+        if (typeof value === 'number') return value;
+        if (typeof value === 'string') {
+            // Handle decimal comma (European format)
+            return parseFloat(value.replace(',', '.')) || 0;
+        }
+        return 0;
+    }
+}
+
+// Initialize the calculated field engine
+calculatedFieldEngine = new CalculatedFieldEngine();
+
+// =============================================================================
+// CALCULATED FIELD UI FUNCTIONS
+// =============================================================================
+
+/**
+ * Open the calculated field editor modal
+ */
+function openCalcFieldEditor(fieldId = null) {
+    const modal = document.getElementById('calcFieldEditorModal');
+    const nameInput = document.getElementById('calcFieldName');
+    const formulaInput = document.getElementById('calcFieldFormula');
+    const editingIdInput = document.getElementById('calcFieldEditingId');
+    const validationDiv = document.getElementById('calcFieldValidation');
+    const previewDiv = document.getElementById('calcFieldPreview');
+
+    // Clear previous inputs
+    nameInput.value = '';
+    formulaInput.value = '';
+    editingIdInput.value = '';
+    validationDiv.style.display = 'none';
+    previewDiv.style.display = 'none';
+
+    // If editing existing field, load it
+    if (fieldId) {
+        const field = pivotCalculatedFields.find(f => f.id === fieldId);
+        if (field) {
+            nameInput.value = field.name;
+            formulaInput.value = field.formula;
+            editingIdInput.value = fieldId;
+        }
+    }
+
+    modal.style.display = 'block';
+}
+
+/**
+ * Close the calculated field editor modal
+ */
+function closeCalcFieldEditor() {
+    document.getElementById('calcFieldEditorModal').style.display = 'none';
+}
+
+/**
+ * Insert field reference into formula at cursor position
+ */
+function insertFieldReference() {
+    const select = document.getElementById('calcFieldInsert');
+    const textarea = document.getElementById('calcFieldFormula');
+    const fieldName = select.value;
+
+    if (fieldName) {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+
+        textarea.value = text.substring(0, start) + fieldName + text.substring(end);
+        textarea.selectionStart = textarea.selectionEnd = start + fieldName.length;
+        textarea.focus();
+
+        // Reset select
+        select.value = '';
+    }
+}
+
+/**
+ * Insert function template into formula at cursor position
+ */
+function insertFunction() {
+    const select = document.getElementById('calcFunctionInsert');
+    const textarea = document.getElementById('calcFieldFormula');
+    const functionTemplate = select.value;
+
+    if (functionTemplate) {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+
+        textarea.value = text.substring(0, start) + functionTemplate + text.substring(end);
+        textarea.selectionStart = textarea.selectionEnd = start + functionTemplate.length;
+        textarea.focus();
+
+        // Reset select
+        select.value = '';
+    }
+}
+
+/**
+ * Validate the formula
+ */
+function validateCalcField() {
+    const formula = document.getElementById('calcFieldFormula').value;
+    const validationDiv = document.getElementById('calcFieldValidation');
+
+    if (!formula.trim()) {
+        validationDiv.innerHTML = '<div style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px;">⚠️ Please enter a formula</div>';
+        validationDiv.style.display = 'block';
+        return;
+    }
+
+    const validation = calculatedFieldEngine.validateFormula(formula);
+
+    if (validation.valid) {
+        validationDiv.innerHTML = '<div style="background: #d4edda; color: #155724; padding: 10px; border-radius: 4px;">✅ Formula is valid!</div>';
+    } else {
+        const errorList = validation.errors.map(err => `<li>${err}</li>`).join('');
+        validationDiv.innerHTML = `
+            <div style="background: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px;">
+                <strong>❌ Formula has errors:</strong>
+                <ul style="margin: 5px 0 0 20px;">${errorList}</ul>
+            </div>
+        `;
+    }
+
+    validationDiv.style.display = 'block';
+}
+
+/**
+ * Preview the calculated field with sample data
+ */
+function previewCalcField() {
+    const formula = document.getElementById('calcFieldFormula').value;
+    const previewDiv = document.getElementById('calcFieldPreview');
+    const previewContent = document.getElementById('calcFieldPreviewContent');
+
+    if (!formula.trim()) {
+        showError('Please enter a formula to preview');
+        return;
+    }
+
+    // Validate first
+    const validation = calculatedFieldEngine.validateFormula(formula);
+    if (!validation.valid) {
+        showError('Formula has errors. Please validate first.');
+        return;
+    }
+
+    // Compile formula
+    const compiledFn = calculatedFieldEngine.compileFormula(formula);
+    if (!compiledFn) {
+        showError('Failed to compile formula');
+        return;
+    }
+
+    // Get first 5 rows of filtered data
+    const sampleRows = filteredData.slice(0, 5);
+    if (sampleRows.length === 0) {
+        previewContent.innerHTML = '<div style="color: var(--text-tertiary);">No data available. Please load data first.</div>';
+        previewDiv.style.display = 'block';
+        return;
+    }
+
+    // Evaluate formula for each sample row
+    let html = '<table style="width: 100%; border-collapse: collapse;">';
+    html += '<tr style="border-bottom: 2px solid var(--border-color);"><th style="padding: 8px; text-align: left;">Row</th><th style="padding: 8px; text-align: right;">Result</th></tr>';
+
+    sampleRows.forEach((row, idx) => {
+        const result = calculatedFieldEngine.evaluateFormula(compiledFn, row);
+        const displayValue = typeof result === 'number' ? formatNumber(result) : result;
+        html += `<tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 8px;">Row ${idx + 1}</td><td style="padding: 8px; text-align: right;">${displayValue}</td></tr>`;
+    });
+
+    html += '</table>';
+    previewContent.innerHTML = html;
+    previewDiv.style.display = 'block';
+}
+
+/**
+ * Save the calculated field
+ */
+function saveCalcField() {
+    const name = document.getElementById('calcFieldName').value.trim();
+    const formula = document.getElementById('calcFieldFormula').value.trim();
+    const editingId = document.getElementById('calcFieldEditingId').value;
+
+    // Validate inputs
+    if (!name) {
+        showError('Please enter a field name');
+        return;
+    }
+
+    if (!formula) {
+        showError('Please enter a formula');
+        return;
+    }
+
+    // Validate formula
+    const validation = calculatedFieldEngine.validateFormula(formula);
+    if (!validation.valid) {
+        showError('Formula has errors: ' + validation.errors.join(', '));
+        return;
+    }
+
+    // Compile formula
+    const compiledFn = calculatedFieldEngine.compileFormula(formula);
+    if (!compiledFn) {
+        showError('Failed to compile formula');
+        return;
+    }
+
+    // Create or update field
+    if (editingId) {
+        // Update existing field
+        const field = pivotCalculatedFields.find(f => f.id === editingId);
+        if (field) {
+            field.name = name;
+            field.formula = formula;
+            field.compiledFn = compiledFn;
+        }
+    } else {
+        // Create new field
+        const fieldId = 'cf_' + Date.now();
+        pivotCalculatedFields.push({
+            id: fieldId,
+            name: name,
+            formula: formula,
+            dataType: 'number',
+            compiledFn: compiledFn
+        });
+    }
+
+    // Save to localStorage
+    const fieldsToSave = pivotCalculatedFields.map(f => ({
+        id: f.id,
+        name: f.name,
+        formula: f.formula,
+        dataType: f.dataType
+    }));
+    localStorage.setItem('pivotCalculatedFields', JSON.stringify(fieldsToSave));
+
+    // Update UI
+    renderCalcFieldsList();
+    populateMeasureDropdown();
+
+    // Close modal
+    closeCalcFieldEditor();
+
+    showSuccess(`Calculated field "${name}" saved successfully!`);
+}
+
+/**
+ * Delete a calculated field
+ */
+function deleteCalcField(fieldId) {
+    if (!confirm('Are you sure you want to delete this calculated field?')) {
+        return;
+    }
+
+    // Remove from array
+    pivotCalculatedFields = pivotCalculatedFields.filter(f => f.id !== fieldId);
+
+    // Save to localStorage
+    const fieldsToSave = pivotCalculatedFields.map(f => ({
+        id: f.id,
+        name: f.name,
+        formula: f.formula,
+        dataType: f.dataType
+    }));
+    localStorage.setItem('pivotCalculatedFields', JSON.stringify(fieldsToSave));
+
+    // Update UI
+    renderCalcFieldsList();
+    populateMeasureDropdown();
+
+    showSuccess('Calculated field deleted successfully');
+}
+
+/**
+ * Render the list of calculated fields
+ */
+function renderCalcFieldsList() {
+    const listDiv = document.getElementById('calcFieldsList');
+
+    if (pivotCalculatedFields.length === 0) {
+        listDiv.innerHTML = `
+            <div style="text-align: center; color: var(--text-tertiary); font-size: 0.9em; padding: 10px;">
+                No calculated fields yet. Click "Add Calculated Field" to create one.
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    pivotCalculatedFields.forEach(field => {
+        html += `
+            <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">${field.name}</div>
+                        <div style="font-size: 0.85em; color: var(--text-secondary); font-family: 'Courier New', monospace;">${field.formula}</div>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <button onclick="openCalcFieldEditor('${field.id}')" class="btn-secondary" style="padding: 6px 12px; font-size: 0.85em;">
+                            ✏️ Edit
+                        </button>
+                        <button onclick="deleteCalcField('${field.id}')" class="btn-secondary" style="padding: 6px 12px; font-size: 0.85em; background: #dc3545;">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    listDiv.innerHTML = html;
+}
+
+/**
+ * Populate the measure field dropdown with standard and calculated fields
+ */
+function populateMeasureDropdown() {
+    const select = document.getElementById('pivotMeasureField');
+
+    // Build options HTML
+    let html = `
+        <optgroup label="Standard Measures">
+            <option value="durDec">Duration Hours (dur_dec)</option>
+            <option value="count">Record Count</option>
+        </optgroup>
+    `;
+
+    if (pivotCalculatedFields.length > 0) {
+        html += '<optgroup label="Calculated Fields">';
+        pivotCalculatedFields.forEach(field => {
+            html += `<option value="${field.id}">${field.name}</option>`;
+        });
+        html += '</optgroup>';
+    }
+
+    select.innerHTML = html;
+}
+
+/**
+ * Load calculated fields from localStorage on init
+ */
+function loadCalculatedFields() {
+    const saved = localStorage.getItem('pivotCalculatedFields');
+    if (saved) {
+        try {
+            const fields = JSON.parse(saved);
+            pivotCalculatedFields = fields.map(f => ({
+                ...f,
+                compiledFn: calculatedFieldEngine.compileFormula(f.formula)
+            }));
+            renderCalcFieldsList();
+            populateMeasureDropdown();
+        } catch (error) {
+            console.error('Error loading calculated fields:', error);
+        }
     }
 }
 
@@ -4111,6 +4735,16 @@ function getFieldValue(row, field) {
 
 // Get measure value from row
 function getMeasureValue(row, measureField) {
+    // Check if it's a calculated field
+    if (measureField && measureField.startsWith('cf_')) {
+        const calcField = pivotCalculatedFields.find(f => f.id === measureField);
+        if (calcField && calcField.compiledFn) {
+            return calculatedFieldEngine.evaluateFormula(calcField.compiledFn, row);
+        }
+        return 0;
+    }
+
+    // Standard measure fields
     if (measureField === 'count') {
         return 1; // Each row counts as 1
     } else if (measureField === 'durDec') {
@@ -4195,6 +4829,32 @@ function renderPivotTable(aggregatedData, config) {
                 break;
             case 'max':
                 aggregatedValue = item.max !== -Infinity ? item.max : 0;
+                break;
+            // NEW STATISTICAL AGGREGATIONS
+            case 'median':
+                aggregatedValue = AggregationLibrary.median(item.values);
+                break;
+            case 'stddev':
+                aggregatedValue = AggregationLibrary.stddev(item.values);
+                break;
+            case 'percentile_25':
+                aggregatedValue = AggregationLibrary.percentile(item.values, 25);
+                break;
+            case 'percentile_50':
+                aggregatedValue = AggregationLibrary.percentile(item.values, 50);
+                break;
+            case 'percentile_75':
+                aggregatedValue = AggregationLibrary.percentile(item.values, 75);
+                break;
+            case 'percentile_90':
+                aggregatedValue = AggregationLibrary.percentile(item.values, 90);
+                break;
+            case 'mode':
+                aggregatedValue = AggregationLibrary.mode(item.values);
+                break;
+            default:
+                // Fall back to sum if unknown aggregation
+                aggregatedValue = item.sum;
                 break;
         }
 
@@ -4875,7 +5535,14 @@ function savePivotPreset() {
         // Save chart swap state
         chartSwapped: document.getElementById('pivotChartSwapAxes')?.dataset.swapped === 'true',
         // Save max items
-        chartMaxItems: parseInt(document.getElementById('pivotChartMaxItems')?.value) || 20
+        chartMaxItems: parseInt(document.getElementById('pivotChartMaxItems')?.value) || 20,
+        // Save calculated fields (exclude compiled functions)
+        calculatedFields: pivotCalculatedFields.map(f => ({
+            id: f.id,
+            name: f.name,
+            formula: f.formula,
+            dataType: f.dataType
+        }))
     };
 
     try {
@@ -4977,6 +5644,38 @@ function loadPivotPreset() {
                 } else {
                     maxItemsInput.value = '20';
                 }
+            }
+
+            // Restore calculated fields
+            if (config.calculatedFields && Array.isArray(config.calculatedFields)) {
+                pivotCalculatedFields = config.calculatedFields.map(f => {
+                    const calcField = {
+                        id: f.id,
+                        name: f.name,
+                        formula: f.formula,
+                        dataType: f.dataType || 'number',
+                        compiledFn: null
+                    };
+                    // Recompile the formula
+                    try {
+                        calcField.compiledFn = calculatedFieldEngine.compileFormula(f.formula);
+                    } catch (error) {
+                        console.error(`Error recompiling formula for field ${f.name}:`, error);
+                    }
+                    return calcField;
+                });
+                // Update UI
+                renderCalcFieldsList();
+                populateMeasureDropdown();
+                // Save to localStorage
+                localStorage.setItem('pivotCalculatedFields', JSON.stringify(
+                    pivotCalculatedFields.map(f => ({
+                        id: f.id,
+                        name: f.name,
+                        formula: f.formula,
+                        dataType: f.dataType
+                    }))
+                ));
             }
 
             // Auto-build pivot table after loading preset
@@ -5260,6 +5959,260 @@ function exportPivotTableToCSV() {
     } catch (error) {
         alert('Error exporting pivot table: ' + error.message);
         console.error('Export error:', error);
+    }
+}
+
+// Export pivot table to Excel with formatting
+function exportPivotToExcel() {
+    const config = window.lastPivotConfig;
+    const aggregatedData = window.lastPivotData;
+
+    if (!config || !aggregatedData || aggregatedData.length === 0) {
+        alert('Please build a pivot table first before exporting');
+        return;
+    }
+
+    // Check if XLSX library is loaded
+    if (typeof XLSX === 'undefined') {
+        alert('Excel export library not loaded. Please refresh the page and try again.');
+        return;
+    }
+
+    try {
+        // Group data by rows and columns (same logic as renderPivotTable)
+        const rowsMap = new Map();
+        const columnsSet = new Set();
+
+        aggregatedData.forEach(item => {
+            const rowKey = item.rowValues.join('|');
+            if (!rowsMap.has(rowKey)) {
+                rowsMap.set(rowKey, {
+                    rowValues: item.rowValues,
+                    columns: {}
+                });
+            }
+
+            const rowEntry = rowsMap.get(rowKey);
+            const columnKey = item.columnValue || '_total';
+
+            if (item.columnValue) {
+                columnsSet.add(item.columnValue);
+            }
+
+            // Calculate aggregated value based on aggregation type
+            let aggregatedValue = 0;
+            switch (config.aggregation) {
+                case 'sum':
+                    aggregatedValue = item.sum;
+                    break;
+                case 'avg':
+                    aggregatedValue = item.count > 0 ? item.sum / item.count : 0;
+                    break;
+                case 'count':
+                    aggregatedValue = item.count;
+                    break;
+                case 'min':
+                    aggregatedValue = item.min !== Infinity ? item.min : 0;
+                    break;
+                case 'max':
+                    aggregatedValue = item.max !== -Infinity ? item.max : 0;
+                    break;
+                case 'median':
+                    aggregatedValue = AggregationLibrary.median(item.values);
+                    break;
+                case 'stddev':
+                    aggregatedValue = AggregationLibrary.stddev(item.values);
+                    break;
+                case 'percentile_25':
+                    aggregatedValue = AggregationLibrary.percentile(item.values, 25);
+                    break;
+                case 'percentile_50':
+                    aggregatedValue = AggregationLibrary.percentile(item.values, 50);
+                    break;
+                case 'percentile_75':
+                    aggregatedValue = AggregationLibrary.percentile(item.values, 75);
+                    break;
+                case 'percentile_90':
+                    aggregatedValue = AggregationLibrary.percentile(item.values, 90);
+                    break;
+                case 'mode':
+                    aggregatedValue = AggregationLibrary.mode(item.values);
+                    break;
+            }
+
+            rowEntry.columns[columnKey] = aggregatedValue;
+        });
+
+        // Sort columns
+        const sortedColumns = config.column ? sortColumns(Array.from(columnsSet), config.column) : [];
+
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+
+        // Prepare data array for worksheet
+        const exportData = [];
+
+        // Row field labels
+        const rowFieldLabels = {
+            'mainProduct': 'Main Product',
+            'customerProject': 'Customer:Project',
+            'name': 'Name (Employee)',
+            'mtype2': 'Type (MTYPE2)',
+            'task': 'Task',
+            'department': 'Department',
+            'projectType': 'Project Type',
+            'month': 'Month'
+        };
+
+        // Add header row
+        const headers = [];
+        config.rows.forEach(field => {
+            headers.push(rowFieldLabels[field] || field);
+        });
+
+        if (config.column && sortedColumns.length > 0) {
+            sortedColumns.forEach(col => headers.push(col));
+        }
+        headers.push('Total');
+
+        exportData.push(headers);
+
+        // Add data rows
+        let grandTotal = 0;
+        const columnTotals = {};
+        sortedColumns.forEach(col => columnTotals[col] = 0);
+
+        rowsMap.forEach((rowEntry) => {
+            const row = [];
+
+            // Row values
+            rowEntry.rowValues.forEach(value => {
+                row.push(value);
+            });
+
+            // Column values
+            let rowTotal = 0;
+            if (config.column && sortedColumns.length > 0) {
+                sortedColumns.forEach(col => {
+                    const value = rowEntry.columns[col] || 0;
+                    rowTotal += value;
+                    columnTotals[col] += value;
+                    grandTotal += value;
+                    row.push(value);
+                });
+            } else {
+                rowTotal = rowEntry.columns['_total'] || 0;
+                grandTotal += rowTotal;
+            }
+
+            // Row total
+            row.push(rowTotal);
+
+            exportData.push(row);
+        });
+
+        // Add GRAND TOTAL row
+        const grandTotalRow = [];
+        config.rows.forEach(() => grandTotalRow.push(''));
+        grandTotalRow[config.rows.length - 1] = 'GRAND TOTAL';
+
+        if (config.column && sortedColumns.length > 0) {
+            sortedColumns.forEach(col => {
+                grandTotalRow.push(columnTotals[col]);
+            });
+        }
+        grandTotalRow.push(grandTotal);
+
+        exportData.push(grandTotalRow);
+
+        // Create worksheet
+        const ws = XLSX.utils.aoa_to_sheet(exportData);
+
+        // Apply column widths
+        const colWidths = [];
+        config.rows.forEach(() => colWidths.push({ wch: 25 }));
+        sortedColumns.forEach(() => colWidths.push({ wch: 15 }));
+        colWidths.push({ wch: 15 }); // Total column
+        ws['!cols'] = colWidths;
+
+        // Apply cell styling
+        const range = XLSX.utils.decode_range(ws['!ref']);
+
+        // Style header row (bold, centered)
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cellAddress = XLSX.utils.encode_cell({ r: 0, c: C });
+            if (!ws[cellAddress]) continue;
+            ws[cellAddress].s = {
+                font: { bold: true },
+                alignment: { horizontal: 'center', vertical: 'center' },
+                fill: { fgColor: { rgb: '4A90E2' } },
+                border: {
+                    top: { style: 'thin', color: { rgb: '000000' } },
+                    bottom: { style: 'thin', color: { rgb: '000000' } },
+                    left: { style: 'thin', color: { rgb: '000000' } },
+                    right: { style: 'thin', color: { rgb: '000000' } }
+                }
+            };
+        }
+
+        // Style grand total row (bold)
+        const lastRow = range.e.r;
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cellAddress = XLSX.utils.encode_cell({ r: lastRow, c: C });
+            if (!ws[cellAddress]) continue;
+            ws[cellAddress].s = {
+                font: { bold: true },
+                fill: { fgColor: { rgb: 'F0F0F0' } },
+                numFmt: '#,##0.00'
+            };
+        }
+
+        // Style number cells (right-aligned, 2 decimals)
+        for (let R = 1; R < lastRow; ++R) {
+            for (let C = config.rows.length; C <= range.e.c; ++C) {
+                const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+                if (!ws[cellAddress]) continue;
+                if (typeof ws[cellAddress].v === 'number') {
+                    ws[cellAddress].s = {
+                        alignment: { horizontal: 'right' },
+                        numFmt: '#,##0.00'
+                    };
+                }
+            }
+        }
+
+        // Add worksheet to workbook
+        XLSX.utils.book_append_sheet(wb, ws, 'Pivot Table');
+
+        // Add metadata sheet
+        const metaData = [
+            ['Report Name', 'Pivot Analysis'],
+            ['Generated', new Date().toISOString()],
+            ['Row Fields', config.rows.join(', ')],
+            ['Column Field', config.column || 'None'],
+            ['Measure', config.measureField],
+            ['Aggregation', config.aggregation.toUpperCase()],
+            ['Total Rows', rowsMap.size],
+            ['Total Columns', sortedColumns.length],
+            ['Grand Total', grandTotal.toFixed(2)]
+        ];
+
+        const metaWs = XLSX.utils.aoa_to_sheet(metaData);
+        metaWs['!cols'] = [{ wch: 20 }, { wch: 40 }];
+        XLSX.utils.book_append_sheet(wb, metaWs, 'Metadata');
+
+        // Generate filename with timestamp
+        const timestamp = new Date().toISOString().split('T')[0];
+        const filename = `Pivot_Analysis_${timestamp}.xlsx`;
+
+        // Write file
+        XLSX.writeFile(wb, filename);
+
+        alert(`✓ Exported pivot table (${rowsMap.size.toLocaleString()} rows) to ${filename}`);
+
+    } catch (error) {
+        alert('Error exporting to Excel: ' + error.message);
+        console.error('Excel export error:', error);
     }
 }
 

@@ -403,11 +403,13 @@ function extractJiraKeys(text) {
 
 ---
 
-### 13. **Full Pivot Builder Editor** 🎛️
+### 13. **Full Pivot Builder Editor (Phase 1)** 🎛️ ✅ COMPLETED (v1.28.0)
 
-**Priority**: MEDIUM-HIGH
+**Priority**: ~~MEDIUM-HIGH~~ COMPLETED
 **Effort**: Medium
 **Impact**: Power user productivity
+
+**Status**: Phase 1 fully implemented in v1.28.0 with calculated fields, custom aggregations, and Excel export.
 
 **Description**: Enhance the existing Pivot Builder (v1.12.0) with advanced editing capabilities for professional-grade analysis.
 
@@ -421,44 +423,59 @@ function extractJiraKeys(text) {
 - ✅ Conditional formatting
 - ✅ Chart generation
 
-**Features to add**:
-- **Calculated Fields**
-  - Custom formulas (e.g., `Billable % = Billable Hours / Total Hours * 100`)
-  - Mathematical operators (+, -, *, /, %)
-  - Functions (SUM, AVG, COUNT, IF, CONCAT)
-  - Field references in expressions
-  - Formula validation and preview
+**What was delivered in Phase 1** (v1.28.0):
+- ✅ **Calculated Fields** - Excel-like formula system
+  - CalculatedFieldEngine class with formula parser, compiler, evaluator (app.js:4078-4276)
+  - 9 functions: IF, SUM, AVG, COUNT, CONCAT, MAX, MIN, ABS, ROUND
+  - 15 field mappings: DURATION, BILLABLE, EMPLOYEE, PROJECT, etc.
+  - Formula validation with syntax checking and error detection
+  - Formula editor modal with field/function helpers (index.html:2039-2133)
+  - Preview feature showing results on sample data
+  - Calculated fields can be used as measures in pivot tables
+  - localStorage persistence with automatic formula recompilation
 
-- **Advanced Filtering**
+- ✅ **Custom Aggregations** - Statistical analysis functions
+  - AggregationLibrary with 4 statistical functions (app.js:4016-4072)
+  - 7 new aggregation types: Median, Standard Deviation, Mode, Percentiles (25th, 50th, 75th, 90th)
+  - Extended aggregation dropdown with organized optgroups (12 total types)
+  - All aggregations work with calculated fields and standard measures
+
+- ✅ **Excel Export** - Professional .xlsx export with formatting
+  - SheetJS library integration for Excel file generation
+  - exportPivotToExcel() function with 2 worksheets (app.js:5926-6178)
+  - Cell styling: bold headers, number formatting, borders, column widths
+  - Metadata worksheet with report information
+  - Support for all 12 aggregation types
+  - Excel export button added to UI (index.html:2016-2018)
+
+- ✅ **Preset Integration** - Calculated fields saved with presets
+  - Extended savePivotPreset() to include calculated field definitions
+  - Extended loadPivotPreset() to restore and recompile formulas
+  - Seamless integration with existing preset system
+
+**Phase 2/3 features remaining** (not yet implemented):
+- **Advanced Filtering** (Phase 2)
   - Filter on row/column values
   - Top N / Bottom N selection
   - Conditional filters (>, <, =, BETWEEN)
   - Filter by calculated fields
   - Save filter sets with presets
 
-- **Custom Aggregations**
-  - Weighted averages
-  - Median, Mode, Standard Deviation
-  - Percentiles (25th, 50th, 75th, 90th)
-  - Running totals and cumulative sums
-  - Year-over-year growth %
-
-- **Layout Customization**
+- **Layout Customization** (Phase 2)
   - Column width adjustment (drag handles)
   - Row/column reordering (drag-and-drop)
   - Freeze panes (lock headers)
   - Compact vs expanded row display
   - Grand totals and subtotals placement
 
-- **Data Manipulation**
+- **Data Manipulation** (Phase 2)
   - Drill-down to detail (already exists ✅)
   - Drill-through to related views
   - Expand/collapse row groups
   - Hide/show empty rows
   - Sort by multiple columns
 
-- **Export Enhancements**
-  - Export with formatting preserved
+- **Export Enhancements** (Phase 3)
   - Export selected range only
   - Export as Excel template
   - Export chart with data table
@@ -896,10 +913,10 @@ To implement any of these improvements:
 
 ## 📝 Document Status
 
-**Last Updated**: 2025-12-10
-**Current Version**: v1.26.0
-**Active Suggestions**: 28 items (includes 2 new HIGH priority items)
-**Archived Completed**: 13 major features (v1.4.0 → v1.26.0)
+**Last Updated**: 2025-12-11
+**Current Version**: v1.28.0
+**Active Suggestions**: 27 items (1 item completed in v1.28.0)
+**Archived Completed**: 14 major features (v1.4.0 → v1.28.0)
 **Next Review**: Q1 2026
 
 ---

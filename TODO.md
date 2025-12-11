@@ -1,8 +1,8 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.27.0
-- **Last Updated**: 2025-12-10
+- **Current Version**: v1.28.0
+- **Last Updated**: 2025-12-11
 - **Status**: Active Development
 
 ---
@@ -25,6 +25,49 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.28.0 (2025-12-11)
+- [x] **Full Pivot Builder Editor (Phase 1)** - PowerBI-like capabilities with calculated fields and custom aggregations
+  - **Calculated Fields System**:
+    - Created CalculatedFieldEngine class with Excel-like formula parser (app.js:4078-4276)
+    - 9 supported functions: IF, SUM, AVG, COUNT, CONCAT, MAX, MIN, ABS, ROUND
+    - 15 field mappings (DURATION, BILLABLE, EMPLOYEE, PROJECT, DEPARTMENT, etc.)
+    - Formula validation with syntax checking, parentheses balancing, field/function verification
+    - Formula compiler converts formulas to executable JavaScript functions
+    - Safe formula evaluation with try-catch error handling
+    - Calculated fields can be used as measures in pivot tables
+    - localStorage persistence with automatic formula recompilation on load
+  - **Custom Aggregations**:
+    - Added AggregationLibrary with statistical functions (app.js:4016-4072)
+    - 7 new aggregation types: Median, Standard Deviation, Mode, 4 Percentiles (25th, 50th, 75th, 90th)
+    - Extended aggregation dropdown with organized optgroups (index.html:1931-1950)
+    - Updated renderPivotTable() to support all 12 aggregation types (app.js:4478-4507)
+    - All aggregations work with calculated fields and standard measures
+  - **Calculated Field UI**:
+    - Purple-bordered panel for managing calculated fields (index.html:1988-2006)
+    - Comprehensive editor modal with formula textarea, field/function helpers (index.html:2039-2133)
+    - 10 UI functions: create, edit, delete, validate, preview, save (app.js:4281-4630)
+    - Real-time formula validation with error display
+    - Preview function shows results on first 5 rows in table format
+    - Dynamic measure dropdown population with calculated fields optgroup
+    - Edit/Delete buttons for each saved calculated field
+  - **Excel Export**:
+    - Added SheetJS library for .xlsx export (index.html:8)
+    - Implemented exportPivotToExcel() function (app.js:5926-6178, 253 lines)
+    - Two worksheets: "Pivot Table" (formatted data) and "Metadata" (report info)
+    - Cell styling: bold headers, number formatting (#,##0.00), borders
+    - Column width optimization and grand total row styling
+    - Support for ALL 12 aggregation types including statistical measures
+    - Filename includes timestamp (e.g., Pivot_Analysis_2025-12-11.xlsx)
+    - Added Excel export button next to CSV button (index.html:2016-2018)
+  - **Preset Integration**:
+    - Extended preset system to save calculated fields (app.js:5539-5545)
+    - Restore calculated fields when loading presets (app.js:5649-5679)
+    - Automatic formula recompilation on preset load
+    - Calculated fields persist across sessions via localStorage
+  - **Implementation**: Completed Phase 1 of Full Pivot Builder Editor (#13 in SUGGESTED_IMPROVEMENTS.md)
+  - **Foundation**: Provides basis for Custom Report Builder (#24) and advanced analytics
+  - **Total New Code**: ~1200 lines (CalculatedFieldEngine, AggregationLibrary, UI functions, Excel export)
 
 ### Version 1.27.0 (2025-12-10)
 - [x] **Enhanced Suggested Improvements** - Added major new feature suggestions
@@ -1007,6 +1050,132 @@
 ## 🔄 Change Log
 
 **Documentation**: MAINTENANCE_RULES.md created (2025-12-10) - Comprehensive guidelines for keeping documentation synchronized with code changes, including version management workflow, commit standards, and maintenance procedures.
+
+### v1.28.0 - Full Pivot Builder Editor with Calculated Fields & Excel Export (2025-12-11)
+- **Major Feature: Calculated Fields System**
+  - **Problem**: Users need ability to create custom metrics and derived fields (e.g., billable hours, efficiency ratios, conditional calculations)
+  - **Solution**: Excel-like calculated field system with formula editor
+  - **Implementation**:
+    - Created `CalculatedFieldEngine` class (app.js:4078-4276):
+      - Excel-like formula parser supporting field names, functions, operators
+      - 9 built-in functions: IF(condition, true, false), SUM(field), AVG(field), COUNT(field), CONCAT(...), MAX(field), MIN(field), ABS(value), ROUND(value, decimals)
+      - 15 field mappings: DURATION, BILLABLE, EMPLOYEE, PROJECT, DEPARTMENT, TYPE, TASK, MAIN_PRODUCT, PROJECT_TYPE, DATE, ACTIVITY_CODE, MANAGER, TEAM, SUPERVISOR, JOB_GROUP
+      - Formula validation: syntax checking, parentheses balancing, function/field verification
+      - Formula compiler: converts formula strings to executable JavaScript functions using `new Function()`
+      - Safe evaluation: try-catch error handling, returns 0 on formula errors
+    - Global state management (app.js:25-27):
+      - `pivotCalculatedFields` array stores field definitions
+      - `calculatedFieldEngine` singleton instance
+      - localStorage persistence (excludes compiled functions, recompiles on load)
+    - Integration with pivot aggregation:
+      - Extended `getMeasureValue()` to evaluate calculated fields (app.js:4385-4402)
+      - Calculated fields use 'cf_' prefix for identification
+      - Fields compiled once, evaluated per row during aggregation
+  - **User Experience**: Create custom metrics like "IF(BILLABLE='true', DURATION, 0)" without coding
+  - **Code**: app.js lines 4078-4276 (CalculatedFieldEngine), 4281-4630 (UI functions)
+
+- **Major Feature: Custom Aggregations**
+  - **Problem**: Standard aggregations (Sum, Avg, Count, Min, Max) insufficient for statistical analysis
+  - **Solution**: Added 7 statistical aggregation types
+  - **Implementation**:
+    - Created `AggregationLibrary` object with statistical functions (app.js:4016-4072):
+      - `median(values)`: Middle value of sorted array
+      - `stddev(values)`: Standard deviation using population variance formula
+      - `percentile(values, p)`: P-th percentile using linear interpolation
+      - `mode(values)`: Most frequently occurring value
+    - Extended aggregation dropdown with 3 optgroups (index.html:1931-1950):
+      - Basic Aggregations: Sum, Average, Count, Minimum, Maximum
+      - Statistical Aggregations: Median, Standard Deviation, Mode
+      - Percentiles: 25th, 50th (Median), 75th, 90th
+    - Updated `renderPivotTable()` switch statement (app.js:4478-4507):
+      - Added 7 new cases for statistical aggregations
+      - All aggregations work with both standard measures and calculated fields
+      - Fixed existing bug: average calculation used backslash instead of forward slash
+    - Modified `aggregatePivotData()` to store all values in `item.values` array
+      - Enables statistical calculations that need full dataset
+  - **User Experience**: Analyze data distribution with median, percentiles, standard deviation
+  - **Code**: app.js lines 4016-4072 (AggregationLibrary), 4478-4507 (renderPivotTable cases)
+
+- **Major Feature: Calculated Field Editor UI**
+  - **Problem**: Need intuitive interface for creating/editing formulas without coding knowledge
+  - **Solution**: Comprehensive modal editor with helpers and validation
+  - **Implementation**:
+    - Calculated Fields Panel (index.html:1988-2006):
+      - Purple-bordered section for visibility
+      - Displays saved calculated fields with Edit/Delete buttons
+      - "Add Calculated Field" button opens editor modal
+    - Calculated Field Editor Modal (index.html:2039-2133):
+      - Field name input
+      - Formula textarea with monospace font
+      - Field reference dropdown: 12 fields with user-friendly names
+      - Function helper dropdown: 9 functions with syntax templates
+      - Validation area: shows green checkmark or red errors
+      - Preview area: displays results for first 5 rows in table format
+      - 4 action buttons: Validate, Preview, Save, Cancel
+    - 10 UI functions implemented (app.js:4281-4630):
+      - `openCalcFieldEditor(fieldId)`: Opens modal, loads existing field for editing
+      - `closeCalcFieldEditor()`: Hides modal
+      - `insertFieldReference()`: Inserts field name at cursor position
+      - `insertFunction()`: Inserts function template at cursor
+      - `validateCalcField()`: Real-time syntax validation with error display
+      - `previewCalcField()`: Evaluates formula on sample data, shows results table
+      - `saveCalcField()`: Validates, compiles, saves to array and localStorage
+      - `deleteCalcField(fieldId)`: Removes field after confirmation
+      - `renderCalcFieldsList()`: Displays saved fields with Edit/Delete buttons
+      - `populateMeasureDropdown()`: Rebuilds measure dropdown with calculated fields optgroup
+      - `loadCalculatedFields()`: Loads from localStorage, recompiles formulas
+  - **User Experience**: Point-and-click formula building with instant validation and preview
+  - **Code**: index.html lines 1988-2133, app.js lines 4281-4630
+
+- **Major Feature: Excel Export with Formatting**
+  - **Problem**: CSV export loses formatting, difficult to use in presentations
+  - **Solution**: Professional Excel .xlsx export with styling
+  - **Implementation**:
+    - Added SheetJS library via CDN (index.html:8)
+    - Implemented `exportPivotToExcel()` function (app.js:5926-6178, 253 lines):
+      - Creates workbook with 2 worksheets:
+        1. "Pivot Table": Full pivot data with formatting
+        2. "Metadata": Report info (9 fields: name, date, rows, columns, measure, aggregation, total rows/columns, grand total)
+      - Cell styling using SheetJS API:
+        - Bold headers with centered text
+        - Number formatting: #,##0.00 for all numeric cells
+        - Cell borders for professional appearance
+        - Column widths optimized (20 chars for row labels, 15 for data columns)
+      - Grand total row with special formatting
+      - Support for ALL 12 aggregation types (including new statistical measures)
+      - Timestamp-based filename: Pivot_Analysis_YYYY-MM-DD.xlsx
+      - Error handling with user-friendly alerts
+    - Added Excel export button (index.html:2016-2018):
+      - Placed next to CSV export button
+      - Icon: 📊 Export to Excel
+      - Updated help text to mention both CSV and Excel
+  - **User Experience**: One-click Excel export with professional formatting ready for presentations
+  - **Code**: app.js lines 5926-6178, index.html lines 8, 2016-2018
+
+- **Feature: Preset Integration**
+  - **Problem**: Calculated fields not saved with presets
+  - **Solution**: Extended preset system to include calculated field definitions
+  - **Implementation**:
+    - Modified `savePivotPreset()` (app.js:5539-5545):
+      - Added `calculatedFields` property to config object
+      - Serializes fields (excludes compiled functions)
+    - Modified `loadPivotPreset()` (app.js:5649-5679):
+      - Restores calculated fields from preset config
+      - Recompiles formulas using CalculatedFieldEngine
+      - Updates UI: renderCalcFieldsList(), populateMeasureDropdown()
+      - Saves to localStorage for persistence
+  - **User Experience**: Calculated fields automatically restored when loading saved presets
+  - **Code**: app.js lines 5539-5545 (save), 5649-5679 (load)
+
+- **Technical Details**:
+  - Total new code: ~1200 lines across app.js and index.html
+  - Formula compilation: Uses `new Function()` for dynamic code generation
+  - Error handling: Comprehensive try-catch blocks throughout
+  - Dark mode compatible: All new UI uses CSS variables
+  - Backwards compatible: No breaking changes to existing presets
+  - Performance: Lazy evaluation, formulas compiled once and cached
+
+- **Significance**: This is Phase 1 of Full Pivot Builder Editor (#13 in SUGGESTED_IMPROVEMENTS.md), providing PowerBI-like capabilities. Creates foundation for Custom Report Builder (#24) and advanced analytics features.
 
 ### v1.25.0 - Anomaly Aggregation & Whitelist Filtering (2025-12-10)
 - **Major Feature: Anomaly Aggregation by Employee**

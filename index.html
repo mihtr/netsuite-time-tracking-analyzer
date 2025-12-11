@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NetSuite Time Tracking Analyzer</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -1591,7 +1592,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.27.0</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.28.0</span></p>
 
             <!-- Top Menu Bar -->
             <div class="top-menu-bar">
@@ -1928,11 +1929,24 @@
 
                         <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em;">Aggregation:</label>
                         <select id="pivotAggregation" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ced4da;">
-                            <option value="sum">Sum</option>
-                            <option value="avg">Average</option>
-                            <option value="count">Count</option>
-                            <option value="min">Minimum</option>
-                            <option value="max">Maximum</option>
+                            <optgroup label="Basic Aggregations">
+                                <option value="sum">Sum</option>
+                                <option value="avg">Average</option>
+                                <option value="count">Count</option>
+                                <option value="min">Minimum</option>
+                                <option value="max">Maximum</option>
+                            </optgroup>
+                            <optgroup label="Statistical Aggregations">
+                                <option value="median">Median</option>
+                                <option value="stddev">Standard Deviation</option>
+                                <option value="mode">Mode (Most Frequent)</option>
+                            </optgroup>
+                            <optgroup label="Percentiles">
+                                <option value="percentile_25">25th Percentile</option>
+                                <option value="percentile_50">50th Percentile (Median)</option>
+                                <option value="percentile_75">75th Percentile</option>
+                                <option value="percentile_90">90th Percentile</option>
+                            </optgroup>
                         </select>
                     </div>
 
@@ -1971,6 +1985,26 @@
                     </label>
                 </div>
 
+                <!-- Calculated Fields Panel -->
+                <div id="calcFieldsPanel" style="margin: 20px 0; padding: 20px; background: var(--bg-secondary); border-radius: 8px; border: 2px solid #667eea;">
+                    <h3 style="color: #667eea; margin-bottom: 15px; font-size: 1.1em;">🧮 Calculated Fields</h3>
+                    <p style="font-size: 0.85em; color: var(--text-tertiary); margin-bottom: 15px;">
+                        Create custom fields using Excel-like formulas
+                    </p>
+
+                    <!-- Calculated Fields List -->
+                    <div id="calcFieldsList" style="margin-bottom: 15px; min-height: 40px;">
+                        <div style="text-align: center; color: var(--text-tertiary); font-size: 0.9em; padding: 10px;">
+                            No calculated fields yet. Click "Add Calculated Field" to create one.
+                        </div>
+                    </div>
+
+                    <!-- Add Field Button -->
+                    <button onclick="openCalcFieldEditor()" class="btn-secondary" style="width: 100%;">
+                        ➕ Add Calculated Field
+                    </button>
+                </div>
+
                 <!-- Build Button -->
                 <div style="text-align: center; margin-bottom: 20px;">
                     <button onclick="buildPivotTable()" class="btn-primary" style="padding: 12px 40px; font-size: 1.1em;">
@@ -1979,7 +2013,10 @@
                     <button onclick="exportPivotTableToCSV()" class="btn-secondary" style="padding: 12px 30px; font-size: 1.0em; margin-left: 15px;">
                         📥 Export to CSV
                     </button>
-                    <p style="font-size: 0.85em; color: #6c757d; margin-top: 10px;">Configure rows, columns, and values above, then click to generate your custom pivot table. Export to save results as CSV.</p>
+                    <button onclick="exportPivotToExcel()" class="btn-secondary" style="padding: 12px 30px; font-size: 1.0em; margin-left: 10px;">
+                        📊 Export to Excel
+                    </button>
+                    <p style="font-size: 0.85em; color: #6c757d; margin-top: 10px;">Configure rows, columns, and values above, then click to generate your custom pivot table. Export to CSV or Excel with formatting.</p>
                 </div>
 
                 <!-- Loading Indicator -->
@@ -1999,6 +2036,102 @@
                         <button onclick="closeDrilldownModal()" style="position: absolute; top: 15px; right: 15px; background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 1.1em;">✕ Close</button>
                         <h2 style="margin-top: 0; color: var(--text-primary);">📋 Detail Records</h2>
                         <div id="drilldownContent"></div>
+                    </div>
+                </div>
+
+                <!-- Calculated Field Editor Modal -->
+                <div id="calcFieldEditorModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--modal-bg); z-index: 10001; overflow: auto;">
+                    <div style="position: relative; margin: 50px auto; max-width: 800px; background: var(--bg-primary); border-radius: 12px; padding: 30px; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
+                        <button onclick="closeCalcFieldEditor()" style="position: absolute; top: 15px; right: 15px; background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 1.1em;">✕ Close</button>
+
+                        <h2 style="margin-top: 0; color: var(--text-primary);">🧮 Calculated Field Editor</h2>
+                        <p style="color: var(--text-tertiary); font-size: 0.9em; margin-bottom: 20px;">
+                            Create custom fields using Excel-like formulas
+                        </p>
+
+                        <!-- Field Name -->
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary);">Field Name:</label>
+                            <input type="text" id="calcFieldName" placeholder="e.g., Billable Hours"
+                                   style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 6px; font-size: 1em; background: var(--bg-primary); color: var(--text-primary);">
+                        </div>
+
+                        <!-- Formula Editor -->
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary);">Formula:</label>
+                            <textarea id="calcFieldFormula" rows="4" placeholder="e.g., IF(BILLABLE='true', DURATION, 0)"
+                                      style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 6px; font-size: 1em; font-family: 'Courier New', monospace; background: var(--bg-primary); color: var(--text-primary);"></textarea>
+                            <div style="font-size: 0.85em; color: var(--text-tertiary); margin-top: 5px;">
+                                Use field names (DURATION, BILLABLE, EMPLOYEE, etc.) and functions (IF, SUM, AVG, etc.)
+                            </div>
+                        </div>
+
+                        <!-- Field Reference Helper -->
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary);">Insert Field:</label>
+                            <select id="calcFieldInsert" onchange="insertFieldReference()"
+                                    style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 6px; font-size: 1em; background: var(--bg-primary); color: var(--text-primary);">
+                                <option value="">-- Select Field to Insert --</option>
+                                <option value="DURATION">DURATION - Duration in hours</option>
+                                <option value="BILLABLE">BILLABLE - Billable flag (true/false)</option>
+                                <option value="EMPLOYEE">EMPLOYEE - Employee name</option>
+                                <option value="PROJECT">PROJECT - Customer:Project</option>
+                                <option value="DEPARTMENT">DEPARTMENT - Department</option>
+                                <option value="TYPE">TYPE - Type/Category</option>
+                                <option value="TASK">TASK - Task description</option>
+                                <option value="MAIN_PRODUCT">MAIN_PRODUCT - Main product</option>
+                                <option value="PROJECT_TYPE">PROJECT_TYPE - Project type</option>
+                                <option value="MANAGER">MANAGER - Manager name</option>
+                                <option value="TEAM">TEAM - Team name</option>
+                                <option value="JOB_GROUP">JOB_GROUP - Job group</option>
+                            </select>
+                        </div>
+
+                        <!-- Function Helper -->
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary);">Insert Function:</label>
+                            <select id="calcFunctionInsert" onchange="insertFunction()"
+                                    style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 6px; font-size: 1em; background: var(--bg-primary); color: var(--text-primary);">
+                                <option value="">-- Select Function to Insert --</option>
+                                <option value="IF(condition, true_val, false_val)">IF - Conditional logic</option>
+                                <option value="SUM(value1, value2, ...)">SUM - Add values</option>
+                                <option value="AVG(value1, value2, ...)">AVG - Average values</option>
+                                <option value="COUNT(value1, value2, ...)">COUNT - Count values</option>
+                                <option value="MAX(value1, value2, ...)">MAX - Maximum value</option>
+                                <option value="MIN(value1, value2, ...)">MIN - Minimum value</option>
+                                <option value="ABS(value)">ABS - Absolute value</option>
+                                <option value="ROUND(value, decimals)">ROUND - Round number</option>
+                                <option value="CONCAT(value1, value2, ...)">CONCAT - Concatenate text</option>
+                            </select>
+                        </div>
+
+                        <!-- Validation Status -->
+                        <div id="calcFieldValidation" style="display: none; margin-bottom: 20px; padding: 15px; border-radius: 6px;"></div>
+
+                        <!-- Preview Results -->
+                        <div id="calcFieldPreview" style="display: none; margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 6px; border: 2px solid var(--border-color);">
+                            <strong style="color: var(--text-primary);">Preview (first 5 rows):</strong>
+                            <div id="calcFieldPreviewContent" style="margin-top: 10px; font-family: 'Courier New', monospace; font-size: 0.9em;"></div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px;">
+                            <button onclick="validateCalcField()" class="btn-secondary" style="flex: 1; min-width: 150px;">
+                                🔍 Validate
+                            </button>
+                            <button onclick="previewCalcField()" class="btn-secondary" style="flex: 1; min-width: 150px;">
+                                👁️ Preview
+                            </button>
+                            <button onclick="saveCalcField()" class="btn-primary" style="flex: 1; min-width: 150px;">
+                                💾 Save Field
+                            </button>
+                            <button onclick="closeCalcFieldEditor()" class="btn-secondary" style="flex: 1; min-width: 150px;">
+                                Cancel
+                            </button>
+                        </div>
+
+                        <!-- Hidden field for editing mode -->
+                        <input type="hidden" id="calcFieldEditingId" value="">
                     </div>
                 </div>
             </div>
