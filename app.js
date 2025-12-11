@@ -6700,27 +6700,55 @@ function closeSettings() {
     }
 }
 
-// Open Data Import dialog (focuses on file upload)
+// Open Data Import Modal
 function openDataImport() {
-    // Scroll to top where file upload is
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    // Highlight the file upload section temporarily
-    const fileSection = document.getElementById('fileUploadSection');
-    if (fileSection) {
-        fileSection.style.transition = 'all 0.5s ease';
-        fileSection.style.transform = 'scale(1.05)';
-        fileSection.style.boxShadow = '0 0 20px rgba(102, 126, 234, 0.6)';
-        setTimeout(() => {
-            fileSection.style.transform = 'scale(1)';
-            fileSection.style.boxShadow = 'none';
-        }, 1500);
+    const modal = document.getElementById('dataImportModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        // Setup file input handler if not already done
+        const fileInput = document.getElementById('csvFileModal');
+        if (fileInput && !fileInput.hasAttribute('data-listener-added')) {
+            fileInput.addEventListener('change', async function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    await handleFileUpload(file);
+                    // Close modal after successful upload
+                    closeDataImportModal();
+                }
+            });
+            fileInput.setAttribute('data-listener-added', 'true');
+        }
     }
-    // Show a quick tip
-    showSuccess('💡 Upload a new CSV file to import data. The file will be cached for faster subsequent loads.');
 }
 
-// Open Anomaly Detection view
-async function openAnomalyDetection() {
+// Close Data Import Modal
+function closeDataImportModal() {
+    const modal = document.getElementById('dataImportModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Open Anomaly Detection Modal
+function openAnomalyDetection() {
+    const modal = document.getElementById('anomalyDetectionModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        // Load current whitelist values
+        loadAnomalyWhitelist(false);
+    }
+}
+
+// Close Anomaly Detection Modal
+function closeAnomalyDetectionModal() {
+    const modal = document.getElementById('anomalyDetectionModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Legacy function for backwards compatibility
+async function openAnomalyDetectionView() {
     if (!rawData || rawData.length === 0) {
         showError('⚠️ Please load data first before checking for anomalies.');
         return;

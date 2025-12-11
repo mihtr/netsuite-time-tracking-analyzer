@@ -1615,19 +1615,6 @@
                 <span class="file-name" id="fileName">Loading from directory...</span>
             </div>
 
-            <!-- Import Statistics Section -->
-            <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid #667eea;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <h3 style="margin: 0 0 5px 0; font-size: 1.0em; color: var(--text-primary);">📊 Import Statistics</h3>
-                        <p style="margin: 0; font-size: 0.85em; color: var(--text-secondary);">View detailed statistics and error log from last data import</p>
-                    </div>
-                    <button onclick="openImportStats()" style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; white-space: nowrap;">
-                        View Stats
-                    </button>
-                </div>
-            </div>
-
             <div class="filter-section">
                 <div class="filter-group" style="grid-column: 1 / -1;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -2243,7 +2230,43 @@
             </div>
         </div>
 
-        <!-- Import Statistics Modal -->
+        <!-- Data Import Modal -->
+        <div id="dataImportModal" class="settings-modal" style="display: none;">
+            <div class="settings-content">
+                <div class="settings-header">
+                    <div class="settings-title">📁 Data Import</div>
+                    <button class="settings-close" onclick="closeDataImportModal()">✕ Close</button>
+                </div>
+                <div style="padding: 20px;">
+                    <!-- File Upload Section -->
+                    <div style="margin-bottom: 30px;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1.1em; color: var(--text-primary);">📂 Load CSV File</h3>
+                        <div class="file-upload">
+                            <label for="csvFileModal" class="file-label">Choose CSV File</label>
+                            <input type="file" id="csvFileModal" accept=".csv" style="display: none;">
+                            <p style="margin: 10px 0 0 0; font-size: 0.9em; color: var(--text-secondary);">
+                                Select a NetSuite time tracking CSV file to import
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Import Statistics Section -->
+                    <div style="border-top: 2px solid var(--border-color); padding-top: 25px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3 style="margin: 0; font-size: 1.1em; color: var(--text-primary);">📊 Import Statistics</h3>
+                            <button onclick="openImportStats()" style="padding: 8px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9em;">
+                                View Details
+                            </button>
+                        </div>
+                        <p style="margin: 0; font-size: 0.9em; color: var(--text-secondary);">
+                            View detailed statistics and error log from last data import
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Import Statistics Modal (Detailed View) -->
         <div id="importStatsModal" class="settings-modal" style="display: none;">
             <div class="settings-content">
                 <div class="settings-header">
@@ -2252,6 +2275,51 @@
                 </div>
                 <div id="importStatsContent">
                     <!-- Content will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Anomaly Detection Modal -->
+        <div id="anomalyDetectionModal" class="settings-modal" style="display: none;">
+            <div class="settings-content">
+                <div class="settings-header">
+                    <div class="settings-title">⚠️ Anomaly Detection</div>
+                    <button class="settings-close" onclick="closeAnomalyDetectionModal()">✕ Close</button>
+                </div>
+                <div style="padding: 20px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 1.1em; color: var(--text-primary);">⚠️ Anomaly Whitelist</h3>
+                    <p style="margin: 0 0 20px 0; font-size: 0.9em; color: var(--text-secondary);">Configure employees who should be excluded from certain anomaly checks</p>
+
+                    <!-- Weekend Work Exemptions -->
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 5px 0; font-size: 0.95em; color: var(--text-primary);">Weekend Work Exemptions</h4>
+                        <p style="margin: 0 0 8px 0; font-size: 0.85em; color: var(--text-tertiary);">Employees allowed to work weekends (e.g., IT support, consultants)</p>
+                        <textarea id="weekendWhitelist" rows="3" placeholder="Enter employee names, one per line&#10;Example:&#10;John Smith&#10;Jane Doe" onchange="saveAnomalyWhitelist()" style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-family: inherit; font-size: 0.9em; background: var(--bg-primary); color: var(--text-primary);"></textarea>
+                    </div>
+
+                    <!-- Time Gap Exemptions -->
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 5px 0; font-size: 0.95em; color: var(--text-primary);">Time Gap Exemptions</h4>
+                        <p style="margin: 0 0 8px 0; font-size: 0.85em; color: var(--text-tertiary);">Employees exempt from time tracking gap detection (e.g., part-time, contractors)</p>
+                        <textarea id="timeGapWhitelist" rows="3" placeholder="Enter employee names, one per line&#10;Example:&#10;Part Time Employee&#10;Contractor Name" onchange="saveAnomalyWhitelist()" style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-family: inherit; font-size: 0.9em; background: var(--bg-primary); color: var(--text-primary);"></textarea>
+                    </div>
+
+                    <!-- Excessive Hours Exemptions -->
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 5px 0; font-size: 0.95em; color: var(--text-primary);">Excessive Hours Exemptions</h4>
+                        <p style="margin: 0 0 8px 0; font-size: 0.85em; color: var(--text-tertiary);">Employees exempt from excessive hours detection (e.g., managers, special roles)</p>
+                        <textarea id="excessiveHoursWhitelist" rows="3" placeholder="Enter employee names, one per line&#10;Example:&#10;Manager Name&#10;On-Call Engineer" onchange="saveAnomalyWhitelist()" style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-family: inherit; font-size: 0.9em; background: var(--bg-primary); color: var(--text-primary);"></textarea>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="clearAnomalyWhitelist()" style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            Clear All Whitelists
+                        </button>
+                        <button onclick="loadAnomalyWhitelist(true)" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            Reload from Storage
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2308,43 +2376,6 @@
                     <button onclick="refreshRecommendations()" style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
                         🔄 Refresh Analysis
                     </button>
-                </div>
-
-                <!-- Anomaly Whitelist Section -->
-                <div style="margin-bottom: 25px; padding: 20px; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid #ffc107;">
-                    <h3 style="margin: 0 0 10px 0; font-size: 1.1em; color: var(--text-primary);">⚠️ Anomaly Whitelist</h3>
-                    <p style="margin: 0 0 20px 0; font-size: 0.9em; color: var(--text-secondary);">Configure employees who should be excluded from certain anomaly checks</p>
-
-                    <!-- Weekend Work Exemptions -->
-                    <div style="margin-bottom: 20px;">
-                        <h4 style="margin: 0 0 5px 0; font-size: 0.95em; color: var(--text-primary);">Weekend Work Exemptions</h4>
-                        <p style="margin: 0 0 8px 0; font-size: 0.85em; color: var(--text-tertiary);">Employees allowed to work weekends (e.g., IT support, consultants)</p>
-                        <textarea id="weekendWhitelist" rows="3" placeholder="Enter employee names, one per line&#10;Example:&#10;John Smith&#10;Jane Doe" onchange="saveAnomalyWhitelist()" style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-family: inherit; font-size: 0.9em; background: var(--bg-primary); color: var(--text-primary);"></textarea>
-                    </div>
-
-                    <!-- Time Gap Exemptions -->
-                    <div style="margin-bottom: 20px;">
-                        <h4 style="margin: 0 0 5px 0; font-size: 0.95em; color: var(--text-primary);">Time Gap Exemptions</h4>
-                        <p style="margin: 0 0 8px 0; font-size: 0.85em; color: var(--text-tertiary);">Employees exempt from time tracking gap detection (e.g., part-time, contractors)</p>
-                        <textarea id="timeGapWhitelist" rows="3" placeholder="Enter employee names, one per line&#10;Example:&#10;Part Time Employee&#10;Contractor Name" onchange="saveAnomalyWhitelist()" style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-family: inherit; font-size: 0.9em; background: var(--bg-primary); color: var(--text-primary);"></textarea>
-                    </div>
-
-                    <!-- Excessive Hours Exemptions -->
-                    <div style="margin-bottom: 20px;">
-                        <h4 style="margin: 0 0 5px 0; font-size: 0.95em; color: var(--text-primary);">Excessive Hours Exemptions</h4>
-                        <p style="margin: 0 0 8px 0; font-size: 0.85em; color: var(--text-tertiary);">Employees exempt from excessive hours detection (e.g., managers, special roles)</p>
-                        <textarea id="excessiveHoursWhitelist" rows="3" placeholder="Enter employee names, one per line&#10;Example:&#10;Manager Name&#10;On-Call Engineer" onchange="saveAnomalyWhitelist()" style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-family: inherit; font-size: 0.9em; background: var(--bg-primary); color: var(--text-primary);"></textarea>
-                    </div>
-
-                    <!-- Action Buttons -->
-                    <div style="display: flex; gap: 10px;">
-                        <button onclick="clearAnomalyWhitelist()" style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                            Clear All Whitelists
-                        </button>
-                        <button onclick="loadAnomalyWhitelist(true)" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                            Reload from Storage
-                        </button>
-                    </div>
                 </div>
 
                 <!-- Summary Cards -->
