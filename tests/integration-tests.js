@@ -251,6 +251,64 @@ test('Display functions called after aggregation', () => {
         'displayData not called after filtering');
 });
 
+// Test anomaly detection integration
+console.log('\nTesting anomaly detection integration...\n');
+
+test('Anomaly detection integrated with insights', () => {
+    assert(appJs.includes('anomalies: detectAnomalies(data)'),
+        'Anomalies not integrated with calculateInsights');
+});
+
+test('Data quality section navigation button exists', () => {
+    assert(appJs.includes('section-data-quality'),
+        'Data quality section navigation not found');
+});
+
+test('Data quality HTML builder called', () => {
+    assert(appJs.includes('buildDataQualityHTML(insights.anomalies)'),
+        'buildDataQualityHTML not called in render function');
+});
+
+test('Anomaly badge shows when issues detected', () => {
+    assert(appJs.includes('insights.anomalies.total > 0'),
+        'Anomaly badge conditional not found');
+});
+
+test('All six anomaly types detected', () => {
+    assert(appJs.includes('detectWeekendEntries') &&
+           appJs.includes('detectTimeGaps') &&
+           appJs.includes('detectDuplicateEntries') &&
+           appJs.includes('detectUnusualDescriptions') &&
+           appJs.includes('detectInactiveProjects') &&
+           appJs.includes('detectHourSpikes'),
+        'Not all anomaly detection functions are called');
+});
+
+test('Anomaly results structure correct', () => {
+    assert(appJs.includes('total:') && appJs.includes('byType:') && appJs.includes('details:'),
+        'Anomaly results structure incomplete');
+});
+
+test('Anomaly table shows severity badges', () => {
+    assert(appJs.includes('anomaly.severity') && appJs.includes('severityColor'),
+        'Severity badges not implemented in anomaly table');
+});
+
+test('Recommendations shown for detected anomalies', () => {
+    assert(appJs.includes('Recommendations') && appJs.includes('anomalies.byType'),
+        'Context-specific recommendations not found');
+});
+
+test('Clean data confirmation displayed', () => {
+    assert(appJs.includes('No data quality issues detected'),
+        'Clean data confirmation message not found');
+});
+
+test('Anomaly count limited for performance', () => {
+    assert(appJs.includes('.slice(0, 100)'),
+        'Anomaly count limiting not implemented');
+});
+
 // Results summary
 console.log(`\n${'='.repeat(50)}`);
 console.log(`Tests passed: ${passed}`);

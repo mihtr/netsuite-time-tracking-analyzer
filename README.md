@@ -40,6 +40,20 @@ The application is automatically deployed to GitHub Pages via CI/CD pipeline on 
 - **Weekday Distribution**: Shows percentage of hours on weekdays vs weekends
 - **Auto-Updates**: Insights update automatically when filters change
 
+### ⚠️ Anomaly Detection & Data Quality
+- **Automated Data Quality Checks**: Detects 6 types of potential data issues automatically
+- **Weekend Entries** 📅: Identifies time logged on Saturdays/Sundays for approval verification
+- **Time Gaps** ⏸️: Detects employees with >10 consecutive days without entries
+- **Duplicate Entries** 📋: Finds multiple entries for same employee/project/date/task (HIGH priority)
+- **Unusual Descriptions** 📝: Flags descriptions <5 or >300 characters for review
+- **Inactive Projects** 💤: Identifies projects with no activity for >30 days
+- **Hour Spikes** 📈: Detects >200% hour increases week-over-week (HIGH priority)
+- **Visual Dashboard**: Color-coded severity badges (RED/ORANGE/BLUE) for easy scanning
+- **Anomaly Badge**: Red notification badge on navigation button shows issue count
+- **Actionable Recommendations**: Context-specific guidance for addressing each issue type
+- **Performance Optimized**: Displays top 100 anomalies for fast loading
+- **Clean Data Confirmation**: Green success message when no issues detected
+
 ### ⚡ Performance Features
 - **Data Caching**: First load parses CSV, subsequent loads instant from cache
 - **Progress Bar**: Real-time loading progress with ETA and row counter

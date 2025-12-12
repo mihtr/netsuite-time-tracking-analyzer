@@ -241,6 +241,86 @@ test('Monthly view has sortable class', () => {
            'Sortable class not applied to monthly headers');
 });
 
+// Test 13: Anomaly detection functions
+console.log('\nTesting anomaly detection functions...\n');
+
+test('detectAnomalies function exists', () => {
+    assert(appJs.includes('function detectAnomalies'), 'detectAnomalies not found');
+});
+
+test('detectWeekendEntries function exists', () => {
+    assert(appJs.includes('function detectWeekendEntries'), 'detectWeekendEntries not found');
+});
+
+test('detectTimeGaps function exists', () => {
+    assert(appJs.includes('function detectTimeGaps'), 'detectTimeGaps not found');
+});
+
+test('detectDuplicateEntries function exists', () => {
+    assert(appJs.includes('function detectDuplicateEntries'), 'detectDuplicateEntries not found');
+});
+
+test('detectUnusualDescriptions function exists', () => {
+    assert(appJs.includes('function detectUnusualDescriptions'), 'detectUnusualDescriptions not found');
+});
+
+test('detectInactiveProjects function exists', () => {
+    assert(appJs.includes('function detectInactiveProjects'), 'detectInactiveProjects not found');
+});
+
+test('detectHourSpikes function exists', () => {
+    assert(appJs.includes('function detectHourSpikes'), 'detectHourSpikes not found');
+});
+
+test('buildDataQualityHTML function exists', () => {
+    assert(appJs.includes('function buildDataQualityHTML'), 'buildDataQualityHTML not found');
+});
+
+// Test 14: Anomaly detection integration
+console.log('\nTesting anomaly detection integration...\n');
+
+test('calculateInsights includes anomalies', () => {
+    assert(appJs.includes('anomalies: detectAnomalies(data)'),
+        'Anomalies not integrated into calculateInsights');
+});
+
+test('Data quality section in navigation', () => {
+    assert(appJs.includes('section-data-quality'),
+        'Data quality section not found in navigation');
+});
+
+test('Anomaly types properly defined', () => {
+    assert(appJs.includes("'weekend'") && appJs.includes("'gap'") &&
+           appJs.includes("'duplicate'") && appJs.includes("'spike'"),
+        'Anomaly types not properly defined');
+});
+
+test('Severity levels implemented', () => {
+    assert(appJs.includes("severity: 'high'") && appJs.includes("severity: 'medium'") &&
+           appJs.includes("severity: 'low'"),
+        'Severity levels not found');
+});
+
+test('Anomaly badge shows count', () => {
+    assert(appJs.includes('insights.anomalies.total'),
+        'Anomaly count badge not implemented');
+});
+
+test('Weekend detection logic present', () => {
+    assert(appJs.includes('dayOfWeek === 0') && appJs.includes('dayOfWeek === 6'),
+        'Weekend detection logic not found');
+});
+
+test('Duplicate detection uses composite key', () => {
+    assert(appJs.includes('${employee}|${project}|${dateStr}|${task}'),
+        'Duplicate detection composite key not found');
+});
+
+test('Hour spike threshold check', () => {
+    assert(appJs.includes('percentIncrease > 200'),
+        'Hour spike threshold check not found');
+});
+
 // Results summary
 console.log(`\n${'='.repeat(50)}`);
 console.log(`Tests passed: ${passed}`);
