@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.43.0
+- **Current Version**: v1.43.1
 - **Last Updated**: 2025-12-12
 - **Status**: Active Development
 
@@ -25,6 +25,28 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.43.1 (2025-12-12)
+- [x] **Matrix Table Column Headers - Alphabetical Sorting**
+  - **Change**: Column headers in Multi-Dimensional Analysis tables now display in alphabetical order
+  - **Previous Behavior**: Columns were ordered by total hours (highest to lowest)
+  - **New Behavior**: Top 10 columns by hours are selected, then sorted alphabetically for easier reading
+  - **Implementation** (app.js:11847-11852):
+    - Step 1: Sort all columns by total hours descending
+    - Step 2: Take top 10 columns
+    - Step 3: Sort those 10 columns alphabetically using `localeCompare()`
+    - Result: Columns appear as "ADMINISTRATION", "CUSTOMER SUPPORT", "MAINTENANCE", "NEW FEATURES", "PROFESSIONAL SERVICE", etc. in alphabetical order
+  - **Impact**:
+    - Easier to find specific activity columns
+    - More predictable column layout
+    - Still shows only the top 10 most used columns
+  - **Affected Tables**:
+    - 🔧 Main Product × Activity Code
+    - 🏢 Department × Main Product
+    - 💰 Billing Class × Main Product
+    - 🎯 Department × Activity Code
+  - **User Request**: "please sort the Multi-Dimensional Analysis professional service horizontal alphabetical"
+  - **Testing**: All 104 tests pass (33 HTML validation, 40 unit tests, 31 integration tests)
 
 ### Version 1.43.0 (2025-12-12)
 - [x] **Multi-Dimensional Analysis Table Sorting** - All matrix tables in Insights tab now fully sortable

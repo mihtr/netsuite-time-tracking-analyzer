@@ -11843,11 +11843,12 @@ function buildMatrixTable(matrixData, rowLabel, colLabel, maxRows = null, matrix
 
     // Limit rows if specified
     const displayRows = maxRows ? dimension1Values.slice(0, maxRows) : dimension1Values;
-    // Limit columns to top 10 by total hours
+    // Sort columns alphabetically and limit to top 10 by total hours
     const sortedCols = dimension2Values
         .map(col => ({ name: col, total: columnTotals[col]?.totalHours || 0 }))
         .sort((a, b) => b.total - a.total)
         .slice(0, 10)
+        .sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically after selecting top 10
         .map(item => item.name);
 
     // Calculate color intensity based on hours
