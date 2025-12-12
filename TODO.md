@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.46.1
+- **Current Version**: v1.47.0
 - **Last Updated**: 2025-12-12
 - **Status**: Active Development
 
@@ -259,6 +259,45 @@
     - Handles null/empty values gracefully with `|| ''` fallback
     - All 7 columns plus month columns fully sortable
   - **User Request**: Addressed "The performance on the Jira tab is terrible. please add projekt task and project name to jira."
+  - **Testing**: All 104 tests pass (33 HTML validation, 40 unit tests, 31 integration tests)
+
+### Version 1.47.0 (2025-12-12)
+- [x] **Enhanced Charts & Visualizations (Phase 1)** - Added statistical confidence intervals and inline sparklines
+  - **Confidence Intervals for Forecasts** (app.js:1395-1423):
+    - Enhanced `linearRegression()` to `linearRegressionWithCI()` function
+    - Calculates residuals and standard error from sum of squared residuals
+    - Applies t-value (1.96) for 95% confidence interval
+    - Returns `{ slope, intercept, standardError, marginOfError }`
+    - Generates upper and lower bound arrays for visualization
+  - **Chart Visualization with Confidence Bands** (app.js:1484-1519):
+    - Added "Forecast Upper (95% CI)" dataset with shaded fill
+    - Added "Forecast Lower (95% CI)" dataset
+    - Maintains existing "Linear Forecast" main trend line
+    - Visual shaded area between bounds shows forecast uncertainty
+    - Semi-transparent styling for clear data distinction
+  - **Sparkline Generator Function** (app.js:3680-3717):
+    - Created reusable `generateSparkline(monthlyHoursMap, width, height)` function
+    - Generates inline SVG mini-charts (default 80x30px)
+    - Shows last 12 months of trend data
+    - Auto-scales to data range (normalizes to max value)
+    - No external dependencies, lightweight implementation
+    - Uses SVG path with M (moveTo) and L (lineTo) commands
+  - **Employee Table Sparklines** (app.js:3719-3776):
+    - Added "Trend (12mo)" column to Employee table (index.html:2672-2675)
+    - Generates sparkline from existing `monthlyHours` Map data
+    - Displays inline 12-month trend for each employee
+    - Visual representation of work patterns over time
+  - **Project Table Sparklines** (app.js:10374-10435, 10863-10921):
+    - Added `monthlyHours: new Map()` to project stats tracking
+    - Extracts month from DD.MM.YYYY date format
+    - Aggregates hours by month per project during data collection
+    - Added "Trend (12mo)" column to Top Projects table
+    - Generates sparkline for each project showing 12-month trend
+  - **Sorting Integration** (app.js:12560-12574):
+    - Updated `sortInsightsTable()` to preserve sparklines when sorting projects
+    - Maintains sparkline column in re-rendered sorted output
+    - Consistent display across all table operations
+  - **User Request**: Implemented Phase 1 of "Enhanced Charts & Visualizations" from SUGGESTED_IMPROVEMENTS.md
   - **Testing**: All 104 tests pass (33 HTML validation, 40 unit tests, 31 integration tests)
 
 ### Version 1.41.0 (2025-12-12)

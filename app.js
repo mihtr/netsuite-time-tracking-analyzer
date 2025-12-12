@@ -1392,8 +1392,8 @@ function updateTimeTrendChart() {
     const ma7 = calculateMovingAverage(hours, 7);
     const ma30 = calculateMovingAverage(hours, 30);
 
-    // Calculate linear regression for forecast
-    function linearRegression(y) {
+    // Calculate linear regression for forecast with confidence intervals
+    function linearRegressionWithCI(y, confidenceLevel = 0.95) {
         const n = y.length;
         const x = Array.from({ length: n }, (_, i) => i);
         const sumX = x.reduce((a, b) => a + b, 0);
@@ -1404,11 +1404,23 @@ function updateTimeTrendChart() {
         const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
         const intercept = (sumY - slope * sumX) / n;
 
-        return { slope, intercept };
+        // Calculate residuals and standard error
+        const predictions = x.map(xi => slope * xi + intercept);
+        const residuals = y.map((yi, i) => yi - predictions[i]);
+        const sumSquaredResiduals = residuals.reduce((sum, r) => sum + r * r, 0);
+        const standardError = Math.sqrt(sumSquaredResiduals / (n - 2));
+
+        // t-value for 95% confidence interval (approximation for large n)
+        const tValue = 1.96; // For 95% CI with large sample size
+        const marginOfError = tValue * standardError;
+
+        return { slope, intercept, standardError, marginOfError };
     }
 
-    const { slope, intercept } = linearRegression(hours);
+    const { slope, intercept, standardError, marginOfError } = linearRegressionWithCI(hours);
     const forecast = Array.from({ length: hours.length }, (_, i) => slope * i + intercept);
+    const forecastUpper = forecast.map(f => f + marginOfError);
+    const forecastLower = forecast.map(f => Math.max(0, f - marginOfError)); // Don't go below 0 hours
 
     // Format dates for display (show only first of month or sample if too many points)
     let displayDates = sortedDates;
@@ -1416,6 +1428,8 @@ function updateTimeTrendChart() {
     let displayMA7 = ma7;
     let displayMA30 = ma30;
     let displayForecast = forecast;
+    let displayForecastUpper = forecastUpper;
+    let displayForecastLower = forecastLower;
 
     if (sortedDates.length > 30) {
         // Sample every Nth point to keep chart readable
@@ -1425,6 +1439,8 @@ function updateTimeTrendChart() {
         displayMA7 = ma7.filter((_, i) => i % step === 0);
         displayMA30 = ma30.filter((_, i) => i % step === 0);
         displayForecast = forecast.filter((_, i) => i % step === 0);
+        displayForecastUpper = forecastUpper.filter((_, i) => i % step === 0);
+        displayForecastLower = forecastLower.filter((_, i) => i % step === 0);
     }
 
     const ctx = canvas.getContext('2d');
@@ -1466,6 +1482,30 @@ function updateTimeTrendChart() {
                     pointRadius: 0
                 },
                 {
+                    label: 'Forecast Upper (95% CI)',
+                    data: displayForecastUpper,
+                    borderColor: 'rgba(255, 99, 132, 0.3)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.15)',
+                    borderDash: [2, 2],
+                    tension: 0,
+                    fill: '+1', // Fill to next dataset (Lower bound)
+                    borderWidth: 1,
+                    pointRadius: 0,
+                    order: 2
+                },
+                {
+                    label: 'Forecast Lower (95% CI)',
+                    data: displayForecastLower,
+                    borderColor: 'rgba(255, 99, 132, 0.3)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.15)',
+                    borderDash: [2, 2],
+                    tension: 0,
+                    fill: false,
+                    borderWidth: 1,
+                    pointRadius: 0,
+                    order: 2
+                },
+                {
                     label: 'Linear Forecast',
                     data: displayForecast,
                     borderColor: 'rgb(255, 99, 132)',
@@ -1474,7 +1514,8 @@ function updateTimeTrendChart() {
                     tension: 0,
                     fill: false,
                     borderWidth: 2,
-                    pointRadius: 0
+                    pointRadius: 0,
+                    order: 1
                 }
             ]
         },
@@ -3636,6 +3677,45 @@ async function aggregateEmployeeData() {
     }
 }
 
+// Generate sparkline SVG for monthly trend data
+function generateSparkline(monthlyHoursMap, width = 80, height = 30) {
+    // Get last 12 months in order
+    const now = new Date();
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        months.push(monthKey);
+    }
+
+    // Get values for each month
+    const values = months.map(month => monthlyHoursMap.get(month) || 0);
+    const maxValue = Math.max(...values, 1); // Avoid division by zero
+
+    // Generate SVG path points
+    const padding = 2;
+    const graphWidth = width - (padding * 2);
+    const graphHeight = height - (padding * 2);
+    const stepX = graphWidth / (values.length - 1 || 1);
+
+    let pathData = '';
+    values.forEach((value, index) => {
+        const x = padding + (index * stepX);
+        const y = padding + graphHeight - (value / maxValue * graphHeight);
+        pathData += index === 0 ? `M ${x},${y}` : ` L ${x},${y}`;
+    });
+
+    // Create SVG with line and optional fill
+    return `<svg width="${width}" height="${height}" style="vertical-align: middle;">
+        <path d="${pathData}"
+              fill="none"
+              stroke="#667eea"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"/>
+    </svg>`;
+}
+
 // Display employee data
 function displayEmployeeData() {
     const tbody = document.getElementById('employeeTableBody');
@@ -3648,7 +3728,7 @@ function displayEmployeeData() {
     }
 
     if (displayData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" class="no-data">No employee data available</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="no-data">No employee data available</td></tr>';
         return;
     }
 
@@ -3677,6 +3757,9 @@ function displayEmployeeData() {
         const vsJobGroupColor = vsJobGroupValue > 0 ? '#28a745' : vsJobGroupValue < 0 ? '#dc3545' : '#6c757d';
         const vsJobGroupDisplay = vsJobGroupValue > 0 ? `+${formatNumber(employee.billableVsJobGroup)}%` : `${formatNumber(employee.billableVsJobGroup)}%`;
 
+        // Generate sparkline for 12-month trend
+        const sparkline = employee.monthlyHours ? generateSparkline(employee.monthlyHours) : '';
+
         row.innerHTML = `
             <td class="employee-name-hover">${employee.employeeName}</td>
             <td>${employee.subsidiary || '(No Subsidiary)'}</td>
@@ -3688,6 +3771,7 @@ function displayEmployeeData() {
             <td style="text-align: right;">${formatNumber(employee.billablePercent)}%</td>
             <td style="text-align: right; color: ${vsDeptColor}; font-weight: 600;" title="Dept Avg: ${formatNumber(employee.deptBillableAvg)}%">${vsDeptDisplay}</td>
             <td style="text-align: right; color: ${vsJobGroupColor}; font-weight: 600;" title="Job Group Avg: ${formatNumber(employee.jobGroupBillableAvg)}%">${vsJobGroupDisplay}</td>
+            <td style="text-align: center;" title="12-month trend">${sparkline}</td>
             <td style="font-size: 0.85em;">${employee.topTasks || '(None)'}</td>
         `;
 
@@ -10298,6 +10382,16 @@ function getTopProjects(data, limit = 10) {
         const employee = row[COLUMNS.EMPLOYEE];
         const billable = (row[COLUMNS.BILLABLE] || '').toString().toLowerCase() === 'true';
 
+        // Extract month from date for sparkline data
+        const date = row[COLUMNS.DATE] || '';
+        let monthKey = null;
+        if (date) {
+            const dateParts = date.split('.');
+            if (dateParts.length === 3) {
+                monthKey = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}`;
+            }
+        }
+
         if (!projectStats[project]) {
             projectStats[project] = {
                 name: project,
@@ -10306,7 +10400,8 @@ function getTopProjects(data, limit = 10) {
                 totalHours: 0,
                 billableHours: 0,
                 employees: new Set(),
-                taskCount: 0
+                taskCount: 0,
+                monthlyHours: new Map()
             };
         }
 
@@ -10318,6 +10413,14 @@ function getTopProjects(data, limit = 10) {
             projectStats[project].employees.add(employee);
         }
         projectStats[project].taskCount++;
+
+        // Track monthly hours for sparklines
+        if (monthKey) {
+            projectStats[project].monthlyHours.set(
+                monthKey,
+                (projectStats[project].monthlyHours.get(monthKey) || 0) + hours
+            );
+        }
     });
 
     // Convert to array and add derived metrics
@@ -10759,12 +10862,13 @@ function buildTopPerformersHTML(topPerformers) {
 
 // Build Project Analytics HTML
 function buildProjectAnalyticsHTML(topProjects) {
-    // Store data for sorting
+    // Store data for sorting (including monthly hours for sparklines)
     insightsSortStates.topProjects.data = topProjects.map(proj => ({
         name: proj.displayName,
         hours: proj.totalHours,
         employees: proj.employeeCount,
-        billablePercent: proj.billablePercent.toFixed(1)
+        billablePercent: proj.billablePercent.toFixed(1),
+        monthlyHours: proj.monthlyHours
     }));
 
     return `
@@ -10790,18 +10894,23 @@ function buildProjectAnalyticsHTML(topProjects) {
                                     <th class="sortable sort-desc" data-column="hours" onclick="sortInsightsTable('topProjects', 'hours')" style="text-align: right; cursor: pointer;">Hours</th>
                                     <th class="sortable" data-column="employees" onclick="sortInsightsTable('topProjects', 'employees')" style="text-align: right; cursor: pointer;">Employees</th>
                                     <th class="sortable" data-column="billablePercent" onclick="sortInsightsTable('topProjects', 'billablePercent')" style="text-align: right; cursor: pointer;">Billable %</th>
+                                    <th title="12-month trend">Trend (12mo)</th>
                                 </tr>
                             </thead>
                             <tbody id="topProjectsBody">
-                                ${insightsSortStates.topProjects.data.slice(0, 10).map((proj, idx) => `
+                                ${insightsSortStates.topProjects.data.slice(0, 10).map((proj, idx) => {
+                                    const sparkline = proj.monthlyHours ? generateSparkline(proj.monthlyHours, 80, 30) : '';
+                                    return `
                                     <tr>
                                         <td>${idx + 1}</td>
                                         <td title="${escapeHtml(proj.name)}">${escapeHtml(proj.name.substring(0, 40))}${proj.name.length > 40 ? '...' : ''}</td>
                                         <td style="text-align: right;">${formatNumber(proj.hours)}</td>
                                         <td style="text-align: right;">${proj.employees}</td>
                                         <td style="text-align: right;">${proj.billablePercent}%</td>
+                                        <td style="text-align: center;">${sparkline}</td>
                                     </tr>
-                                `).join('')}
+                                `;
+                                }).join('')}
                             </tbody>
                         </table>
                     </div>
@@ -12449,15 +12558,19 @@ function renderInsightsTableBody(tableKey) {
             break;
 
         case 'topProjects':
-            html = state.data.slice(0, 10).map((proj, idx) => `
+            html = state.data.slice(0, 10).map((proj, idx) => {
+                const sparkline = proj.monthlyHours ? generateSparkline(proj.monthlyHours, 80, 30) : '';
+                return `
                 <tr>
                     <td>${idx + 1}</td>
                     <td title="${escapeHtml(proj.name)}">${escapeHtml(proj.name.substring(0, 40))}${proj.name.length > 40 ? '...' : ''}</td>
                     <td style="text-align: right;">${formatNumber(proj.hours)}</td>
                     <td style="text-align: right;">${proj.employees}</td>
                     <td style="text-align: right;">${proj.billablePercent}%</td>
+                    <td style="text-align: center;">${sparkline}</td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
             break;
 
         case 'departmentUtil':
