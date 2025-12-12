@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.45.0
+- **Current Version**: v1.46.0
 - **Last Updated**: 2025-12-12
 - **Status**: Active Development
 
@@ -25,6 +25,45 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.46.0 (2025-12-12)
+- [x] **Dark Mode Refinements** - Polish & UX improvement
+  - **Problem**: Many hardcoded colors in CSS didn't adapt to dark mode, causing poor contrast and readability
+  - **User Request**: "Dark mode refinements. please do."
+  - **Solution**: Replaced all hardcoded colors with CSS variables for proper dark mode support
+  - **Implementation** (index.html):
+    - **New CSS Variables** (lines 17-47):
+      - Added `--table-row-even`: #f8f9fa (light) / #2a2a2a (dark)
+      - Added `--table-row-hover`: #e9ecef (light) / #353535 (dark)
+      - Added `--spinner-bg`: #f3f3f3 (light) / #3a3a3a (dark)
+      - Added `--card-bg`: #ffffff (light) / #2d2d2d (dark)
+    - **Table Styling** (lines 554-575):
+      - `td` border-bottom: now uses `var(--border-color)`
+      - `td` color: now uses `var(--text-primary)`
+      - `tbody tr:hover`: now uses `var(--table-row-hover)`
+      - `tbody tr:nth-child(even)`: now uses `var(--table-row-even)`
+    - **Loading/No-Data Text** (lines 577-603):
+      - `.loading` and `.no-data`: now use `var(--text-secondary)`
+    - **Spinner** (line 585):
+      - Border color: now uses `var(--spinner-bg)`
+    - **File Upload** (line 635):
+      - `.file-name`: now uses `var(--text-secondary)`
+    - **Analytics Cards** (lines 664-726):
+      - `.analytics-card` background: now uses `var(--card-bg)`
+      - `.analytics-card` shadow: now uses `var(--card-shadow)`
+      - `.analytics-title`: now uses `var(--text-tertiary)`
+      - `.analytics-name`: now uses `var(--text-secondary)`
+      - `.analytics-value`: now uses `var(--text-primary)`
+      - `.analytics-percent`: now uses `var(--text-tertiary)`
+      - `.analytics-bar-container`: now uses `var(--bg-tertiary)`
+  - **Benefits**:
+    - All tables now have proper contrast in dark mode
+    - Text and em dashes (—) are clearly visible in both light and dark modes
+    - Loading spinners adapt to theme
+    - Analytics cards maintain readability across themes
+    - Sort indicators (⇅ ↑ ↓) remain visible in all themes
+    - Matrix table heat-maps already handled dark mode well (lines 11886-11897 in app.js)
+  - **Testing**: All 104 tests pass (33 HTML validation, 40 unit tests, 31 integration tests)
 
 ### Version 1.45.0 (2025-12-12)
 - [x] **Global Filters Now Apply to JIRA and Insights Tabs** - Critical bug fix
