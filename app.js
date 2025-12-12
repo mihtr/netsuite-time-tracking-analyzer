@@ -11779,8 +11779,8 @@ function buildDetailedBreakdownsHTML(breakdowns) {
                     <p style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 15px;">
                         Shows which activities (New Features, Technical Debt, etc.) are performed on each product.
                     </p>
-                    <div style="overflow-x: auto;">
-                        ${buildMatrixTable(breakdowns.productByActivity, 'Product', 'Activity Code')}
+                    <div id="matrix-container-productByActivity" style="overflow-x: auto;">
+                        ${buildMatrixTable(breakdowns.productByActivity, 'Product', 'Activity Code', null, 'productByActivity')}
                     </div>
                 </div>
 
@@ -11790,8 +11790,8 @@ function buildDetailedBreakdownsHTML(breakdowns) {
                     <p style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 15px;">
                         Reveals which departments work on which products and their hour distribution.
                     </p>
-                    <div style="overflow-x: auto;">
-                        ${buildMatrixTable(breakdowns.departmentByProduct, 'Department', 'Product', 10)}
+                    <div id="matrix-container-departmentByProduct" style="overflow-x: auto;">
+                        ${buildMatrixTable(breakdowns.departmentByProduct, 'Department', 'Product', 10, 'departmentByProduct')}
                     </div>
                 </div>
 
@@ -11801,8 +11801,8 @@ function buildDetailedBreakdownsHTML(breakdowns) {
                     <p style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 15px;">
                         Shows how billing is distributed across products (CAPEX, Billable, Non-Billable).
                     </p>
-                    <div style="overflow-x: auto;">
-                        ${buildMatrixTable(breakdowns.billingByProduct, 'Billing Class', 'Product')}
+                    <div id="matrix-container-billingByProduct" style="overflow-x: auto;">
+                        ${buildMatrixTable(breakdowns.billingByProduct, 'Billing Class', 'Product', null, 'billingByProduct')}
                     </div>
                 </div>
 
@@ -11812,8 +11812,8 @@ function buildDetailedBreakdownsHTML(breakdowns) {
                     <p style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 15px;">
                         Identifies which departments focus on which types of activities.
                     </p>
-                    <div style="overflow-x: auto;">
-                        ${buildMatrixTable(breakdowns.departmentByActivity, 'Department', 'Activity Code', 10)}
+                    <div id="matrix-container-departmentByActivity" style="overflow-x: auto;">
+                        ${buildMatrixTable(breakdowns.departmentByActivity, 'Department', 'Activity Code', 10, 'departmentByActivity')}
                     </div>
                 </div>
             </div>
@@ -11822,10 +11822,24 @@ function buildDetailedBreakdownsHTML(breakdowns) {
 }
 
 // Helper function to build matrix table HTML
-function buildMatrixTable(matrixData, rowLabel, colLabel, maxRows = null) {
+function buildMatrixTable(matrixData, rowLabel, colLabel, maxRows = null, matrixKey = null) {
     if (!matrixData || !matrixData.matrix) return '<p style="color: var(--text-tertiary);">No data available</p>';
 
     const { matrix, dimension1Values, dimension2Values, rowTotals, columnTotals } = matrixData;
+
+    // Store data for sorting (only if matrixKey provided)
+    if (matrixKey) {
+        matrixTableData[matrixKey] = {
+            matrix,
+            dimension1Values,
+            dimension2Values,
+            rowTotals,
+            columnTotals,
+            maxRows
+        };
+        matrixSortStates[matrixKey].rowLabel = rowLabel;
+        matrixSortStates[matrixKey].colLabel = colLabel;
+    }
 
     // Limit rows if specified
     const displayRows = maxRows ? dimension1Values.slice(0, maxRows) : dimension1Values;
@@ -11860,14 +11874,28 @@ function buildMatrixTable(matrixData, rowLabel, colLabel, maxRows = null) {
         }
     };
 
-    let html = '<table class="insights-table" style="width: 100%; font-size: 0.85em;">';
+    // Generate table with sortable headers
+    const tableId = matrixKey ? `matrix-table-${matrixKey}` : 'matrix-table';
+    let html = `<table id="${tableId}" class="insights-table" style="width: 100%; font-size: 0.85em;">`;
     html += '<thead><tr>';
-    html += `<th style="position: sticky; left: 0; background: var(--bg-secondary); z-index: 10;">${rowLabel}</th>`;
+
+    // Row header (sortable)
+    const rowHeaderClass = matrixKey ? 'sortable' : '';
+    const rowHeaderClick = matrixKey ? ` onclick="sortMatrixTable('${matrixKey}', 'row')" style="cursor: pointer;"` : '';
+    html += `<th class="${rowHeaderClass}" ${rowHeaderClick} style="position: sticky; left: 0; background: var(--bg-secondary); z-index: 10;">${rowLabel}</th>`;
+
+    // Column headers (sortable)
     sortedCols.forEach(col => {
         const colName = col.length > 20 ? col.substring(0, 20) + '...' : col;
-        html += `<th style="text-align: right; min-width: 100px;" title="${col}">${colName}</th>`;
+        const colHeaderClass = matrixKey ? 'sortable' : '';
+        const colHeaderClick = matrixKey ? ` onclick="sortMatrixTable('${matrixKey}', '${escapeHtml(col).replace(/'/g, "\\'")}')" style="cursor: pointer;"` : '';
+        html += `<th class="${colHeaderClass}" ${colHeaderClick} style="text-align: right; min-width: 100px;" title="${col}">${colName}</th>`;
     });
-    html += '<th style="text-align: right; font-weight: bold; background: var(--bg-tertiary);">Total</th>';
+
+    // Total column (sortable)
+    const totalHeaderClass = matrixKey ? 'sortable' : '';
+    const totalHeaderClick = matrixKey ? ` onclick="sortMatrixTable('${matrixKey}', 'total')" style="cursor: pointer;"` : '';
+    html += `<th class="${totalHeaderClass}" ${totalHeaderClick} style="text-align: right; font-weight: bold; background: var(--bg-tertiary);">Total</th>`;
     html += '</tr></thead><tbody>';
 
     displayRows.forEach(row => {
@@ -11932,6 +11960,84 @@ function buildMatrixTable(matrixData, rowLabel, colLabel, maxRows = null) {
     }
 
     return html;
+}
+
+// Sort matrix table by row name or column values
+function sortMatrixTable(matrixKey, column) {
+    const data = matrixTableData[matrixKey];
+    const state = matrixSortStates[matrixKey];
+
+    if (!data || !state) return;
+
+    // Toggle direction if clicking same column
+    if (state.column === column) {
+        state.direction = state.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        state.column = column;
+        state.direction = 'desc'; // Default to desc for numeric columns
+    }
+
+    // Sort dimension1Values (rows) based on selected column
+    const sortedRows = [...data.dimension1Values];
+
+    if (column === 'row') {
+        // Sort by row name alphabetically
+        sortedRows.sort((a, b) => {
+            const aVal = a.toLowerCase();
+            const bVal = b.toLowerCase();
+            return state.direction === 'asc' ?
+                (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1);
+        });
+    } else if (column === 'total') {
+        // Sort by row total
+        sortedRows.sort((a, b) => {
+            const aVal = data.rowTotals[a]?.totalHours || 0;
+            const bVal = data.rowTotals[b]?.totalHours || 0;
+            return state.direction === 'asc' ? aVal - bVal : bVal - aVal;
+        });
+    } else {
+        // Sort by specific column value
+        sortedRows.sort((a, b) => {
+            const aVal = (data.matrix[a] && data.matrix[a][column]) ? data.matrix[a][column].totalHours : 0;
+            const bVal = (data.matrix[b] && data.matrix[b][column]) ? data.matrix[b][column].totalHours : 0;
+            return state.direction === 'asc' ? aVal - bVal : bVal - aVal;
+        });
+    }
+
+    // Update stored dimension1Values with sorted order
+    data.dimension1Values = sortedRows;
+
+    // Re-render the table
+    renderMatrixTable(matrixKey);
+
+    // Update sort indicators
+    updateSortIndicators(`matrix-table-${matrixKey}`, column, state.direction);
+}
+
+// Re-render matrix table with current sort order
+function renderMatrixTable(matrixKey) {
+    const data = matrixTableData[matrixKey];
+    const state = matrixSortStates[matrixKey];
+
+    if (!data || !state) return;
+
+    // Rebuild the matrix object with current data
+    const matrixData = {
+        matrix: data.matrix,
+        dimension1Values: data.dimension1Values,
+        dimension2Values: data.dimension2Values,
+        rowTotals: data.rowTotals,
+        columnTotals: data.columnTotals
+    };
+
+    // Generate new HTML
+    const newHtml = buildMatrixTable(matrixData, state.rowLabel, state.colLabel, data.maxRows, matrixKey);
+
+    // Update the container
+    const container = document.getElementById(`matrix-container-${matrixKey}`);
+    if (container) {
+        container.innerHTML = newHtml;
+    }
 }
 
 // Chart instances for detailed breakdowns
@@ -12150,6 +12256,21 @@ let insightsSortStates = {
     departmentUtil: { column: 'hours', direction: 'desc', data: [] },
     externalByHours: { column: 'hours', direction: 'desc', data: [] },
     externalByProjects: { column: 'projects', direction: 'desc', data: [] }
+};
+
+// Matrix table sort states and data storage
+let matrixTableData = {
+    productByActivity: null,
+    departmentByProduct: null,
+    billingByProduct: null,
+    departmentByActivity: null
+};
+
+let matrixSortStates = {
+    productByActivity: { column: 'row', direction: 'asc', rowLabel: 'Product', colLabel: 'Activity Code' },
+    departmentByProduct: { column: 'row', direction: 'asc', rowLabel: 'Department', colLabel: 'Product' },
+    billingByProduct: { column: 'row', direction: 'asc', rowLabel: 'Billing Class', colLabel: 'Product' },
+    departmentByActivity: { column: 'row', direction: 'asc', rowLabel: 'Department', colLabel: 'Activity Code' }
 };
 
 // Generic sort function for insights tables

@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.42.1
+- **Current Version**: v1.43.0
 - **Last Updated**: 2025-12-12
 - **Status**: Active Development
 
@@ -25,6 +25,51 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.43.0 (2025-12-12)
+- [x] **Multi-Dimensional Analysis Table Sorting** - All matrix tables in Insights tab now fully sortable
+  - **Tables Enhanced** (4 matrix tables):
+    - 🔧 Main Product × Activity Code
+    - 🏢 Department × Main Product
+    - 💰 Billing Class × Main Product
+    - 🎯 Department × Activity Code
+  - **Sorting Capabilities**:
+    - **Row Header Sorting**: Click row header (Product, Department, etc.) to sort rows alphabetically
+    - **Column Sorting**: Click any column header to sort rows by that column's hours
+    - **Total Column Sorting**: Click "Total" header to sort rows by total hours
+    - **Toggle Direction**: Click same header again to toggle ascending/descending
+    - **Visual Indicators**: Sort direction shown with ▲/▼ arrows on active column
+  - **Implementation Details** (app.js):
+    - **Sort State Management** (lines 12155-12168):
+      - Created `matrixTableData` object to store all 4 matrix datasets
+      - Created `matrixSortStates` object with column, direction, rowLabel, colLabel for each matrix
+      - Default sort: by row name, ascending
+    - **buildMatrixTable() Enhanced** (lines 11825-11963):
+      - Added `matrixKey` parameter to identify which matrix (productByActivity, etc.)
+      - Store matrix data globally when matrixKey provided
+      - Add `sortable` class to all column headers
+      - Add `onclick="sortMatrixTable('matrixKey', 'column')"` handlers
+      - Assign unique table IDs: `matrix-table-${matrixKey}`
+      - Add container divs with IDs: `matrix-container-${matrixKey}`
+    - **sortMatrixTable() Function** (lines 11966-12015):
+      - Toggle sort direction when clicking same column
+      - Sort dimension1Values (rows) by: row name, total hours, or specific column hours
+      - Handle null values gracefully (default to 0 hours)
+      - Update stored sort state
+      - Call renderMatrixTable() to re-render
+      - Update sort indicators with updateSortIndicators()
+    - **renderMatrixTable() Function** (lines 12018-12041):
+      - Rebuild matrix HTML with sorted dimension1Values
+      - Update container innerHTML without full page refresh
+      - Preserves heat-map coloring and formatting
+  - **User Experience**:
+    - All headers show pointer cursor on hover
+    - Heat-map colors recalculated after sorting
+    - Sticky row headers remain during horizontal scroll
+    - Row/column totals remain accurate after sorting
+    - Supports sorting on limited views (top 10 departments, etc.)
+  - **User Request**: "please add sort to the Multi-Dimensional Analysis tables in insight."
+  - **Testing**: All 104 tests pass (33 HTML validation, 40 unit tests, 31 integration tests)
 
 ### Version 1.42.1 (2025-12-12)
 - [x] **Bug Fix: Insights Tab Project Analytics TypeError**
