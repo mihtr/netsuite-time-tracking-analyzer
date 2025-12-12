@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.38.0
+- **Current Version**: v1.39.0
 - **Last Updated**: 2025-12-12
 - **Status**: Active Development
 
@@ -25,6 +25,34 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.39.0 (2025-12-12)
+- [x] **Enhanced Charts Phase 2** - Advanced analytics with moving averages and year-over-year comparisons
+  - **Time Trend Chart Enhancements** (app.js:1340-1497)
+    - Added 7-day moving average calculation (orange line)
+    - Added 30-day moving average calculation (green line)
+    - Implemented linear regression forecast/trend line (red dashed line)
+    - Updated chart legend to display all four data series
+    - Enhanced tooltip with formatted hour values
+  - **Year-over-Year Comparison Chart** (app.js:1632-1744)
+    - New updateYearOverYearChart() function aggregates data by year and month
+    - Displays separate line for each year in dataset
+    - Month labels (Jan-Dec) on x-axis for easy comparison
+    - Color-coded years with legend
+    - Hover tooltips show year and exact hours
+  - **UI Updates** (index.html:2736-2762)
+    - Updated Time Trend section title to indicate moving averages & forecast
+    - Added legend description for all trend lines
+    - Created new Year-over-Year Comparison section with canvas
+    - Added explanatory text for year comparison feature
+  - **Chart Instance Management** (app.js:1326)
+    - Added yearOverYearChartInstance global variable
+    - Integrated updateYearOverYearChart() into updateCharts() function
+  - **Technical Implementation**
+    - Moving average algorithm uses sliding window (7 and 30 days)
+    - Linear regression uses least squares method for trend forecasting
+    - Year-over-year uses Map data structure for efficient aggregation
+    - Maintains existing sampling logic for large datasets (>30 points)
 
 ### Version 1.38.0 (2025-12-12)
 - [x] **JIRA Integration Tab** - Dedicated view for JIRA-linked time entries

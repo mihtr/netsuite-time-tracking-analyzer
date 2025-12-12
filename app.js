@@ -1323,6 +1323,7 @@ let timeTrendChartInstance = null;
 let billingPieChartInstance = null;
 let topProjectsChartInstance = null;
 let compareChartInstance = null;
+let yearOverYearChartInstance = null;
 
 // Update all charts
 function updateCharts() {
@@ -1333,9 +1334,10 @@ function updateCharts() {
     updateTimeTrendChart();
     updateBillingPieChart();
     updateTopProjectsChart();
+    updateYearOverYearChart();
 }
 
-// Time Trend Line Chart
+// Time Trend Line Chart with Moving Averages and Forecast
 function updateTimeTrendChart() {
     const canvas = document.getElementById('timeTrendChart');
     if (!canvas) return;
@@ -1361,14 +1363,56 @@ function updateTimeTrendChart() {
     const sortedDates = Array.from(dateMap.keys()).sort();
     const hours = sortedDates.map(date => dateMap.get(date));
 
+    // Calculate moving averages
+    function calculateMovingAverage(data, window) {
+        const result = [];
+        for (let i = 0; i < data.length; i++) {
+            if (i < window - 1) {
+                result.push(null); // Not enough data for window
+            } else {
+                const sum = data.slice(i - window + 1, i + 1).reduce((a, b) => a + b, 0);
+                result.push(sum / window);
+            }
+        }
+        return result;
+    }
+
+    const ma7 = calculateMovingAverage(hours, 7);
+    const ma30 = calculateMovingAverage(hours, 30);
+
+    // Calculate linear regression for forecast
+    function linearRegression(y) {
+        const n = y.length;
+        const x = Array.from({ length: n }, (_, i) => i);
+        const sumX = x.reduce((a, b) => a + b, 0);
+        const sumY = y.reduce((a, b) => a + b, 0);
+        const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
+        const sumXX = x.reduce((sum, xi) => sum + xi * xi, 0);
+
+        const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+        const intercept = (sumY - slope * sumX) / n;
+
+        return { slope, intercept };
+    }
+
+    const { slope, intercept } = linearRegression(hours);
+    const forecast = Array.from({ length: hours.length }, (_, i) => slope * i + intercept);
+
     // Format dates for display (show only first of month or sample if too many points)
     let displayDates = sortedDates;
     let displayHours = hours;
+    let displayMA7 = ma7;
+    let displayMA30 = ma30;
+    let displayForecast = forecast;
+
     if (sortedDates.length > 30) {
         // Sample every Nth point to keep chart readable
         const step = Math.ceil(sortedDates.length / 30);
         displayDates = sortedDates.filter((_, i) => i % step === 0);
         displayHours = hours.filter((_, i) => i % step === 0);
+        displayMA7 = ma7.filter((_, i) => i % step === 0);
+        displayMA30 = ma30.filter((_, i) => i % step === 0);
+        displayForecast = forecast.filter((_, i) => i % step === 0);
     }
 
     const ctx = canvas.getContext('2d');
@@ -1379,21 +1423,56 @@ function updateTimeTrendChart() {
                 const parts = d.split('-');
                 return `${parts[2]}/${parts[1]}`; // DD/MM
             }),
-            datasets: [{
-                label: 'Hours',
-                data: displayHours,
-                borderColor: 'rgb(75, 192, 192)',
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                tension: 0.4,
-                fill: true
-            }]
+            datasets: [
+                {
+                    label: 'Daily Hours',
+                    data: displayHours,
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 2
+                },
+                {
+                    label: '7-Day Average',
+                    data: displayMA7,
+                    borderColor: 'rgb(255, 159, 64)',
+                    backgroundColor: 'rgba(255, 159, 64, 0.1)',
+                    tension: 0.4,
+                    fill: false,
+                    borderWidth: 2,
+                    pointRadius: 0
+                },
+                {
+                    label: '30-Day Average',
+                    data: displayMA30,
+                    borderColor: 'rgb(75, 192, 75)',
+                    backgroundColor: 'rgba(75, 192, 75, 0.1)',
+                    tension: 0.4,
+                    fill: false,
+                    borderWidth: 2,
+                    pointRadius: 0
+                },
+                {
+                    label: 'Linear Forecast',
+                    data: displayForecast,
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    borderDash: [5, 5],
+                    tension: 0,
+                    fill: false,
+                    borderWidth: 2,
+                    pointRadius: 0
+                }
+            ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    display: false
+                    display: true,
+                    position: 'top'
                 },
                 title: {
                     display: false
@@ -1542,6 +1621,121 @@ function updateTopProjectsChart() {
                     title: {
                         display: true,
                         text: 'Hours'
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Year-over-Year Comparison Chart
+function updateYearOverYearChart() {
+    const canvas = document.getElementById('yearOverYearChart');
+    if (!canvas) return;
+
+    // Destroy existing chart
+    if (yearOverYearChartInstance) {
+        yearOverYearChartInstance.destroy();
+    }
+
+    // Aggregate hours by year and month
+    const yearMonthMap = new Map();
+    filteredData.forEach(row => {
+        const dateStr = row[COLUMNS.DATE];
+        const rowDate = parseDate(dateStr);
+        if (!rowDate) return;
+
+        const year = rowDate.getFullYear();
+        const month = rowDate.getMonth(); // 0-11
+        const key = `${year}-${month}`;
+        const hours = parseDecimal(row[COLUMNS.DUR_DEC]);
+
+        yearMonthMap.set(key, (yearMonthMap.get(key) || 0) + hours);
+    });
+
+    // Organize data by year
+    const yearData = new Map();
+    yearMonthMap.forEach((hours, key) => {
+        const [year, month] = key.split('-').map(Number);
+        if (!yearData.has(year)) {
+            yearData.set(year, new Array(12).fill(0));
+        }
+        yearData.get(year)[month] = hours;
+    });
+
+    // Sort years
+    const sortedYears = Array.from(yearData.keys()).sort();
+
+    // Month labels
+    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    // Color palette for years
+    const yearColors = [
+        'rgb(75, 192, 192)',
+        'rgb(255, 99, 132)',
+        'rgb(54, 162, 235)',
+        'rgb(255, 206, 86)',
+        'rgb(153, 102, 255)',
+        'rgb(255, 159, 64)',
+        'rgb(201, 203, 207)'
+    ];
+
+    // Create datasets for each year
+    const datasets = sortedYears.map((year, index) => {
+        const color = yearColors[index % yearColors.length];
+        return {
+            label: year.toString(),
+            data: yearData.get(year),
+            borderColor: color,
+            backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
+            tension: 0.4,
+            fill: false,
+            borderWidth: 2,
+            pointRadius: 3,
+            pointHoverRadius: 5
+        };
+    });
+
+    const ctx = canvas.getContext('2d');
+    yearOverYearChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: monthLabels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                title: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.dataset.label || '';
+                            const value = context.parsed.y || 0;
+                            return `${label}: ${value.toFixed(1)} hours`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Hours'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Month'
                     }
                 }
             }
