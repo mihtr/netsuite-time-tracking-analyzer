@@ -10514,6 +10514,87 @@ function getWeekKey(date) {
     return `${date.getFullYear()}-W${week}`;
 }
 
+// Destroy all chart instances to prevent "Canvas already in use" errors
+function destroyAllInsightsCharts() {
+    // Top Performers section
+    if (topPerformersByHoursChartInstance) {
+        topPerformersByHoursChartInstance.destroy();
+        topPerformersByHoursChartInstance = null;
+    }
+    if (topPerformersByProjectsChartInstance) {
+        topPerformersByProjectsChartInstance.destroy();
+        topPerformersByProjectsChartInstance = null;
+    }
+
+    // Project Analytics section
+    if (topProjectsInsightChartInstance) {
+        topProjectsInsightChartInstance.destroy();
+        topProjectsInsightChartInstance = null;
+    }
+
+    // Time Distribution section
+    if (dayOfWeekChartInstance) {
+        dayOfWeekChartInstance.destroy();
+        dayOfWeekChartInstance = null;
+    }
+    if (monthlyTrendInsightChartInstance) {
+        monthlyTrendInsightChartInstance.destroy();
+        monthlyTrendInsightChartInstance = null;
+    }
+
+    // Billing Analysis section
+    if (billableBreakdownChartInstance) {
+        billableBreakdownChartInstance.destroy();
+        billableBreakdownChartInstance = null;
+    }
+    if (billingClassChartInstance) {
+        billingClassChartInstance.destroy();
+        billingClassChartInstance = null;
+    }
+
+    // Resource Utilization section
+    if (departmentUtilizationChartInstance) {
+        departmentUtilizationChartInstance.destroy();
+        departmentUtilizationChartInstance = null;
+    }
+
+    // External Employees section
+    if (topExternalEmployeesChartInstance) {
+        topExternalEmployeesChartInstance.destroy();
+        topExternalEmployeesChartInstance = null;
+    }
+    if (externalProjectsChartInstance) {
+        externalProjectsChartInstance.destroy();
+        externalProjectsChartInstance = null;
+    }
+    if (externalVsInternalChartInstance) {
+        externalVsInternalChartInstance.destroy();
+        externalVsInternalChartInstance = null;
+    }
+
+    // Detailed Breakdowns section
+    if (monthTrendChartInstance) {
+        monthTrendChartInstance.destroy();
+        monthTrendChartInstance = null;
+    }
+    if (mainProductChartInstance) {
+        mainProductChartInstance.destroy();
+        mainProductChartInstance = null;
+    }
+    if (departmentBreakdownChartInstance) {
+        departmentBreakdownChartInstance.destroy();
+        departmentBreakdownChartInstance = null;
+    }
+    if (activityCodeChartInstance) {
+        activityCodeChartInstance.destroy();
+        activityCodeChartInstance = null;
+    }
+    if (billingClassBreakdownChartInstance) {
+        billingClassBreakdownChartInstance.destroy();
+        billingClassBreakdownChartInstance = null;
+    }
+}
+
 // Render insights dashboard
 function renderInsightsDashboard() {
     const container = document.getElementById('comprehensiveDashboard');
@@ -10522,6 +10603,9 @@ function renderInsightsDashboard() {
         if (container) container.style.display = 'none';
         return;
     }
+
+    // Destroy all existing chart instances before recreating
+    destroyAllInsightsCharts();
 
     const insights = calculateInsights(filteredData);
     if (!insights) return;
@@ -11705,7 +11789,7 @@ function buildDetailedBreakdownsHTML(breakdowns) {
                 <div class="insights-card">
                     <h4>💳 By Billing Class</h4>
                     <div class="insights-chart-container">
-                        <canvas id="billingClassChart"></canvas>
+                        <canvas id="billingClassBreakdownChart"></canvas>
                     </div>
                     <div class="insights-table">
                         <table>
@@ -12067,6 +12151,7 @@ let monthTrendChartInstance = null;
 let mainProductChartInstance = null;
 let departmentBreakdownChartInstance = null;
 let activityCodeChartInstance = null;
+let billingClassBreakdownChartInstance = null;
 
 // Create Detailed Breakdowns Charts
 function createDetailedBreakdownsCharts(breakdowns) {
@@ -12225,14 +12310,14 @@ function createDetailedBreakdownsCharts(breakdowns) {
         });
     }
 
-    // Billing Class Chart
-    const billingCanvas = document.getElementById('billingClassChart');
+    // Billing Class Chart (Detailed Breakdowns)
+    const billingCanvas = document.getElementById('billingClassBreakdownChart');
     if (billingCanvas) {
-        if (billingClassChartInstance) billingClassChartInstance.destroy();
+        if (billingClassBreakdownChartInstance) billingClassBreakdownChartInstance.destroy();
 
         const billingClasses = breakdowns.byBillingClass.slice(0, 10);
 
-        billingClassChartInstance = new Chart(billingCanvas, {
+        billingClassBreakdownChartInstance = new Chart(billingCanvas, {
             type: 'pie',
             data: {
                 labels: billingClasses.map(b => b.name),

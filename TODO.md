@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.46.0
+- **Current Version**: v1.46.1
 - **Last Updated**: 2025-12-12
 - **Status**: Active Development
 
@@ -21,10 +21,40 @@
 - [x] No way to export filtered results - **RESOLVED** in v1.6.1
 - [x] Monthly view doesn't update when filters change / Timeline not reflecting selection - **RESOLVED** in v1.6.3
 - [x] Empty/null values show as "(Empty)" in table - could be more elegant - **RESOLVED** in v1.44.0
+- [x] Chart.js "Canvas is already in use" error when switching filters in Insights tab - **RESOLVED** in v1.46.1
 
 ---
 
 ## ✅ Completed Features
+
+### Version 1.46.1 (2025-12-12)
+- [x] **Fix Chart.js Canvas Reuse Error** - Critical bug fix
+  - **Problem**: Console error "Canvas is already in use. Chart with ID '2' must be destroyed before the canvas with ID 'topProjectsChart' can be reused"
+  - **User Report**: Screenshot showing Chart.js error in browser console
+  - **Root Causes**:
+    1. **Missing Chart Cleanup**: When `renderInsightsDashboard()` was called multiple times (e.g., when filters changed), old Chart.js instances weren't destroyed before creating new ones
+    2. **Duplicate Canvas IDs**: Two different sections in Insights tab used the same canvas ID `billingClassChart`:
+       - Billing Analysis section: "Hours by Billing Class"
+       - Detailed Breakdowns section: "By Billing Class"
+  - **Solution** (app.js):
+    - **Created `destroyAllInsightsCharts()` function** (lines 10517-10592):
+      - Destroys all 14 chart instances used in Insights tab
+      - Sets each instance to `null` after destruction
+      - Covers: Top Performers (2), Project Analytics (1), Time Distribution (2), Billing Analysis (2), Resource Utilization (1), External Employees (3), Detailed Breakdowns (4)
+    - **Added chart cleanup to `renderInsightsDashboard()`** (line 10527):
+      - Calls `destroyAllInsightsCharts()` at the start of function
+      - Prevents "Canvas already in use" errors when recreating charts
+    - **Fixed duplicate canvas ID conflict**:
+      - Renamed canvas in Detailed Breakdowns section from `billingClassChart` to `billingClassBreakdownChart` (line 11792)
+      - Created new chart instance variable `billingClassBreakdownChartInstance` (line 12150)
+      - Updated chart creation code to use new canvas ID and instance (lines 12314-12320)
+      - Added new instance to cleanup function (lines 10592-10595)
+  - **Benefits**:
+    - No more Chart.js errors when changing filters or switching tabs
+    - All charts properly destroyed and recreated on each render
+    - No duplicate canvas IDs in DOM (valid HTML)
+    - Cleaner console output, better user experience
+  - **Testing**: All 104 tests pass (33 HTML validation, 40 unit tests, 31 integration tests)
 
 ### Version 1.46.0 (2025-12-12)
 - [x] **Dark Mode Refinements** - Polish & UX improvement
