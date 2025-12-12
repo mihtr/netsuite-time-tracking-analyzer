@@ -1,8 +1,8 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.32.2
-- **Last Updated**: 2025-12-11
+- **Current Version**: v1.37.0
+- **Last Updated**: 2025-12-12
 - **Status**: Active Development
 
 ---
@@ -25,6 +25,182 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.37.0 (2025-12-12)
+- [x] **Multi-Dimensional Analysis** - Advanced cross-dimensional breakdowns with heat-map tables
+  - Added aggregateByTwoDimensions(dimension1Field, dimension2Field) function (app.js:9677-9755)
+    - Creates matrix structure grouping data by two dimensions simultaneously
+    - Calculates row totals, column totals, and cell-level metrics
+    - Tracks totalHours, billableHours, nonBillableHours, recordCount for each cell
+    - Computes billable percentages for all cells, rows, and columns
+  - Implemented four strategic dimension combinations:
+    1. **Main Product × Activity Code** (productByActivity) - Shows which activities are performed on each product
+    2. **Department × Main Product** (departmentByProduct) - Reveals which departments work on which products
+    3. **Billing Class × Main Product** (billingByProduct) - Shows billing distribution across products (CAPEX/Bill/NonBill)
+    4. **Department × Activity Code** (departmentByActivity) - Identifies department focus areas
+  - Added buildMatrixTable() helper function (app.js:11529-11640)
+    - Generates color-coded heat-map tables with intensity-based cell coloring
+    - Color intensity scales with hour volume (darker = more hours)
+    - Dark mode aware: adjusts alpha transparency for theme
+    - Shows hours and billable % in each cell
+    - Includes row totals, column totals, and grand total
+    - Sticky first column for easy horizontal scrolling
+    - Limits to top 10 columns and optional row limit for performance
+    - Tooltips show full dimension names and detailed metrics
+  - Added "Multi-Dimensional Analysis" section to Detailed Breakdowns (app.js:11474-11524)
+    - Descriptive explanations for each combination
+    - Overflow-x scrolling for large tables
+    - Visual separator from single-dimension breakdowns
+  - Updated getDetailedBreakdowns() return object (app.js:9804-9819)
+  - User benefits:
+    - Discover correlations between dimensions (e.g., which departments do technical debt)
+    - Identify resource allocation patterns (e.g., CAPEX distribution by product)
+    - Strategic planning insights from cross-dimensional views
+    - Visual heat-maps make patterns immediately apparent
+    - Drill into specific intersections with precise metrics
+
+### Version 1.36.2 (2025-12-12)
+- [x] **Insights Heading Contrast Fix** - Improved readability of insights section headings
+  - Added explicit color styling to all h2, h3, and h4 headings within insights sections (index.html:1589-1593)
+  - Used `!important` flag to ensure color override in all contexts
+  - Ensures headings always use `var(--text-primary)` color
+  - Fixes potential white text on light backgrounds causing poor contrast
+  - Works correctly in both light and dark modes
+  - User benefits: Better readability and accessibility for all heading levels in insights dashboard
+
+### Version 1.36.1 (2025-12-12)
+- [x] **Bug Fixes** - Fixed critical JavaScript errors
+  - Fixed duplicate declaration of `billingClassChartInstance` variable (app.js:11389)
+    - Removed duplicate declaration in detailed breakdowns section
+    - Original declaration at line 10514 retained with other chart instances
+  - Fixed `switchView()` function event handling error (app.js:181-192)
+    - Removed reliance on deprecated global `event` object
+    - Changed from `event.target.classList.add('active')` to finding tab by onclick attribute
+    - Now properly identifies and activates the correct tab based on viewName
+    - Resolves "ReferenceError: switchView is not defined" error
+  - User benefits: Eliminates console errors, ensures smooth tab navigation
+
+### Version 1.36.0 (2025-12-12)
+- [x] **Detailed Multi-Dimensional Breakdowns** - Comprehensive insights based on month and multiple dimensions
+  - Added getDetailedBreakdowns(data) function (app.js:9631-9727) with aggregation engine
+  - Helper function aggregateByDimension(dimensionField) for consistent aggregation across all dimensions (lines 9634-9669)
+  - Seven dimensional breakdowns implemented:
+    1. **By Month** - Chronological sorting with year/month tracking for proper ordering (lines 9671-9709)
+    2. **By EG Main Product** - Product line analysis (Xellent D365, AX2009, SonWin, etc.)
+    3. **By Mtype2** - Project type categorization
+    4. **By MBillableType** - Billable type analysis
+    5. **By Billing Class** - CAPEX, Bill, NonBill classification
+    6. **By Department** - Department-level resource allocation
+    7. **By EG - Activity Code** - Activity type breakdown (Technical debt, New features, etc.)
+  - Each dimension calculates: totalHours, billableHours, nonBillableHours, recordCount, billablePercentage
+  - Integrated into calculateInsights() return object (line 9627)
+  - Added navigation button "📈 Detailed Breakdowns" (app.js:10185-10187)
+  - Created buildDetailedBreakdownsHTML(breakdowns) function (lines 11166-11382):
+    - Section ID: section-detailed-breakdowns for smooth navigation
+    - Month-over-month trend table with last 12 months visualization
+    - Grid layouts for Main Product, Department, Activity Code dimensions
+    - Additional grid for Billing Class breakdown
+    - Detailed tables for Mtype2 and MBillableType with billable percentages
+  - Created createDetailedBreakdownsCharts(breakdowns) function (lines 11391-11584):
+    - Month trend line chart (monthTrendChartInstance) - Shows last 12 months trend
+    - Main Product doughnut chart (mainProductChartInstance) - Product distribution
+    - Department horizontal bar chart (departmentBreakdownChartInstance) - Top 10 departments
+    - Activity Code horizontal bar chart (activityCodeChartInstance) - Activity type distribution
+    - Billing Class pie chart (billingClassChartInstance) - CAPEX/Bill/NonBill split
+  - All charts support dark mode with theme-aware colors
+  - Integrated into render pipeline: buildDetailedBreakdownsHTML() at line 10199
+  - Chart creation integrated: createDetailedBreakdownsCharts() at line 10212
+  - User benefits: Comprehensive multi-dimensional analysis for strategic planning and resource allocation
+
+### Version 1.35.2 (2025-12-12)
+- [x] **Enhanced Project Display Format** - Show both project code and name together
+  - Updated getTopProjects() function to display format: "CODE - Name"
+  - Example: "CUST:123:PROJ:456 - Customer Portal Development"
+  - Applies to all project displays in Insights dashboard
+  - Improves readability and project identification across all sections
+
+### Version 1.35.1 (2025-12-12)
+- [x] **Insights UI Polish** - Minor improvements to insights dashboard layout and styling
+
+### Version 1.35.0 (2025-12-12)
+- [x] **Insights Navigation Enhancement** - Quick navigation and back-to-top functionality
+  - Added insights navigation bar with quick jump buttons (app.js:10170-10207):
+    - 🏆 Top Performers
+    - 📊 Project Analytics
+    - ⏰ Time Distribution
+    - 💰 Billing Analysis
+    - 📈 Utilization Metrics
+    - 👥 External Employees
+    - 📈 Detailed Breakdowns
+  - Navigation bar uses sticky positioning (position: sticky; top: 0; z-index: 100)
+  - Smooth scroll behavior with scroll-margin-top offset for proper section positioning
+  - Added scrollToInsightsSection(sectionId) function for smooth navigation
+  - Created floating back-to-top button (index.html):
+    - Fixed position at bottom right (bottom: 30px; right: 30px)
+    - Circular design with gradient background
+    - Appears when scrolled >300px from top
+    - Smooth animations (scale and translateY on hover)
+    - Uses scrollToTopSmooth() function for animated scroll
+  - CSS additions (index.html:~1590-1670):
+    - .insights-nav-button with gradient and hover effects
+    - #backToTopBtn with circular design and animations
+    - .insights-section with scroll-margin-top for navigation offset
+  - Added section IDs to all major insights sections for navigation targets
+  - User benefits: Fast navigation through long insights reports, easy return to top
+
+### Version 1.34.0 (2025-12-12)
+- [x] **External Employees/Consultants Analysis** - Dedicated insights for external workforce
+  - Added getExternalEmployeesInsights(data) function (app.js:9466-9563)
+  - Automatic detection of external employees using multiple criteria:
+    - Job Group field contains: "External", "Consultant", "Contractor"
+    - Employee name contains: "external", "consultant", "contractor"
+    - Full Name field contains same keywords
+  - Case-insensitive detection across multiple fields
+  - Comprehensive metrics calculated (13 total):
+    - External employee count, total hours, project count
+    - Billable/non-billable hours split with percentages
+    - Comparison with internal employees (percentage of total workforce)
+    - Top external employees by hours (with hours and billable %)
+    - Top projects using external resources (with hours and percentage)
+  - Added buildExternalEmployeesHTML(externalData) function (app.js:10954-11157)
+  - Section ID: section-external-employees for navigation
+  - Visual components:
+    - 4 summary metric cards with gradient backgrounds
+    - Comparison section showing external vs internal workforce
+    - Top external employees chart (horizontal bar chart)
+    - Top projects chart (horizontal bar chart)
+    - Detailed breakdown tables
+  - Fallback handling: Shows "No external employees found" when none detected
+  - Integrated into calculateInsights() (line 9626)
+  - Navigation button added to insights dashboard
+  - User benefits: Track external consultant usage, cost analysis, project allocation
+
+### Version 1.33.0 (2025-12-12)
+- [x] **Searchable Multi-Select Dropdowns for Pivot Filters** - Enhanced filtering UX
+  - Replaced text input with searchable dropdown for filter values
+  - Added getUniqueFieldValues(fieldName) function (app.js:5006-5032)
+    - Extracts unique values from currently filtered data
+    - Intelligent sorting: numeric fields sorted numerically, text fields alphabetically
+    - Handles empty values as "(Empty)"
+  - Added populateFilterValueDropdown(ruleId) function (app.js:5034-5100)
+    - Creates dropdown with search box
+    - Select All / Deselect All functionality
+    - Real-time search filtering of available values
+    - Checkbox-based multi-select interface
+  - Updated addPivotFilterRule() function (lines 4968-5004)
+    - Replaced input field with dropdown button and container
+    - Dynamic population based on selected field
+    - Stores selected values as comma-separated list
+  - CSS additions (index.html:~1380-1460):
+    - .filter-value-container - Relative positioning wrapper
+    - .filter-value-button - Styled button with dropdown indicator (▼)
+    - .filter-value-dropdown - Positioned dropdown panel
+    - .filter-value-search - Search input with icon
+    - .filter-value-list - Scrollable checkbox list
+    - .filter-value-item - Individual checkbox items with hover effects
+  - Maintains existing filter logic (equals/not equals/contains/etc.)
+  - Dropdown only shows when field is selected
+  - User benefits: Faster value selection, no typos, see all available values
 
 ### Version 1.32.0 (2025-12-11)
 - [x] **Advanced Filtering with AND/OR Conditions** - Comprehensive filtering system for Pivot Builder
@@ -1178,6 +1354,212 @@
 ## 🔄 Change Log
 
 **Documentation**: MAINTENANCE_RULES.md created (2025-12-10) - Comprehensive guidelines for keeping documentation synchronized with code changes, including version management workflow, commit standards, and maintenance procedures.
+
+### v1.35.2 - Display Project Code + Name Together (2025-12-12)
+- **Enhancement: Show Both Project Code and Name**
+  - **Feature**: Projects now display with both code and name in format: "PROJECT_CODE - Project Name"
+  - **Implementation**:
+    - Updated `getTopProjects()` displayName format (app.js:9839):
+      - Format: `${project} - ${projectName}` if projectName exists
+      - Falls back to just project code if name is empty
+    - Updated `getExternalEmployeesInsights()` displayName format (app.js:9740):
+      - Same format for consistency across all sections
+  - **Display Examples**:
+    - **With name**: "CUST:123:PROJ:456 - Customer Portal Development"
+    - **Without name**: "CUST:123:PROJ:456"
+  - **User Benefits**:
+    - **Best of both worlds** - See both unique identifier and readable name
+    - **Easy lookup** - Can search by project code or name
+    - **Complete context** - Know exactly which project without ambiguity
+  - **Code**: app.js lines 9740, 9839
+
+### v1.35.1 - Display Project Names in Insights (2025-12-12)
+- **Enhancement: Project Names Now Shown in All Insights Sections**
+  - **Feature**: All project displays in Insights now show descriptive project names from the "Name" field instead of just project codes
+  - **Implementation**:
+    - **Updated Data Functions**:
+      - `getTopProjects()` (app.js:9823-9858):
+        - Added `projectName` field from COLUMNS.NAME
+        - Added `displayName` field combining project name
+        - Falls back to project code if name is empty
+      - `getExternalEmployeesInsights()` (app.js:9728-9756):
+        - Added project name tracking for external projects
+        - Added `displayName` field for consistent display
+    - **Updated HTML Builders**:
+      - Project Analytics table (app.js:10212-10219):
+        - Now displays `proj.displayName` instead of `proj.name`
+        - Increased display length to 50 characters (from 40)
+        - Added title tooltip showing full project name on hover
+      - External Projects table (app.js:10871-10878):
+        - Updated to show `proj.displayName`
+        - Displays 40 characters with ellipsis if longer
+        - Added hover tooltip for full name
+    - **Updated Charts**:
+      - Top Projects Chart (app.js:10516):
+        - Chart labels now use `proj.displayName` (35 chars)
+        - Shows descriptive names instead of codes on Y-axis
+      - External Projects Chart (app.js:10974):
+        - Updated to display project names (30 chars + ellipsis)
+        - More readable project identification
+  - **User Benefits**:
+    - **Much more readable** - See "Customer Portal Development" instead of "CUST:123:PROJ:456"
+    - **Better context** - Understand what projects are about at a glance
+    - **Tooltips** - Hover to see full project names when truncated
+    - **Consistent** - Project names shown everywhere in insights
+    - **Falls back gracefully** - Shows project code if name is missing
+  - **Display Format**: Project names are shown with automatic truncation and "..." if too long
+  - **Code**: app.js lines 9823-9858, 9728-9756, 10212-10219, 10516, 10871-10878, 10974
+
+### v1.35.0 - Insights Navigation & Back-to-Top Button (2025-12-12)
+- **New Feature: Section Navigation in Insights Dashboard**
+  - **Feature**: Quick navigation buttons at top of Insights page to jump to specific sections + floating back-to-top button
+  - **Implementation**:
+    - **Section IDs** (app.js:10083, 10156, 10200, 10241, 10290, 10748, 10763):
+      - Added unique IDs to all 6 insight sections for anchor navigation
+      - `section-top-performers` - Top Performers section
+      - `section-project-analytics` - Project Analytics section
+      - `section-time-distribution` - Time Distribution Patterns section
+      - `section-billing-analysis` - Billing Analysis section
+      - `section-resource-utilization` - Resource Utilization section
+      - `section-external-employees` - External Employees Analysis section
+    - **Navigation Bar** (app.js:10058-10082):
+      - Sticky navigation bar at top of insights dashboard
+      - 6 gradient-styled buttons for each section
+      - Sticky positioning (position: sticky, top: 0) stays visible while scrolling
+      - Button emojis: 🏆 📊 📅 💰 👥 👥
+      - Flexbox layout with wrapping for responsive design
+    - **Smooth Scroll Functions** (app.js:11056-11083):
+      - `scrollToInsightsSection(sectionId)` - Smooth scroll to specific section
+      - `scrollToTopSmooth()` - Smooth scroll to page top
+      - `scroll-margin-top: 80px` offset for sticky navigation clearance
+    - **Floating Back-to-Top Button** (index.html:2797-2798):
+      - Fixed position button (bottom-right corner)
+      - Circular gradient button with ↑ arrow icon
+      - Auto-shows after scrolling >300px down
+      - Auto-hides when near top
+      - Smooth animations (scale, translateY on hover)
+      - Event listener tracks scroll position (app.js:11074-11083)
+    - **CSS Styling** (index.html:1667-1722):
+      - `.insights-nav-button` - Purple gradient buttons with hover effects
+      - `#backToTopBtn` - Circular floating button with scale animations
+      - `.insights-section` - Scroll margin for proper anchor positioning
+      - Hover effects: translateY, shadow intensity, gradient reversal
+      - Active state animations for tactile feedback
+  - **User Experience**:
+    - No more manual scrolling through long insights page
+    - Quick access to any section with one click
+    - Sticky navigation always accessible
+    - Easy return to top from anywhere on page
+    - Smooth scroll animations for polished feel
+    - Button appears/disappears based on scroll position
+  - **Code**: app.js lines 10058-10082, 10083, 10156, 10200, 10241, 10290, 10748, 10763, 11056-11083; index.html lines 1667-1722, 2797-2798
+
+### v1.34.0 - External Employees Insights (2025-12-12)
+- **New Feature: Comprehensive External Employees Analysis**
+  - **Feature**: Special insights section dedicated to analyzing external employees (consultants, contractors)
+  - **Identification Criteria**: Automatically detects external employees based on:
+    - Job Group containing "External", "Consultant", or "Contractor"
+    - Employee name containing "External" or "Consultant"
+    - Full name containing "External" or "Consultant"
+  - **Implementation**:
+    - **Core Analysis Function** (app.js:9630-9775):
+      - `getExternalEmployeesInsights()` - Comprehensive external employee analysis
+      - Separates external vs internal data
+      - Calculates statistics for both groups
+      - Returns 13 metrics including hours, billable rates, project counts, comparisons
+    - **Summary Metrics** displayed in 4 cards:
+      - Total external employees count
+      - Total external hours (with % of total hours)
+      - External billable rate (vs internal comparison)
+      - Projects using external resources
+    - **Top External Employees** (app.js:10745-10862):
+      - Top 10 by hours worked
+      - Table with: hours, projects, billable percentage, job group
+      - Horizontal bar chart visualization
+      - Tooltip shows project count and billable rate
+    - **Projects Using External Resources**:
+      - Top 10 projects by external hours
+      - Table with: external hours, external employee count
+      - Horizontal bar chart visualization
+      - Shows which projects rely most on external resources
+    - **External vs Internal Comparison**:
+      - Doughnut chart comparing total hours
+      - Percentage breakdown of external vs internal
+      - Visual comparison of resource allocation
+  - **Charts** (app.js:10864-11028):
+    - `createExternalEmployeesCharts()` - Creates 3 Chart.js visualizations
+    - `topExternalEmployeesChart` - Horizontal bar chart (red theme)
+    - `externalProjectsChart` - Horizontal bar chart (teal theme)
+    - `externalVsInternalChart` - Doughnut chart with custom tooltips
+    - Dark mode support with adaptive colors
+    - Chart instances properly destroyed/recreated
+  - **HTML Builder** (app.js:10744-10862):
+    - `buildExternalEmployeesHTML()` - Generates insights section HTML
+    - Responsive grid layout for cards and charts
+    - Handles "no external employees" case with informative message
+    - Styled with colorful accent colors (red, teal, mint, pink)
+  - **Integration**:
+    - Added to `calculateInsights()` return object (app.js:9626)
+    - Integrated into `renderInsightsDashboard()` (app.js:10064, 10076)
+    - Appears after Resource Utilization section in Insights tab
+  - **User Benefits**:
+    - Quick visibility into external resource usage
+    - Compare external vs internal billable rates
+    - Identify projects heavily using external resources
+    - Track external employee contributions
+    - Optimize resource allocation between internal/external
+    - Cost analysis for external resources
+  - **Code**: app.js lines 9626, 9630-9775, 10064, 10076, 10744-11028
+
+### v1.33.0 - Searchable Dropdown Filters for Pivot Builder (2025-12-12)
+- **Major Enhancement: Searchable Multi-Select Dropdowns for Filter Values**
+  - **Feature**: Advanced Filters now use searchable dropdowns instead of text input, similar to the employee filter
+  - **User Benefits**:
+    - Select multiple values from dropdown instead of typing
+    - Search/filter available values in real-time
+    - See all unique values for any field from the dataset
+    - Select/deselect all with one click
+    - Visual feedback showing how many values are selected
+  - **Implementation**:
+    - **CSS**: Added `.filter-value-container`, `.filter-value-button`, `.filter-value-dropdown` styles (index.html:1135-1189)
+      - Dropdown styling matches employee filter for consistency
+      - Hover effects, scrollable list, search box styling
+    - **HTML Structure**: Updated `addPivotFilterRule()` (app.js:4978-5052)
+      - Replaced text input with dropdown container
+      - Added search box, select-all checkbox, value list, Apply/Clear buttons
+      - Event handlers: onFilterFieldChange(), onFilterOperatorChange()
+    - **Helper Functions** (app.js:5090-5394):
+      - `getUniqueFieldValues()` - Extract unique values for any field from filtered data
+      - `onFilterFieldChange()` - Populate dropdown when field is selected
+      - `onFilterOperatorChange()` - Show/hide dropdown based on operator (isEmpty/isNotEmpty don't need values)
+      - `populateFilterValueDropdown()` - Render checkboxes with current selections
+      - `toggleFilterValueDropdown()` - Show/hide dropdown
+      - `filterFilterValueList()` - Search functionality (real-time filtering)
+      - `updateFilterValueSelection()` - Track checkbox changes
+      - `toggleSelectAllFilterValues()` - Select/deselect all visible values
+      - `applyFilterValueSelection()` - Close dropdown and update label
+      - `clearFilterValueSelection()` - Clear all selections
+      - `updateFilterValueLabel()` - Display "All values", "3 of 15 values", or single value
+      - Click-outside handler to close dropdown
+    - **Data Structure**: Updated filter rules to use `selectedValues` Set and `allValues` array
+    - **Updated Logic** (app.js:5397-5527):
+      - `collectPivotFilterRules()` - Use selectedValues Set instead of single value
+      - `evaluateFilterRule()` - Check if field value is in selectedValues Set
+      - Operators work with multiple selected values (equals, notEquals, contains, etc.)
+  - **Operators Behavior**:
+    - `equals` - Field value must be in selected values
+    - `notEquals` - Field value must NOT be in selected values
+    - `contains/notContains/startsWith/endsWith` - Check if field value matches ANY selected value
+    - `greaterThan/lessThan/etc.` - Compare against ANY selected value
+    - `isEmpty/isNotEmpty` - No value selection needed (dropdown hidden)
+  - **User Experience**:
+    - Values auto-populate when field is selected (all selected by default)
+    - Search box filters values in real-time
+    - "Select All" checkbox for quick selection/deselection
+    - Button label shows selection summary
+    - Red text if no values selected
+    - Dropdown closes when clicking outside
+  - **Code**: index.html lines 1135-1189, app.js lines 4978-5052, 5090-5527
 
 ### v1.32.2 - Edge Browser Sticky Header Fix (Scroll Container Restructure) (2025-12-11)
 - **Fix: Restructured Scroll Container Hierarchy for Edge Browser**

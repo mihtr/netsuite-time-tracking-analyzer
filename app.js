@@ -182,8 +182,14 @@ async function switchView(viewName) {
     currentView = viewName;
 
     // Update tabs
-    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-    event.target.classList.add('active');
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+        // Mark the tab active if its onclick contains this viewName
+        const onclick = tab.getAttribute('onclick');
+        if (onclick && onclick.includes(`'${viewName}'`)) {
+            tab.classList.add('active');
+        }
+    });
 
     // Update views
     document.querySelectorAll('.view-container').forEach(view => view.classList.remove('active'));
@@ -4984,16 +4990,16 @@ function addPivotFilterRule() {
         rulesContainer.innerHTML = '';
     }
 
-    // Create filter rule HTML
+    // Create filter rule HTML with dropdown
     const ruleHtml = `
         <div id="${ruleId}" class="pivot-filter-rule" style="display: flex; gap: 8px; margin-bottom: 10px; padding: 10px; background: var(--bg-primary); border-radius: 4px; align-items: center;">
             <!-- Field Selector -->
-            <select class="filter-field" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
+            <select class="filter-field" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);" onchange="onFilterFieldChange('${ruleId}')">
                 ${generatePivotFieldOptions(false)}
             </select>
 
             <!-- Operator Selector -->
-            <select class="filter-operator" style="flex: 0 0 150px; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
+            <select class="filter-operator" style="flex: 0 0 150px; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);" onchange="onFilterOperatorChange('${ruleId}')">
                 <option value="equals">Equals</option>
                 <option value="notEquals">Not Equals</option>
                 <option value="contains">Contains</option>
@@ -5008,8 +5014,31 @@ function addPivotFilterRule() {
                 <option value="isNotEmpty">Is Not Empty</option>
             </select>
 
-            <!-- Value Input -->
-            <input type="text" class="filter-value" placeholder="Filter value" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
+            <!-- Value Dropdown Container -->
+            <div class="filter-value-container" id="${ruleId}_value_container">
+                <button class="filter-value-button" id="${ruleId}_value_button" onclick="toggleFilterValueDropdown('${ruleId}')">
+                    <span class="filter-value-label">Select values...</span>
+                    <span>▼</span>
+                </button>
+                <div class="filter-value-dropdown" id="${ruleId}_value_dropdown" style="display: none;">
+                    <div style="padding: 8px; border-bottom: 1px solid var(--border-color);">
+                        <input type="text" class="filter-value-search" placeholder="Search values..." oninput="filterFilterValueList('${ruleId}')" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary);">
+                    </div>
+                    <div style="padding: 8px; border-bottom: 1px solid var(--border-color);">
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="checkbox" class="select-all-values" onchange="toggleSelectAllFilterValues('${ruleId}')" checked style="margin-right: 8px;">
+                            <span style="font-weight: 600;">(Select All)</span>
+                        </label>
+                    </div>
+                    <div class="filter-value-list" style="max-height: 300px; overflow-y: auto; padding: 8px;">
+                        <!-- Values will be populated here -->
+                    </div>
+                    <div style="padding: 8px; border-top: 1px solid var(--border-color); display: flex; gap: 8px;">
+                        <button onclick="applyFilterValueSelection('${ruleId}')" style="flex: 1; padding: 6px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer;">Apply</button>
+                        <button onclick="clearFilterValueSelection('${ruleId}')" style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Clear</button>
+                    </div>
+                </div>
+            </div>
 
             <!-- Remove Button -->
             <button onclick="removePivotFilterRule('${ruleId}')" style="padding: 6px 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Remove filter">×</button>
@@ -5018,12 +5047,13 @@ function addPivotFilterRule() {
 
     rulesContainer.insertAdjacentHTML('beforeend', ruleHtml);
 
-    // Add to rules array
+    // Add to rules array with selected values set
     pivotFilterRules.push({
         id: ruleId,
         field: '',
         operator: 'equals',
-        value: ''
+        selectedValues: new Set(),
+        allValues: []
     });
 }
 
@@ -5063,18 +5093,338 @@ function clearAllPivotFilters() {
     `;
 }
 
+// Get unique values for a field from the filtered data
+function getUniqueFieldValues(fieldName) {
+    const uniqueValues = new Set();
+
+    // Use filteredData (already has top filters applied)
+    filteredData.forEach(row => {
+        const value = getFieldValue(row, fieldName);
+        uniqueValues.add(value);
+    });
+
+    // Convert to array and sort
+    const valuesArray = Array.from(uniqueValues);
+    valuesArray.sort((a, b) => {
+        // Handle empty values
+        if (a === '(Empty)') return 1;
+        if (b === '(Empty)') return -1;
+
+        // Try numeric sorting first
+        const numA = parseFloat(a);
+        const numB = parseFloat(b);
+        if (!isNaN(numA) && !isNaN(numB)) {
+            return numA - numB;
+        }
+
+        // Fall back to string sorting
+        return String(a).localeCompare(String(b));
+    });
+
+    return valuesArray;
+}
+
+// When field changes, populate the dropdown with unique values
+function onFilterFieldChange(ruleId) {
+    const ruleElement = document.getElementById(ruleId);
+    if (!ruleElement) return;
+
+    const field = ruleElement.querySelector('.filter-field').value;
+    const operator = ruleElement.querySelector('.filter-operator').value;
+
+    // Update rule in array
+    const rule = pivotFilterRules.find(r => r.id === ruleId);
+    if (rule) {
+        rule.field = field;
+        rule.selectedValues.clear();
+
+        // Get unique values for this field
+        if (field) {
+            rule.allValues = getUniqueFieldValues(field);
+            // Select all by default
+            rule.allValues.forEach(value => rule.selectedValues.add(value));
+        } else {
+            rule.allValues = [];
+        }
+
+        // Populate dropdown
+        populateFilterValueDropdown(ruleId);
+
+        // Update button label
+        updateFilterValueLabel(ruleId);
+    }
+
+    // Show/hide value container based on operator
+    toggleValueContainerVisibility(ruleId, operator);
+}
+
+// When operator changes, show/hide value container
+function onFilterOperatorChange(ruleId) {
+    const ruleElement = document.getElementById(ruleId);
+    if (!ruleElement) return;
+
+    const operator = ruleElement.querySelector('.filter-operator').value;
+
+    // Update rule in array
+    const rule = pivotFilterRules.find(r => r.id === ruleId);
+    if (rule) {
+        rule.operator = operator;
+    }
+
+    // Show/hide value container based on operator
+    toggleValueContainerVisibility(ruleId, operator);
+}
+
+// Toggle visibility of value container based on operator
+function toggleValueContainerVisibility(ruleId, operator) {
+    const container = document.getElementById(`${ruleId}_value_container`);
+    if (container) {
+        // Hide for isEmpty and isNotEmpty operators
+        if (operator === 'isEmpty' || operator === 'isNotEmpty') {
+            container.style.display = 'none';
+        } else {
+            container.style.display = 'block';
+        }
+    }
+}
+
+// Populate filter value dropdown with checkboxes
+function populateFilterValueDropdown(ruleId) {
+    const rule = pivotFilterRules.find(r => r.id === ruleId);
+    if (!rule) return;
+
+    const dropdown = document.getElementById(`${ruleId}_value_dropdown`);
+    if (!dropdown) return;
+
+    const listContainer = dropdown.querySelector('.filter-value-list');
+    if (!listContainer) return;
+
+    // Clear existing list
+    listContainer.innerHTML = '';
+
+    // Get search term
+    const searchBox = dropdown.querySelector('.filter-value-search');
+    const searchTerm = searchBox ? searchBox.value.toLowerCase() : '';
+
+    // Filter values based on search
+    const filteredValues = rule.allValues.filter(value =>
+        String(value).toLowerCase().includes(searchTerm)
+    );
+
+    // Render checkboxes
+    filteredValues.forEach(value => {
+        const label = document.createElement('label');
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+        label.style.padding = '6px 4px';
+        label.style.cursor = 'pointer';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = value;
+        checkbox.checked = rule.selectedValues.has(value);
+        checkbox.style.marginRight = '8px';
+        checkbox.onchange = () => updateFilterValueSelection(ruleId, value, checkbox.checked);
+
+        const span = document.createElement('span');
+        span.textContent = value;
+        span.style.fontSize = '0.9em';
+
+        label.appendChild(checkbox);
+        label.appendChild(span);
+        listContainer.appendChild(label);
+    });
+
+    // Update "Select All" checkbox state
+    updateSelectAllCheckbox(ruleId);
+}
+
+// Update filter value selection when checkbox changes
+function updateFilterValueSelection(ruleId, value, isChecked) {
+    const rule = pivotFilterRules.find(r => r.id === ruleId);
+    if (!rule) return;
+
+    if (isChecked) {
+        rule.selectedValues.add(value);
+    } else {
+        rule.selectedValues.delete(value);
+    }
+
+    // Update "Select All" checkbox state
+    updateSelectAllCheckbox(ruleId);
+}
+
+// Update "Select All" checkbox state
+function updateSelectAllCheckbox(ruleId) {
+    const rule = pivotFilterRules.find(r => r.id === ruleId);
+    if (!rule) return;
+
+    const dropdown = document.getElementById(`${ruleId}_value_dropdown`);
+    if (!dropdown) return;
+
+    const selectAllCheckbox = dropdown.querySelector('.select-all-values');
+    const checkboxes = dropdown.querySelectorAll('.filter-value-list input[type="checkbox"]');
+
+    if (selectAllCheckbox && checkboxes.length > 0) {
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        selectAllCheckbox.checked = allChecked;
+    }
+}
+
+// Toggle "Select All" checkbox
+function toggleSelectAllFilterValues(ruleId) {
+    const dropdown = document.getElementById(`${ruleId}_value_dropdown`);
+    if (!dropdown) return;
+
+    const selectAllCheckbox = dropdown.querySelector('.select-all-values');
+    const checkboxes = dropdown.querySelectorAll('.filter-value-list input[type="checkbox"]');
+
+    const rule = pivotFilterRules.find(r => r.id === ruleId);
+    if (!rule) return;
+
+    if (selectAllCheckbox.checked) {
+        // Select all visible values
+        checkboxes.forEach(cb => {
+            cb.checked = true;
+            rule.selectedValues.add(cb.value);
+        });
+    } else {
+        // Deselect all visible values
+        checkboxes.forEach(cb => {
+            cb.checked = false;
+            rule.selectedValues.delete(cb.value);
+        });
+    }
+}
+
+// Filter the value list based on search input
+function filterFilterValueList(ruleId) {
+    populateFilterValueDropdown(ruleId);
+}
+
+// Toggle filter value dropdown visibility
+function toggleFilterValueDropdown(ruleId) {
+    const dropdown = document.getElementById(`${ruleId}_value_dropdown`);
+    if (!dropdown) return;
+
+    const isVisible = dropdown.style.display !== 'none';
+
+    // Close all other filter dropdowns first
+    document.querySelectorAll('.filter-value-dropdown').forEach(d => {
+        d.style.display = 'none';
+    });
+
+    if (!isVisible) {
+        dropdown.style.display = 'block';
+
+        // Populate on open if field is selected
+        const ruleElement = document.getElementById(ruleId);
+        const field = ruleElement.querySelector('.filter-field').value;
+
+        if (field) {
+            const rule = pivotFilterRules.find(r => r.id === ruleId);
+            if (rule && rule.allValues.length === 0) {
+                // First time opening, populate values
+                rule.allValues = getUniqueFieldValues(field);
+                rule.allValues.forEach(value => rule.selectedValues.add(value));
+            }
+            populateFilterValueDropdown(ruleId);
+        }
+    }
+}
+
+// Apply filter value selection and close dropdown
+function applyFilterValueSelection(ruleId) {
+    updateFilterValueLabel(ruleId);
+
+    // Close dropdown
+    const dropdown = document.getElementById(`${ruleId}_value_dropdown`);
+    if (dropdown) {
+        dropdown.style.display = 'none';
+    }
+}
+
+// Clear filter value selection
+function clearFilterValueSelection(ruleId) {
+    const rule = pivotFilterRules.find(r => r.id === ruleId);
+    if (!rule) return;
+
+    // Clear all selections
+    rule.selectedValues.clear();
+
+    // Update UI
+    populateFilterValueDropdown(ruleId);
+    updateFilterValueLabel(ruleId);
+}
+
+// Update filter value button label
+function updateFilterValueLabel(ruleId) {
+    const rule = pivotFilterRules.find(r => r.id === ruleId);
+    if (!rule) return;
+
+    const button = document.getElementById(`${ruleId}_value_button`);
+    if (!button) return;
+
+    const label = button.querySelector('.filter-value-label');
+    if (!label) return;
+
+    const count = rule.selectedValues.size;
+    const total = rule.allValues.length;
+
+    if (count === 0) {
+        label.textContent = 'No values selected';
+        label.style.color = '#dc3545';
+    } else if (count === total) {
+        label.textContent = 'All values';
+        label.style.color = '';
+    } else if (count === 1) {
+        const value = Array.from(rule.selectedValues)[0];
+        const displayValue = String(value).length > 30 ? String(value).substring(0, 30) + '...' : value;
+        label.textContent = displayValue;
+        label.style.color = '';
+    } else {
+        label.textContent = `${count} of ${total} values`;
+        label.style.color = '';
+    }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    const dropdowns = document.querySelectorAll('.filter-value-dropdown');
+    dropdowns.forEach(dropdown => {
+        const container = dropdown.closest('.filter-value-container');
+        if (container && !container.contains(event.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+});
+
 // Collect current filter rules from UI
 function collectPivotFilterRules() {
     const rules = [];
-    document.querySelectorAll('.pivot-filter-rule').forEach(ruleElement => {
+
+    pivotFilterRules.forEach(rule => {
+        const ruleElement = document.getElementById(rule.id);
+        if (!ruleElement) return;
+
         const field = ruleElement.querySelector('.filter-field').value;
         const operator = ruleElement.querySelector('.filter-operator').value;
-        const value = ruleElement.querySelector('.filter-value').value;
 
         if (field) {  // Only include if field is selected
-            rules.push({ field, operator, value });
+            // For isEmpty/isNotEmpty, no values needed
+            if (operator === 'isEmpty' || operator === 'isNotEmpty') {
+                rules.push({ field, operator, selectedValues: new Set() });
+            } else {
+                // Use selected values from dropdown
+                rules.push({
+                    field,
+                    operator,
+                    selectedValues: rule.selectedValues
+                });
+            }
         }
     });
+
     return rules;
 }
 
@@ -5097,34 +5447,86 @@ function applyPivotFilters(data, rules, logic) {
 
 // Evaluate a single filter rule against a row
 function evaluateFilterRule(row, rule) {
-    const fieldValue = String(getFieldValue(row, rule.field) || '').toLowerCase();
-    const filterValue = String(rule.value || '').toLowerCase();
+    const fieldValue = getFieldValue(row, rule.field);
+    const fieldValueStr = String(fieldValue || '').toLowerCase();
+
+    // Handle operators that don't need values
+    if (rule.operator === 'isEmpty') {
+        return fieldValueStr === '' || fieldValueStr === '(empty)';
+    }
+    if (rule.operator === 'isNotEmpty') {
+        return fieldValueStr !== '' && fieldValueStr !== '(empty)';
+    }
+
+    // For other operators, check against selected values
+    const selectedValues = rule.selectedValues || new Set();
+
+    // If no values selected, don't match anything
+    if (selectedValues.size === 0) {
+        return false;
+    }
 
     switch (rule.operator) {
         case 'equals':
-            return fieldValue === filterValue;
+            // Check if field value is in selected values
+            return selectedValues.has(fieldValue);
+
         case 'notEquals':
-            return fieldValue !== filterValue;
+            // Check if field value is NOT in selected values
+            return !selectedValues.has(fieldValue);
+
         case 'contains':
-            return fieldValue.includes(filterValue);
+            // Check if field value contains any of the selected values
+            return Array.from(selectedValues).some(val =>
+                fieldValueStr.includes(String(val).toLowerCase())
+            );
+
         case 'notContains':
-            return !fieldValue.includes(filterValue);
+            // Check if field value doesn't contain any of the selected values
+            return !Array.from(selectedValues).some(val =>
+                fieldValueStr.includes(String(val).toLowerCase())
+            );
+
         case 'startsWith':
-            return fieldValue.startsWith(filterValue);
+            // Check if field value starts with any of the selected values
+            return Array.from(selectedValues).some(val =>
+                fieldValueStr.startsWith(String(val).toLowerCase())
+            );
+
         case 'endsWith':
-            return fieldValue.endsWith(filterValue);
+            // Check if field value ends with any of the selected values
+            return Array.from(selectedValues).some(val =>
+                fieldValueStr.endsWith(String(val).toLowerCase())
+            );
+
         case 'greaterThan':
-            return parseFloat(fieldValue) > parseFloat(filterValue);
+            // Check if field value is greater than any of the selected values
+            const fieldNum = parseFloat(fieldValue);
+            return Array.from(selectedValues).some(val =>
+                !isNaN(fieldNum) && fieldNum > parseFloat(val)
+            );
+
         case 'lessThan':
-            return parseFloat(fieldValue) < parseFloat(filterValue);
+            // Check if field value is less than any of the selected values
+            const fieldNum2 = parseFloat(fieldValue);
+            return Array.from(selectedValues).some(val =>
+                !isNaN(fieldNum2) && fieldNum2 < parseFloat(val)
+            );
+
         case 'greaterOrEqual':
-            return parseFloat(fieldValue) >= parseFloat(filterValue);
+            // Check if field value is greater than or equal to any of the selected values
+            const fieldNum3 = parseFloat(fieldValue);
+            return Array.from(selectedValues).some(val =>
+                !isNaN(fieldNum3) && fieldNum3 >= parseFloat(val)
+            );
+
         case 'lessOrEqual':
-            return parseFloat(fieldValue) <= parseFloat(filterValue);
-        case 'isEmpty':
-            return fieldValue === '' || fieldValue === '(empty)';
-        case 'isNotEmpty':
-            return fieldValue !== '' && fieldValue !== '(empty)';
+            // Check if field value is less than or equal to any of the selected values
+            const fieldNum4 = parseFloat(fieldValue);
+            return Array.from(selectedValues).some(val =>
+                !isNaN(fieldNum4) && fieldNum4 <= parseFloat(val)
+            );
+
         default:
             return true;
     }
@@ -9226,7 +9628,344 @@ function calculateInsights(data) {
         topProjects: getTopProjects(data, 10),
         timeDistribution: getTimeDistribution(data),
         billingBreakdown: getBillingBreakdown(data),
-        utilization: getUtilizationMetrics(data)
+        utilization: getUtilizationMetrics(data),
+        externalEmployees: getExternalEmployeesInsights(data),
+        detailedBreakdowns: getDetailedBreakdowns(data)
+    };
+}
+
+// Get detailed breakdowns by multiple dimensions
+function getDetailedBreakdowns(data) {
+    // Helper function to aggregate by dimension
+    function aggregateByDimension(dimensionField) {
+        const stats = {};
+
+        data.forEach(row => {
+            const key = row[dimensionField] || '(Empty)';
+            const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+            const billable = (row[COLUMNS.BILLABLE] || '').toString().toLowerCase() === 'true';
+
+            if (!stats[key]) {
+                stats[key] = {
+                    name: key,
+                    totalHours: 0,
+                    billableHours: 0,
+                    nonBillableHours: 0,
+                    recordCount: 0
+                };
+            }
+
+            stats[key].totalHours += hours;
+            stats[key].recordCount++;
+
+            if (billable) {
+                stats[key].billableHours += hours;
+            } else {
+                stats[key].nonBillableHours += hours;
+            }
+        });
+
+        // Convert to array and add percentages
+        return Object.values(stats)
+            .map(item => ({
+                ...item,
+                billablePercentage: item.totalHours > 0 ? (item.billableHours / item.totalHours * 100) : 0
+            }))
+            .sort((a, b) => b.totalHours - a.totalHours);
+    }
+
+    // Helper function to aggregate by two dimensions (creates matrix)
+    function aggregateByTwoDimensions(dimension1Field, dimension2Field) {
+        const matrix = {};
+        const dim1Set = new Set();
+        const dim2Set = new Set();
+
+        data.forEach(row => {
+            const key1 = row[dimension1Field] || '(Empty)';
+            const key2 = row[dimension2Field] || '(Empty)';
+            const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+            const billable = (row[COLUMNS.BILLABLE] || '').toString().toLowerCase() === 'true';
+
+            dim1Set.add(key1);
+            dim2Set.add(key2);
+
+            if (!matrix[key1]) {
+                matrix[key1] = {};
+            }
+
+            if (!matrix[key1][key2]) {
+                matrix[key1][key2] = {
+                    totalHours: 0,
+                    billableHours: 0,
+                    nonBillableHours: 0,
+                    recordCount: 0
+                };
+            }
+
+            matrix[key1][key2].totalHours += hours;
+            matrix[key1][key2].recordCount++;
+
+            if (billable) {
+                matrix[key1][key2].billableHours += hours;
+            } else {
+                matrix[key1][key2].nonBillableHours += hours;
+            }
+        });
+
+        // Calculate row and column totals
+        const rowTotals = {};
+        const colTotals = {};
+
+        Object.keys(matrix).forEach(key1 => {
+            rowTotals[key1] = { totalHours: 0, billableHours: 0, nonBillableHours: 0, recordCount: 0 };
+            Object.keys(matrix[key1]).forEach(key2 => {
+                const cell = matrix[key1][key2];
+                rowTotals[key1].totalHours += cell.totalHours;
+                rowTotals[key1].billableHours += cell.billableHours;
+                rowTotals[key1].nonBillableHours += cell.nonBillableHours;
+                rowTotals[key1].recordCount += cell.recordCount;
+
+                if (!colTotals[key2]) {
+                    colTotals[key2] = { totalHours: 0, billableHours: 0, nonBillableHours: 0, recordCount: 0 };
+                }
+                colTotals[key2].totalHours += cell.totalHours;
+                colTotals[key2].billableHours += cell.billableHours;
+                colTotals[key2].nonBillableHours += cell.nonBillableHours;
+                colTotals[key2].recordCount += cell.recordCount;
+
+                // Add percentage to cell
+                cell.billablePercentage = cell.totalHours > 0 ? (cell.billableHours / cell.totalHours * 100) : 0;
+            });
+            rowTotals[key1].billablePercentage = rowTotals[key1].totalHours > 0 ?
+                (rowTotals[key1].billableHours / rowTotals[key1].totalHours * 100) : 0;
+        });
+
+        Object.keys(colTotals).forEach(key2 => {
+            colTotals[key2].billablePercentage = colTotals[key2].totalHours > 0 ?
+                (colTotals[key2].billableHours / colTotals[key2].totalHours * 100) : 0;
+        });
+
+        return {
+            matrix: matrix,
+            dimension1Values: Array.from(dim1Set).sort(),
+            dimension2Values: Array.from(dim2Set).sort(),
+            rowTotals: rowTotals,
+            columnTotals: colTotals
+        };
+    }
+
+    // Month analysis - Parse dates and group by month
+    const monthStats = {};
+    data.forEach(row => {
+        const dateStr = row[COLUMNS.DATE];
+        const rowDate = parseDate(dateStr);
+
+        if (rowDate) {
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const monthKey = `${monthNames[rowDate.getMonth()]} ${rowDate.getFullYear()}`;
+
+            const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+            const billable = (row[COLUMNS.BILLABLE] || '').toString().toLowerCase() === 'true';
+
+            if (!monthStats[monthKey]) {
+                monthStats[monthKey] = {
+                    name: monthKey,
+                    year: rowDate.getFullYear(),
+                    month: rowDate.getMonth(),
+                    totalHours: 0,
+                    billableHours: 0,
+                    nonBillableHours: 0,
+                    recordCount: 0
+                };
+            }
+
+            monthStats[monthKey].totalHours += hours;
+            monthStats[monthKey].recordCount++;
+
+            if (billable) {
+                monthStats[monthKey].billableHours += hours;
+            } else {
+                monthStats[monthKey].nonBillableHours += hours;
+            }
+        }
+    });
+
+    // Sort months chronologically
+    const monthArray = Object.values(monthStats)
+        .map(item => ({
+            ...item,
+            billablePercentage: item.totalHours > 0 ? (item.billableHours / item.totalHours * 100) : 0
+        }))
+        .sort((a, b) => {
+            if (a.year !== b.year) return a.year - b.year;
+            return a.month - b.month;
+        });
+
+    return {
+        // Single dimension breakdowns
+        byMonth: monthArray,
+        byMainProduct: aggregateByDimension(COLUMNS.MAIN_PRODUCT),
+        byMtype2: aggregateByDimension(COLUMNS.MTYPE2),
+        byMBillableType: aggregateByDimension(COLUMNS.MBILLABLE_TYPE),
+        byBillingClass: aggregateByDimension(COLUMNS.BILLING_CLASS),
+        byDepartment: aggregateByDimension(COLUMNS.DEPARTMENT),
+        byActivityCode: aggregateByDimension(COLUMNS.ACTIVITY_CODE),
+
+        // Multi-dimensional combinations (2D matrices)
+        productByActivity: aggregateByTwoDimensions(COLUMNS.MAIN_PRODUCT, COLUMNS.ACTIVITY_CODE),
+        departmentByProduct: aggregateByTwoDimensions(COLUMNS.DEPARTMENT, COLUMNS.MAIN_PRODUCT),
+        billingByProduct: aggregateByTwoDimensions(COLUMNS.BILLING_CLASS, COLUMNS.MAIN_PRODUCT),
+        departmentByActivity: aggregateByTwoDimensions(COLUMNS.DEPARTMENT, COLUMNS.ACTIVITY_CODE)
+    };
+}
+
+// Get external employees insights
+function getExternalEmployeesInsights(data) {
+    // Helper function to determine if an employee is external
+    function isExternalEmployee(row) {
+        const jobGroup = (row[COLUMNS.JOB_GROUP] || '').toLowerCase();
+        const employee = (row[COLUMNS.EMPLOYEE] || '').toLowerCase();
+        const fullName = (row[COLUMNS.FULL_NAME] || '').toLowerCase();
+
+        // Check multiple criteria for external employees
+        return jobGroup.includes('external') ||
+               jobGroup.includes('consultant') ||
+               jobGroup.includes('contractor') ||
+               employee.includes('external') ||
+               fullName.includes('external') ||
+               employee.includes('consultant') ||
+               fullName.includes('consultant');
+    }
+
+    // Separate external and internal data
+    const externalData = data.filter(row => isExternalEmployee(row));
+    const internalData = data.filter(row => !isExternalEmployee(row));
+
+    if (externalData.length === 0) {
+        return {
+            hasExternalEmployees: false,
+            totalExternalEmployees: 0,
+            totalExternalHours: 0,
+            message: 'No external employees found in the current dataset.'
+        };
+    }
+
+    // Calculate external employee statistics
+    const externalEmployeeStats = {};
+    let totalExternalHours = 0;
+    let totalExternalBillableHours = 0;
+    let totalExternalNonBillableHours = 0;
+    const externalProjects = new Set();
+
+    externalData.forEach(row => {
+        const employee = row[COLUMNS.FULL_NAME] || row[COLUMNS.EMPLOYEE] || '(Unknown)';
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+        const billable = (row[COLUMNS.BILLABLE] || '').toString().toLowerCase() === 'true';
+        const project = row[COLUMNS.CUSTOMER_PROJECT] || '(No Project)';
+        const jobGroup = row[COLUMNS.JOB_GROUP] || '(Unknown)';
+
+        totalExternalHours += hours;
+
+        if (billable) {
+            totalExternalBillableHours += hours;
+        } else {
+            totalExternalNonBillableHours += hours;
+        }
+
+        externalProjects.add(project);
+
+        if (!externalEmployeeStats[employee]) {
+            externalEmployeeStats[employee] = {
+                name: employee,
+                totalHours: 0,
+                billableHours: 0,
+                nonBillableHours: 0,
+                projectCount: new Set(),
+                jobGroup: jobGroup
+            };
+        }
+
+        externalEmployeeStats[employee].totalHours += hours;
+        if (billable) {
+            externalEmployeeStats[employee].billableHours += hours;
+        } else {
+            externalEmployeeStats[employee].nonBillableHours += hours;
+        }
+        externalEmployeeStats[employee].projectCount.add(project);
+    });
+
+    // Calculate internal statistics for comparison
+    let totalInternalHours = 0;
+    let totalInternalBillableHours = 0;
+
+    internalData.forEach(row => {
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+        const billable = (row[COLUMNS.BILLABLE] || '').toString().toLowerCase() === 'true';
+        totalInternalHours += hours;
+        if (billable) {
+            totalInternalBillableHours += hours;
+        }
+    });
+
+    // Convert to arrays and sort
+    const topExternalEmployees = Object.values(externalEmployeeStats)
+        .map(emp => ({
+            ...emp,
+            projectCount: emp.projectCount.size,
+            billablePercentage: emp.totalHours > 0 ? (emp.billableHours / emp.totalHours * 100) : 0
+        }))
+        .sort((a, b) => b.totalHours - a.totalHours)
+        .slice(0, 10);
+
+    // Project breakdown for external employees
+    const projectStats = {};
+    externalData.forEach(row => {
+        const project = row[COLUMNS.CUSTOMER_PROJECT] || '(No Project)';
+        const projectName = row[COLUMNS.NAME] || '';
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+        const employee = row[COLUMNS.FULL_NAME] || row[COLUMNS.EMPLOYEE] || '(Unknown)';
+
+        if (!projectStats[project]) {
+            projectStats[project] = {
+                name: project,
+                projectName: projectName,
+                displayName: projectName ? `${project} - ${projectName}` : project,
+                totalHours: 0,
+                externalEmployees: new Set()
+            };
+        }
+
+        projectStats[project].totalHours += hours;
+        projectStats[project].externalEmployees.add(employee);
+    });
+
+    const topProjectsWithExternal = Object.values(projectStats)
+        .map(proj => ({
+            ...proj,
+            externalEmployeeCount: proj.externalEmployees.size
+        }))
+        .sort((a, b) => b.totalHours - a.totalHours)
+        .slice(0, 10);
+
+    // Calculate percentages
+    const externalBillablePercentage = totalExternalHours > 0 ? (totalExternalBillableHours / totalExternalHours * 100) : 0;
+    const internalBillablePercentage = totalInternalHours > 0 ? (totalInternalBillableHours / totalInternalHours * 100) : 0;
+    const totalHours = totalExternalHours + totalInternalHours;
+    const externalHoursPercentage = totalHours > 0 ? (totalExternalHours / totalHours * 100) : 0;
+
+    return {
+        hasExternalEmployees: true,
+        totalExternalEmployees: Object.keys(externalEmployeeStats).length,
+        totalExternalHours: totalExternalHours,
+        totalExternalBillableHours: totalExternalBillableHours,
+        totalExternalNonBillableHours: totalExternalNonBillableHours,
+        externalBillablePercentage: externalBillablePercentage,
+        totalInternalHours: totalInternalHours,
+        internalBillablePercentage: internalBillablePercentage,
+        externalHoursPercentage: externalHoursPercentage,
+        externalProjectCount: externalProjects.size,
+        topExternalEmployees: topExternalEmployees,
+        topProjectsWithExternal: topProjectsWithExternal
     };
 }
 
@@ -9281,12 +10020,15 @@ function getTopProjects(data, limit = 10) {
 
     data.forEach(row => {
         const project = row[COLUMNS.CUSTOMER_PROJECT] || '(No Project)';
+        const projectName = row[COLUMNS.NAME] || '';
         const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
         const employee = row[COLUMNS.EMPLOYEE];
 
         if (!projectStats[project]) {
             projectStats[project] = {
                 name: project,
+                projectName: projectName,
+                displayName: projectName ? `${project} - ${projectName}` : project,
                 totalHours: 0,
                 employees: new Set(),
                 taskCount: 0
@@ -9511,12 +10253,43 @@ function renderInsightsDashboard() {
     // Build all sections HTML
     let html = '<div style="margin-bottom: 20px;"><h2 style="font-size: 1.8em; font-weight: 700; color: var(--text-primary); border-bottom: 3px solid var(--primary-color); padding-bottom: 10px;">📊 Comprehensive Analytics Dashboard</h2></div>';
 
+    // Add navigation buttons
+    html += `
+        <div id="insightsNavigation" style="position: sticky; top: 0; z-index: 100; background: var(--bg-primary); padding: 15px 0; margin-bottom: 20px; border-bottom: 2px solid var(--border-color); box-shadow: 0 2px 4px var(--card-shadow);">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
+                <button onclick="scrollToInsightsSection('section-top-performers')" class="insights-nav-button">
+                    🏆 Top Performers
+                </button>
+                <button onclick="scrollToInsightsSection('section-project-analytics')" class="insights-nav-button">
+                    📊 Project Analytics
+                </button>
+                <button onclick="scrollToInsightsSection('section-time-distribution')" class="insights-nav-button">
+                    📅 Time Distribution
+                </button>
+                <button onclick="scrollToInsightsSection('section-billing-analysis')" class="insights-nav-button">
+                    💰 Billing Analysis
+                </button>
+                <button onclick="scrollToInsightsSection('section-resource-utilization')" class="insights-nav-button">
+                    👥 Utilization
+                </button>
+                <button onclick="scrollToInsightsSection('section-external-employees')" class="insights-nav-button">
+                    👥 External Employees
+                </button>
+                <button onclick="scrollToInsightsSection('section-detailed-breakdowns')" class="insights-nav-button">
+                    📈 Detailed Breakdowns
+                </button>
+            </div>
+        </div>
+    `;
+
     // Add all sections
     html += buildTopPerformersHTML(insights.topPerformers);
     html += buildProjectAnalyticsHTML(insights.topProjects);
     html += buildTimeDistributionHTML(insights.timeDistribution);
     html += buildBillingAnalysisHTML(insights.billingBreakdown);
     html += buildUtilizationMetricsHTML(insights.utilization);
+    html += buildExternalEmployeesHTML(insights.externalEmployees);
+    html += buildDetailedBreakdownsHTML(insights.detailedBreakdowns);
 
     // Set all HTML at once
     container.innerHTML = html;
@@ -9528,13 +10301,15 @@ function renderInsightsDashboard() {
         createTimeDistributionCharts(insights.timeDistribution);
         createBillingCharts(insights.billingBreakdown);
         createDepartmentUtilizationChart(insights.utilization.departments);
+        createExternalEmployeesCharts(insights.externalEmployees);
+        createDetailedBreakdownsCharts(insights.detailedBreakdowns);
     }, 100);
 }
 
 // Build Top Performers HTML
 function buildTopPerformersHTML(topPerformers) {
     return `
-        <div class="insights-section">
+        <div id="section-top-performers" class="insights-section">
             <h3 class="insights-section-title">🏆 Top Performers</h3>
 
             <div class="insights-grid">
@@ -9607,7 +10382,7 @@ function buildTopPerformersHTML(topPerformers) {
 // Build Project Analytics HTML
 function buildProjectAnalyticsHTML(topProjects) {
     return `
-        <div class="insights-section">
+        <div id="section-project-analytics" class="insights-section">
             <h3 class="insights-section-title">📊 Project Analytics</h3>
 
             <div class="insights-grid">
@@ -9633,7 +10408,7 @@ function buildProjectAnalyticsHTML(topProjects) {
                             <tbody>
                                 ${topProjects.slice(0, 10).map(proj => `
                                     <tr>
-                                        <td>${proj.name.substring(0, 40)}${proj.name.length > 40 ? '...' : ''}</td>
+                                        <td title="${proj.displayName}">${proj.displayName.substring(0, 50)}${proj.displayName.length > 50 ? '...' : ''}</td>
                                         <td style="text-align: right;">${formatNumber(proj.totalHours)}</td>
                                         <td style="text-align: right;">${proj.employeeCount}</td>
                                         <td style="text-align: right;">${proj.avgHoursPerTask.toFixed(2)}</td>
@@ -9651,7 +10426,7 @@ function buildProjectAnalyticsHTML(topProjects) {
 // Build Time Distribution HTML
 function buildTimeDistributionHTML(timeDistribution) {
     return `
-        <div class="insights-section">
+        <div id="section-time-distribution" class="insights-section">
             <h3 class="insights-section-title">📅 Time Distribution Patterns</h3>
 
             <div class="insights-grid">
@@ -9692,7 +10467,7 @@ function buildTimeDistributionHTML(timeDistribution) {
 // Build Billing Analysis HTML
 function buildBillingAnalysisHTML(billingBreakdown) {
     return `
-        <div class="insights-section">
+        <div id="section-billing-analysis" class="insights-section">
             <h3 class="insights-section-title">💰 Billing Analysis</h3>
 
             <div class="insights-grid">
@@ -9741,7 +10516,7 @@ function buildBillingAnalysisHTML(billingBreakdown) {
 // Build Resource Utilization HTML
 function buildUtilizationMetricsHTML(utilization) {
     return `
-        <div class="insights-section">
+        <div id="section-resource-utilization" class="insights-section">
             <h3 class="insights-section-title">👥 Resource Utilization</h3>
 
             <div class="insights-grid">
@@ -9935,7 +10710,7 @@ function createTopProjectsInsightChart(topProjects) {
     topProjectsInsightChartInstance = new Chart(canvas, {
         type: 'bar',
         data: {
-            labels: topProjects.map(proj => proj.name.substring(0, 30) + (proj.name.length > 30 ? '...' : '')),
+            labels: topProjects.map(proj => proj.displayName.substring(0, 35) + (proj.displayName.length > 35 ? '...' : '')),
             datasets: [{
                 label: 'Total Hours',
                 data: topProjects.map(proj => proj.totalHours),
@@ -10194,3 +10969,902 @@ function createDepartmentUtilizationChart(departments) {
         }
     });
 }
+
+// Build External Employees HTML
+function buildExternalEmployeesHTML(externalData) {
+    if (!externalData.hasExternalEmployees) {
+        return `
+            <div id="section-external-employees" class="insights-section">
+                <h3 class="insights-section-title">👥 External Employees</h3>
+                <div class="insights-card">
+                    <p style="text-align: center; padding: 40px; color: var(--text-tertiary); font-size: 1.1em;">
+                        ${externalData.message || 'No external employees found in the current dataset.'}
+                    </p>
+                    <p style="text-align: center; color: var(--text-tertiary); font-size: 0.9em;">
+                        External employees are identified by Job Group or Name containing: "External", "Consultant", or "Contractor"
+                    </p>
+                </div>
+            </div>
+        `;
+    }
+
+    return `
+        <div id="section-external-employees" class="insights-section">
+            <h3 class="insights-section-title">👥 External Employees Analysis</h3>
+
+            <!-- Summary Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                <div class="insights-card" style="padding: 20px; text-align: center;">
+                    <div style="font-size: 0.9em; color: var(--text-secondary); margin-bottom: 8px;">External Employees</div>
+                    <div style="font-size: 2em; font-weight: bold; color: #ff6b6b;">${externalData.totalExternalEmployees}</div>
+                </div>
+                <div class="insights-card" style="padding: 20px; text-align: center;">
+                    <div style="font-size: 0.9em; color: var(--text-secondary); margin-bottom: 8px;">Total Hours</div>
+                    <div style="font-size: 2em; font-weight: bold; color: #4ecdc4;">${formatNumber(externalData.totalExternalHours)}</div>
+                    <div style="font-size: 0.85em; color: var(--text-tertiary); margin-top: 4px;">${externalData.externalHoursPercentage.toFixed(1)}% of total</div>
+                </div>
+                <div class="insights-card" style="padding: 20px; text-align: center;">
+                    <div style="font-size: 0.9em; color: var(--text-secondary); margin-bottom: 8px;">Billable Rate</div>
+                    <div style="font-size: 2em; font-weight: bold; color: #95e1d3;">${externalData.externalBillablePercentage.toFixed(1)}%</div>
+                    <div style="font-size: 0.85em; color: var(--text-tertiary); margin-top: 4px;">vs ${externalData.internalBillablePercentage.toFixed(1)}% internal</div>
+                </div>
+                <div class="insights-card" style="padding: 20px; text-align: center;">
+                    <div style="font-size: 0.9em; color: var(--text-secondary); margin-bottom: 8px;">Projects</div>
+                    <div style="font-size: 2em; font-weight: bold; color: #f38181;">${externalData.externalProjectCount}</div>
+                    <div style="font-size: 0.85em; color: var(--text-tertiary); margin-top: 4px;">using external resources</div>
+                </div>
+            </div>
+
+            <div class="insights-grid">
+                <!-- Top External Employees -->
+                <div class="insights-card">
+                    <h4>Top 10 External Employees by Hours</h4>
+                    <div class="insights-chart-container">
+                        <canvas id="topExternalEmployeesChart"></canvas>
+                    </div>
+                    <div class="insights-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Employee</th>
+                                    <th style="text-align: right;">Hours</th>
+                                    <th style="text-align: right;">Projects</th>
+                                    <th style="text-align: right;">Billable %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${externalData.topExternalEmployees.slice(0, 10).map((emp, idx) => `
+                                    <tr>
+                                        <td>${idx + 1}</td>
+                                        <td title="${emp.jobGroup}">${emp.name}</td>
+                                        <td style="text-align: right;">${formatNumber(emp.totalHours)}</td>
+                                        <td style="text-align: right;">${emp.projectCount}</td>
+                                        <td style="text-align: right;">${emp.billablePercentage.toFixed(1)}%</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Projects Using External Resources -->
+                <div class="insights-card">
+                    <h4>Top 10 Projects Using External Employees</h4>
+                    <div class="insights-chart-container">
+                        <canvas id="externalProjectsChart"></canvas>
+                    </div>
+                    <div class="insights-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Project</th>
+                                    <th style="text-align: right;">Ext Hours</th>
+                                    <th style="text-align: right;">Ext Employees</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${externalData.topProjectsWithExternal.slice(0, 10).map((proj, idx) => `
+                                    <tr>
+                                        <td>${idx + 1}</td>
+                                        <td title="${proj.displayName}">${proj.displayName.substring(0, 40)}${proj.displayName.length > 40 ? '...' : ''}</td>
+                                        <td style="text-align: right;">${formatNumber(proj.totalHours)}</td>
+                                        <td style="text-align: right;">${proj.externalEmployeeCount}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- External vs Internal Comparison -->
+            <div class="insights-card" style="margin-top: 20px;">
+                <h4>External vs Internal Comparison</h4>
+                <div class="insights-chart-container">
+                    <canvas id="externalVsInternalChart"></canvas>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Chart instances for external employees
+let topExternalEmployeesChartInstance = null;
+let externalProjectsChartInstance = null;
+let externalVsInternalChartInstance = null;
+
+// Create External Employees Charts
+function createExternalEmployeesCharts(externalData) {
+    if (!externalData || !externalData.hasExternalEmployees) {
+        return;
+    }
+
+    const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDarkMode ? '#e0e0e0' : '#333';
+    const gridColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+
+    // Top External Employees Chart
+    const canvas1 = document.getElementById('topExternalEmployeesChart');
+    if (canvas1) {
+        if (topExternalEmployeesChartInstance) {
+            topExternalEmployeesChartInstance.destroy();
+        }
+
+        const top10 = externalData.topExternalEmployees.slice(0, 10);
+
+        topExternalEmployeesChartInstance = new Chart(canvas1, {
+            type: 'bar',
+            data: {
+                labels: top10.map(emp => emp.name.substring(0, 25)),
+                datasets: [{
+                    label: 'Hours',
+                    data: top10.map(emp => emp.totalHours),
+                    backgroundColor: 'rgba(255, 107, 107, 0.6)',
+                    borderColor: 'rgba(255, 107, 107, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {display: false},
+                    tooltip: {
+                        callbacks: {
+                            afterLabel: function(context) {
+                                const emp = top10[context.dataIndex];
+                                return `Projects: ${emp.projectCount}\nBillable: ${emp.billablePercentage.toFixed(1)}%`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {color: textColor},
+                        grid: {color: gridColor}
+                    },
+                    y: {
+                        ticks: {color: textColor},
+                        grid: {color: gridColor}
+                    }
+                }
+            }
+        });
+    }
+
+    // External Projects Chart
+    const canvas2 = document.getElementById('externalProjectsChart');
+    if (canvas2) {
+        if (externalProjectsChartInstance) {
+            externalProjectsChartInstance.destroy();
+        }
+
+        const top10Projects = externalData.topProjectsWithExternal.slice(0, 10);
+
+        externalProjectsChartInstance = new Chart(canvas2, {
+            type: 'bar',
+            data: {
+                labels: top10Projects.map(proj => proj.displayName.substring(0, 30) + (proj.displayName.length > 30 ? '...' : '')),
+                datasets: [{
+                    label: 'External Hours',
+                    data: top10Projects.map(proj => proj.totalHours),
+                    backgroundColor: 'rgba(78, 205, 196, 0.6)',
+                    borderColor: 'rgba(78, 205, 196, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {display: false},
+                    tooltip: {
+                        callbacks: {
+                            afterLabel: function(context) {
+                                const proj = top10Projects[context.dataIndex];
+                                return `External Employees: ${proj.externalEmployeeCount}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {color: textColor},
+                        grid: {color: gridColor}
+                    },
+                    y: {
+                        ticks: {color: textColor},
+                        grid: {color: gridColor}
+                    }
+                }
+            }
+        });
+    }
+
+    // External vs Internal Comparison Chart
+    const canvas3 = document.getElementById('externalVsInternalChart');
+    if (canvas3) {
+        if (externalVsInternalChartInstance) {
+            externalVsInternalChartInstance.destroy();
+        }
+
+        externalVsInternalChartInstance = new Chart(canvas3, {
+            type: 'doughnut',
+            data: {
+                labels: ['External Hours', 'Internal Hours'],
+                datasets: [{
+                    data: [externalData.totalExternalHours, externalData.totalInternalHours],
+                    backgroundColor: [
+                        'rgba(255, 107, 107, 0.8)',
+                        'rgba(149, 225, 211, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 107, 107, 1)',
+                        'rgba(149, 225, 211, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {color: textColor}
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${formatNumber(value)} hours (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+// Build Detailed Breakdowns HTML
+function buildDetailedBreakdownsHTML(breakdowns) {
+    if (!breakdowns) return '';
+
+    return `
+        <div id="section-detailed-breakdowns" class="insights-section">
+            <h3 class="insights-section-title">📈 Detailed Breakdowns</h3>
+
+            <!-- Month-over-Month Trend -->
+            <div class="insights-card" style="margin-bottom: 20px;">
+                <h4>📆 Month-over-Month Trend</h4>
+                <div class="insights-chart-container" style="height: 350px;">
+                    <canvas id="monthTrendChart"></canvas>
+                </div>
+                <div class="insights-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Month</th>
+                                <th style="text-align: right;">Total Hours</th>
+                                <th style="text-align: right;">Billable Hours</th>
+                                <th style="text-align: right;">Billable %</th>
+                                <th style="text-align: right;">Records</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${breakdowns.byMonth.slice(-12).map(item => `
+                                <tr>
+                                    <td><strong>${item.name}</strong></td>
+                                    <td style="text-align: right;">${formatNumber(item.totalHours)}</td>
+                                    <td style="text-align: right;">${formatNumber(item.billableHours)}</td>
+                                    <td style="text-align: right;">${item.billablePercentage.toFixed(1)}%</td>
+                                    <td style="text-align: right;">${item.recordCount.toLocaleString()}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Main Product, Department, Activity Code in Grid -->
+            <div class="insights-grid">
+                <!-- Main Product -->
+                <div class="insights-card">
+                    <h4>🔧 By Main Product</h4>
+                    <div class="insights-chart-container">
+                        <canvas id="mainProductChart"></canvas>
+                    </div>
+                    <div class="insights-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th style="text-align: right;">Hours</th>
+                                    <th style="text-align: right;">Bill %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${breakdowns.byMainProduct.slice(0, 10).map(item => `
+                                    <tr>
+                                        <td title="${item.name}">${item.name.substring(0, 25)}${item.name.length > 25 ? '...' : ''}</td>
+                                        <td style="text-align: right;">${formatNumber(item.totalHours)}</td>
+                                        <td style="text-align: right;">${item.billablePercentage.toFixed(1)}%</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Department -->
+                <div class="insights-card">
+                    <h4>🏢 By Department</h4>
+                    <div class="insights-chart-container">
+                        <canvas id="departmentBreakdownChart"></canvas>
+                    </div>
+                    <div class="insights-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Department</th>
+                                    <th style="text-align: right;">Hours</th>
+                                    <th style="text-align: right;">Bill %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${breakdowns.byDepartment.slice(0, 10).map(item => `
+                                    <tr>
+                                        <td title="${item.name}">${item.name.substring(0, 30)}${item.name.length > 30 ? '...' : ''}</td>
+                                        <td style="text-align: right;">${formatNumber(item.totalHours)}</td>
+                                        <td style="text-align: right;">${item.billablePercentage.toFixed(1)}%</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Code, Billing Class, Mtype2, MBillableType -->
+            <div class="insights-grid">
+                <!-- Activity Code -->
+                <div class="insights-card">
+                    <h4>🎯 By Activity Code</h4>
+                    <div class="insights-chart-container">
+                        <canvas id="activityCodeChart"></canvas>
+                    </div>
+                    <div class="insights-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Activity Code</th>
+                                    <th style="text-align: right;">Hours</th>
+                                    <th style="text-align: right;">Bill %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${breakdowns.byActivityCode.slice(0, 10).map(item => `
+                                    <tr>
+                                        <td title="${item.name}">${item.name.substring(0, 25)}${item.name.length > 25 ? '...' : ''}</td>
+                                        <td style="text-align: right;">${formatNumber(item.totalHours)}</td>
+                                        <td style="text-align: right;">${item.billablePercentage.toFixed(1)}%</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Billing Class -->
+                <div class="insights-card">
+                    <h4>💳 By Billing Class</h4>
+                    <div class="insights-chart-container">
+                        <canvas id="billingClassChart"></canvas>
+                    </div>
+                    <div class="insights-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Billing Class</th>
+                                    <th style="text-align: right;">Hours</th>
+                                    <th style="text-align: right;">Records</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${breakdowns.byBillingClass.slice(0, 10).map(item => `
+                                    <tr>
+                                        <td>${item.name}</td>
+                                        <td style="text-align: right;">${formatNumber(item.totalHours)}</td>
+                                        <td style="text-align: right;">${item.recordCount.toLocaleString()}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mtype2 and MBillableType -->
+            <div class="insights-grid">
+                <!-- Mtype2 -->
+                <div class="insights-card">
+                    <h4>📋 By Mtype2</h4>
+                    <div class="insights-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th style="text-align: right;">Hours</th>
+                                    <th style="text-align: right;">Bill %</th>
+                                    <th style="text-align: right;">Records</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${breakdowns.byMtype2.slice(0, 10).map(item => `
+                                    <tr>
+                                        <td>${item.name}</td>
+                                        <td style="text-align: right;">${formatNumber(item.totalHours)}</td>
+                                        <td style="text-align: right;">${item.billablePercentage.toFixed(1)}%</td>
+                                        <td style="text-align: right;">${item.recordCount.toLocaleString()}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- MBillableType -->
+                <div class="insights-card">
+                    <h4>💵 By MBillableType</h4>
+                    <div class="insights-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Billable Type</th>
+                                    <th style="text-align: right;">Hours</th>
+                                    <th style="text-align: right;">Bill %</th>
+                                    <th style="text-align: right;">Records</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${breakdowns.byMBillableType.slice(0, 10).map(item => `
+                                    <tr>
+                                        <td>${item.name}</td>
+                                        <td style="text-align: right;">${formatNumber(item.totalHours)}</td>
+                                        <td style="text-align: right;">${item.billablePercentage.toFixed(1)}%</td>
+                                        <td style="text-align: right;">${item.recordCount.toLocaleString()}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Multi-Dimensional Combinations Section -->
+            <div style="margin-top: 40px; padding-top: 30px; border-top: 3px solid var(--border-color);">
+                <h3 style="font-size: 1.4em; font-weight: 700; color: var(--text-primary); margin-bottom: 25px;">🔀 Multi-Dimensional Analysis</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 25px; font-size: 0.95em;">
+                    Explore combinations of dimensions to uncover deeper patterns and correlations in your data.
+                </p>
+
+                <!-- Main Product × Activity Code -->
+                <div class="insights-card" style="margin-bottom: 30px;">
+                    <h4>🔧 Main Product × Activity Code</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 15px;">
+                        Shows which activities (New Features, Technical Debt, etc.) are performed on each product.
+                    </p>
+                    <div style="overflow-x: auto;">
+                        ${buildMatrixTable(breakdowns.productByActivity, 'Product', 'Activity Code')}
+                    </div>
+                </div>
+
+                <!-- Department × Main Product -->
+                <div class="insights-card" style="margin-bottom: 30px;">
+                    <h4>🏢 Department × Main Product</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 15px;">
+                        Reveals which departments work on which products and their hour distribution.
+                    </p>
+                    <div style="overflow-x: auto;">
+                        ${buildMatrixTable(breakdowns.departmentByProduct, 'Department', 'Product', 10)}
+                    </div>
+                </div>
+
+                <!-- Billing Class × Main Product -->
+                <div class="insights-card" style="margin-bottom: 30px;">
+                    <h4>💰 Billing Class × Main Product</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 15px;">
+                        Shows how billing is distributed across products (CAPEX, Billable, Non-Billable).
+                    </p>
+                    <div style="overflow-x: auto;">
+                        ${buildMatrixTable(breakdowns.billingByProduct, 'Billing Class', 'Product')}
+                    </div>
+                </div>
+
+                <!-- Department × Activity Code -->
+                <div class="insights-card" style="margin-bottom: 30px;">
+                    <h4>🎯 Department × Activity Code</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 15px;">
+                        Identifies which departments focus on which types of activities.
+                    </p>
+                    <div style="overflow-x: auto;">
+                        ${buildMatrixTable(breakdowns.departmentByActivity, 'Department', 'Activity Code', 10)}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Helper function to build matrix table HTML
+function buildMatrixTable(matrixData, rowLabel, colLabel, maxRows = null) {
+    if (!matrixData || !matrixData.matrix) return '<p style="color: var(--text-tertiary);">No data available</p>';
+
+    const { matrix, dimension1Values, dimension2Values, rowTotals, columnTotals } = matrixData;
+
+    // Limit rows if specified
+    const displayRows = maxRows ? dimension1Values.slice(0, maxRows) : dimension1Values;
+    // Limit columns to top 10 by total hours
+    const sortedCols = dimension2Values
+        .map(col => ({ name: col, total: columnTotals[col]?.totalHours || 0 }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 10)
+        .map(item => item.name);
+
+    // Calculate color intensity based on hours
+    const allHours = [];
+    displayRows.forEach(row => {
+        sortedCols.forEach(col => {
+            if (matrix[row] && matrix[row][col]) {
+                allHours.push(matrix[row][col].totalHours);
+            }
+        });
+    });
+    const maxHours = Math.max(...allHours, 1);
+
+    // Get cell color based on hours
+    const getCellColor = (hours) => {
+        const intensity = hours / maxHours;
+        const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (isDarkMode) {
+            const alpha = 0.2 + (intensity * 0.6);
+            return `rgba(102, 126, 234, ${alpha})`;
+        } else {
+            const alpha = 0.1 + (intensity * 0.5);
+            return `rgba(102, 126, 234, ${alpha})`;
+        }
+    };
+
+    let html = '<table class="insights-table" style="width: 100%; font-size: 0.85em;">';
+    html += '<thead><tr>';
+    html += `<th style="position: sticky; left: 0; background: var(--bg-secondary); z-index: 10;">${rowLabel}</th>`;
+    sortedCols.forEach(col => {
+        const colName = col.length > 20 ? col.substring(0, 20) + '...' : col;
+        html += `<th style="text-align: right; min-width: 100px;" title="${col}">${colName}</th>`;
+    });
+    html += '<th style="text-align: right; font-weight: bold; background: var(--bg-tertiary);">Total</th>';
+    html += '</tr></thead><tbody>';
+
+    displayRows.forEach(row => {
+        html += '<tr>';
+        const rowName = row.length > 40 ? row.substring(0, 40) + '...' : row;
+        html += `<td style="position: sticky; left: 0; background: var(--bg-secondary); font-weight: 500; z-index: 9;" title="${row}">${rowName}</td>`;
+
+        sortedCols.forEach(col => {
+            if (matrix[row] && matrix[row][col]) {
+                const cell = matrix[row][col];
+                const bgColor = getCellColor(cell.totalHours);
+                html += `<td style="text-align: right; background: ${bgColor};" title="${formatNumber(cell.totalHours)} hrs\n${cell.billablePercentage.toFixed(1)}% billable">`;
+                html += `${formatNumber(cell.totalHours)}`;
+                html += `<br><span style="font-size: 0.85em; opacity: 0.8;">${cell.billablePercentage.toFixed(0)}%</span>`;
+                html += '</td>';
+            } else {
+                html += '<td style="text-align: right; color: var(--text-tertiary);">-</td>';
+            }
+        });
+
+        // Row total
+        const rowTotal = rowTotals[row];
+        if (rowTotal) {
+            html += `<td style="text-align: right; font-weight: bold; background: var(--bg-tertiary);" title="${formatNumber(rowTotal.totalHours)} hrs\n${rowTotal.billablePercentage.toFixed(1)}% billable">`;
+            html += `${formatNumber(rowTotal.totalHours)}`;
+            html += `<br><span style="font-size: 0.85em; opacity: 0.8;">${rowTotal.billablePercentage.toFixed(0)}%</span>`;
+            html += '</td>';
+        } else {
+            html += '<td style="text-align: right;">-</td>';
+        }
+
+        html += '</tr>';
+    });
+
+    // Column totals row
+    html += '<tr style="border-top: 2px solid var(--border-color); font-weight: bold; background: var(--bg-tertiary);">';
+    html += `<td style="position: sticky; left: 0; background: var(--bg-tertiary); z-index: 9;">Total</td>`;
+    sortedCols.forEach(col => {
+        const colTotal = columnTotals[col];
+        if (colTotal) {
+            html += `<td style="text-align: right;" title="${formatNumber(colTotal.totalHours)} hrs\n${colTotal.billablePercentage.toFixed(1)}% billable">`;
+            html += `${formatNumber(colTotal.totalHours)}`;
+            html += `<br><span style="font-size: 0.85em; opacity: 0.8;">${colTotal.billablePercentage.toFixed(0)}%</span>`;
+            html += '</td>';
+        } else {
+            html += '<td style="text-align: right;">-</td>';
+        }
+    });
+
+    // Grand total
+    const grandTotal = displayRows.reduce((sum, row) => sum + (rowTotals[row]?.totalHours || 0), 0);
+    html += `<td style="text-align: right; font-weight: bold;">${formatNumber(grandTotal)}</td>`;
+    html += '</tr>';
+
+    html += '</tbody></table>';
+
+    if (maxRows && dimension1Values.length > maxRows) {
+        html += `<p style="text-align: center; color: var(--text-tertiary); margin-top: 10px; font-size: 0.85em;">Showing top ${maxRows} of ${dimension1Values.length} ${rowLabel.toLowerCase()}s</p>`;
+    }
+    if (dimension2Values.length > 10) {
+        html += `<p style="text-align: center; color: var(--text-tertiary); margin-top: 5px; font-size: 0.85em;">Showing top 10 of ${dimension2Values.length} ${colLabel.toLowerCase()}s</p>`;
+    }
+
+    return html;
+}
+
+// Chart instances for detailed breakdowns
+let monthTrendChartInstance = null;
+let mainProductChartInstance = null;
+let departmentBreakdownChartInstance = null;
+let activityCodeChartInstance = null;
+
+// Create Detailed Breakdowns Charts
+function createDetailedBreakdownsCharts(breakdowns) {
+    if (!breakdowns) return;
+
+    const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDarkMode ? '#e0e0e0' : '#333';
+    const gridColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+
+    // Month Trend Chart (Line Chart)
+    const monthCanvas = document.getElementById('monthTrendChart');
+    if (monthCanvas) {
+        if (monthTrendChartInstance) monthTrendChartInstance.destroy();
+
+        const recentMonths = breakdowns.byMonth.slice(-12);
+
+        monthTrendChartInstance = new Chart(monthCanvas, {
+            type: 'line',
+            data: {
+                labels: recentMonths.map(m => m.name),
+                datasets: [{
+                    label: 'Total Hours',
+                    data: recentMonths.map(m => m.totalHours),
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    fill: true,
+                    tension: 0.4
+                }, {
+                    label: 'Billable Hours',
+                    data: recentMonths.map(m => m.billableHours),
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top', labels: { color: textColor } }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: textColor },
+                        grid: { color: gridColor }
+                    },
+                    x: {
+                        ticks: { color: textColor },
+                        grid: { color: gridColor }
+                    }
+                }
+            }
+        });
+    }
+
+    // Main Product Chart
+    const productCanvas = document.getElementById('mainProductChart');
+    if (productCanvas) {
+        if (mainProductChartInstance) mainProductChartInstance.destroy();
+
+        const top10Products = breakdowns.byMainProduct.slice(0, 10);
+
+        mainProductChartInstance = new Chart(productCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: top10Products.map(p => p.name.substring(0, 20)),
+                datasets: [{
+                    data: top10Products.map(p => p.totalHours),
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.8)',
+                        'rgba(54, 162, 235, 0.8)',
+                        'rgba(255, 206, 86, 0.8)',
+                        'rgba(75, 192, 192, 0.8)',
+                        'rgba(153, 102, 255, 0.8)',
+                        'rgba(255, 159, 64, 0.8)',
+                        'rgba(199, 199, 199, 0.8)',
+                        'rgba(83, 102, 255, 0.8)',
+                        'rgba(255, 99, 255, 0.8)',
+                        'rgba(99, 255, 132, 0.8)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } }
+                }
+            }
+        });
+    }
+
+    // Department Chart
+    const deptCanvas = document.getElementById('departmentBreakdownChart');
+    if (deptCanvas) {
+        if (departmentBreakdownChartInstance) departmentBreakdownChartInstance.destroy();
+
+        const top10Depts = breakdowns.byDepartment.slice(0, 10);
+
+        departmentBreakdownChartInstance = new Chart(deptCanvas, {
+            type: 'bar',
+            data: {
+                labels: top10Depts.map(d => d.name.substring(0, 20)),
+                datasets: [{
+                    label: 'Hours',
+                    data: top10Depts.map(d => d.totalHours),
+                    backgroundColor: 'rgba(153, 102, 255, 0.6)',
+                    borderColor: 'rgba(153, 102, 255, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, ticks: { color: textColor }, grid: { color: gridColor } },
+                    y: { ticks: { color: textColor }, grid: { color: gridColor } }
+                }
+            }
+        });
+    }
+
+    // Activity Code Chart
+    const activityCanvas = document.getElementById('activityCodeChart');
+    if (activityCanvas) {
+        if (activityCodeChartInstance) activityCodeChartInstance.destroy();
+
+        const top10Activities = breakdowns.byActivityCode.slice(0, 10);
+
+        activityCodeChartInstance = new Chart(activityCanvas, {
+            type: 'bar',
+            data: {
+                labels: top10Activities.map(a => a.name.substring(0, 20)),
+                datasets: [{
+                    label: 'Hours',
+                    data: top10Activities.map(a => a.totalHours),
+                    backgroundColor: 'rgba(255, 159, 64, 0.6)',
+                    borderColor: 'rgba(255, 159, 64, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, ticks: { color: textColor }, grid: { color: gridColor } },
+                    y: { ticks: { color: textColor }, grid: { color: gridColor } }
+                }
+            }
+        });
+    }
+
+    // Billing Class Chart
+    const billingCanvas = document.getElementById('billingClassChart');
+    if (billingCanvas) {
+        if (billingClassChartInstance) billingClassChartInstance.destroy();
+
+        const billingClasses = breakdowns.byBillingClass.slice(0, 10);
+
+        billingClassChartInstance = new Chart(billingCanvas, {
+            type: 'pie',
+            data: {
+                labels: billingClasses.map(b => b.name),
+                datasets: [{
+                    data: billingClasses.map(b => b.totalHours),
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.8)',
+                        'rgba(54, 162, 235, 0.8)',
+                        'rgba(255, 206, 86, 0.8)',
+                        'rgba(75, 192, 192, 0.8)',
+                        'rgba(153, 102, 255, 0.8)',
+                        'rgba(255, 159, 64, 0.8)',
+                        'rgba(199, 199, 199, 0.8)',
+                        'rgba(83, 102, 255, 0.8)',
+                        'rgba(255, 99, 255, 0.8)',
+                        'rgba(99, 255, 132, 0.8)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: textColor } }
+                }
+            }
+        });
+    }
+}
+
+// ============================================================================
+// PAGE NAVIGATION AND SCROLL FUNCTIONS
+// ============================================================================
+
+// Scroll to a specific insights section
+function scrollToInsightsSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (section) {
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+// Scroll to top smoothly
+function scrollToTopSmooth() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Show/hide back to top button based on scroll position
+window.addEventListener('scroll', function() {
+    const backToTopBtn = document.getElementById('backToTopBtn');
+    if (backToTopBtn) {
+        if (window.pageYOffset > 300) {
+            backToTopBtn.style.display = 'block';
+        } else {
+            backToTopBtn.style.display = 'none';
+        }
+    }
+});

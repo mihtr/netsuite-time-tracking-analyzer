@@ -1132,6 +1132,62 @@
             cursor: pointer;
         }
 
+        /* Pivot Filter Value Dropdown */
+        .filter-value-container {
+            position: relative;
+            flex: 1;
+        }
+
+        .filter-value-button {
+            width: 100%;
+            padding: 8px 12px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            cursor: pointer;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .filter-value-button:hover {
+            border-color: #17a2b8;
+            background: var(--bg-secondary);
+        }
+
+        .filter-value-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 4px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-shadow: 0 4px 12px var(--card-shadow);
+            z-index: 1000;
+            min-width: 280px;
+            max-width: 400px;
+        }
+
+        .filter-value-dropdown label {
+            display: flex;
+            align-items: center;
+            padding: 6px 4px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .filter-value-dropdown label:hover {
+            background: var(--bg-secondary);
+        }
+
+        .filter-value-dropdown input[type="checkbox"] {
+            cursor: pointer;
+        }
+
         /* Employee Hover Popup */
         .employee-popup {
             position: fixed;
@@ -1530,11 +1586,16 @@
             background: var(--bg-secondary);
         }
 
+        .insights-section h2,
+        .insights-section h3,
+        .insights-card h4 {
+            color: var(--text-primary) !important;
+        }
+
         .insights-card h4 {
             font-size: 1.1em;
             font-weight: 600;
             margin: 0 0 15px 0;
-            color: var(--text-primary);
         }
 
         .insights-chart-container {
@@ -1607,13 +1668,70 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* Insights Navigation Buttons */
+        .insights-nav-button {
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+        }
+
+        .insights-nav-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.5);
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+
+        .insights-nav-button:active {
+            transform: translateY(0);
+        }
+
+        /* Floating Back to Top Button */
+        #backToTopBtn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+            display: none;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.5em;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        #backToTopBtn:hover {
+            transform: scale(1.1) translateY(-3px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+        }
+
+        #backToTopBtn:active {
+            transform: scale(1);
+        }
+
+        /* Scroll indicator */
+        .insights-section {
+            scroll-margin-top: 80px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.32.2</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.37.0</span></p>
 
             <!-- Top Menu Bar -->
             <div class="top-menu-bar">
@@ -2680,6 +2798,9 @@
         </div> <!-- End Compare View -->
 
     </div>
+
+    <!-- Floating Back to Top Button -->
+    <button id="backToTopBtn" onclick="scrollToTopSmooth()" title="Back to top">↑</button>
 
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
