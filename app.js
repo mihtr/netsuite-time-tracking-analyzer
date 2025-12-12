@@ -2738,6 +2738,41 @@ function formatNumber(num) {
     return formatted;
 }
 
+// Debounce utility function
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Update sort indicators on table headers
+function updateSortIndicators(tableId, column, direction) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    // Remove all existing sort indicators
+    const headers = table.querySelectorAll('th.sortable');
+    headers.forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+    });
+
+    // Add indicator to the sorted column
+    headers.forEach(th => {
+        // Check if this header corresponds to the sorted column
+        // The onclick attribute contains the column name
+        const onclick = th.getAttribute('onclick');
+        if (onclick && onclick.includes(`'${column}'`)) {
+            th.classList.add(direction === 'asc' ? 'sort-asc' : 'sort-desc');
+        }
+    });
+}
+
 // ========== MONTHLY VIEW FUNCTIONS ==========
 
 // Setup monthly view sorting

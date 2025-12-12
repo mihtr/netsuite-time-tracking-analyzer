@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.39.0
+- **Current Version**: v1.39.1
 - **Last Updated**: 2025-12-12
 - **Status**: Active Development
 
@@ -25,6 +25,27 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.39.1 (2025-12-12)
+- [x] **Bug Fixes** - Fixed browser console errors from v1.39.0
+  - **Content Security Policy Fix** (index.html:6)
+    - Added `https://cdn.sheetjs.com` to CSP whitelist
+    - Fixed "script-src" violation blocking xlsx.full.min.js library
+    - Resolved storage access prevention for CDN URLs
+  - **Missing Utility Functions** (app.js:2741-2774)
+    - Added `debounce(func, wait)` utility function (app.js:2742-2752)
+      - Implements standard debounce pattern with timeout clearing
+      - Used for JIRA search input event listener (300ms delay)
+      - Prevents excessive function calls during rapid user input
+    - Added `updateSortIndicators(tableId, column, direction)` function (app.js:2755-2774)
+      - Updates visual sort indicators on table headers
+      - Removes all existing sort-asc/sort-desc classes
+      - Adds appropriate class to the sorted column
+      - Works with any table using sortable class on headers
+  - **Fixed Console Errors**
+    - Resolved "Uncaught ReferenceError: debounce is not defined" (app.js:12257)
+    - Resolved "Uncaught ReferenceError: updateSortIndicators is not defined" (app.js:12206)
+    - Application now runs without console errors
 
 ### Version 1.39.0 (2025-12-12)
 - [x] **Enhanced Charts Phase 2** - Advanced analytics with moving averages and year-over-year comparisons
