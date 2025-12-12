@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.37.0
+- **Current Version**: v1.37.1
 - **Last Updated**: 2025-12-12
 - **Status**: Active Development
 
@@ -25,6 +25,14 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.37.1 (2025-12-12)
+- [x] **Comparison Results Heading Contrast Fix** - Fixed poor contrast in Compare view
+  - Changed background from hardcoded `white` to `var(--bg-primary)` (app.js:1809)
+  - Changed heading color from `#495057` to `var(--text-primary)` (app.js:1810)
+  - Now properly adapts to both light and dark modes
+  - Ensures consistent contrast ratios across all themes
+  - User benefits: Better readability in Compare view results section
 
 ### Version 1.37.0 (2025-12-12)
 - [x] **Multi-Dimensional Analysis** - Advanced cross-dimensional breakdowns with heat-map tables

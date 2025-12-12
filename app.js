@@ -1806,8 +1806,8 @@ function comparePeriods() {
     ];
 
     resultsDiv.innerHTML = `
-        <div style="background: white; padding: 15px; border-radius: 8px; margin-top: 15px;">
-            <h3 style="margin-bottom: 15px; color: #495057;">Comparison Results</h3>
+        <div style="background: var(--bg-primary); padding: 15px; border-radius: 8px; margin-top: 15px;">
+            <h3 style="margin-bottom: 15px; color: var(--text-primary);">Comparison Results</h3>
             <div style="overflow-x: auto;">
                 <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
                     <thead>
