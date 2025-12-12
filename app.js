@@ -1038,11 +1038,11 @@ function aggregateData() {
     const aggregationMap = new Map();
 
     filteredData.forEach(row => {
-        const mainProduct = row[COLUMNS.MAIN_PRODUCT] || '(Empty)';
-        const customerProject = row[COLUMNS.CUSTOMER_PROJECT] || '(Empty)';
-        const name = row[COLUMNS.NAME] || '(Empty)';
-        const mtype2 = row[COLUMNS.MTYPE2] || '(Empty)';
-        const task = row[COLUMNS.TASK] || '(Empty)';
+        const mainProduct = formatEmptyValue(row[COLUMNS.MAIN_PRODUCT]);
+        const customerProject = formatEmptyValue(row[COLUMNS.CUSTOMER_PROJECT]);
+        const name = formatEmptyValue(row[COLUMNS.NAME]);
+        const mtype2 = formatEmptyValue(row[COLUMNS.MTYPE2]);
+        const task = formatEmptyValue(row[COLUMNS.TASK]);
         const durDec = parseDecimal(row[COLUMNS.DUR_DEC]);
 
         // Create unique key for aggregation
@@ -2738,6 +2738,15 @@ function formatNumber(num) {
     return formatted;
 }
 
+// Format empty/null values elegantly
+function formatEmptyValue(value, fallback = '—') {
+    // Check for null, undefined, empty string, or whitespace-only
+    if (value === null || value === undefined || value === '' || (typeof value === 'string' && value.trim() === '')) {
+        return fallback;
+    }
+    return value;
+}
+
 // Debounce utility function
 function debounce(func, wait) {
     let timeout;
@@ -2848,11 +2857,11 @@ async function aggregateMonthlyData() {
             const year = rowDate.getFullYear();
             const month = rowDate.getMonth() + 1; // 1-12
 
-            const mainProduct = row[COLUMNS.MAIN_PRODUCT] || '(Empty)';
-            const customerProject = row[COLUMNS.CUSTOMER_PROJECT] || '(Empty)';
-            const name = row[COLUMNS.NAME] || '(Empty)';
-            const mtype2 = row[COLUMNS.MTYPE2] || '(Empty)';
-            const task = row[COLUMNS.TASK] || '(Empty)';
+            const mainProduct = formatEmptyValue(row[COLUMNS.MAIN_PRODUCT]);
+            const customerProject = formatEmptyValue(row[COLUMNS.CUSTOMER_PROJECT]);
+            const name = formatEmptyValue(row[COLUMNS.NAME]);
+            const mtype2 = formatEmptyValue(row[COLUMNS.MTYPE2]);
+            const task = formatEmptyValue(row[COLUMNS.TASK]);
             const durDec = parseDecimal(row[COLUMNS.DUR_DEC]);
 
             // Create unique key for aggregation
@@ -3200,9 +3209,9 @@ async function aggregateKenPBI1Data() {
         const chunk = filteredData.slice(i, Math.min(i + chunkSize, totalRows));
 
         chunk.forEach(row => {
-            const mainProduct = row[COLUMNS.MAIN_PRODUCT] || '(Empty)';
-            const customerProject = row[COLUMNS.CUSTOMER_PROJECT] || '(Empty)';
-            const mtype2 = row[COLUMNS.MTYPE2] || '(Empty)';
+            const mainProduct = formatEmptyValue(row[COLUMNS.MAIN_PRODUCT]);
+            const customerProject = formatEmptyValue(row[COLUMNS.CUSTOMER_PROJECT]);
+            const mtype2 = formatEmptyValue(row[COLUMNS.MTYPE2]);
             const durDec = parseDecimal(row[COLUMNS.DUR_DEC]);
 
             // Create unique key for aggregation (without MTYPE2)
@@ -5358,9 +5367,9 @@ function getUniqueFieldValues(fieldName) {
     // Convert to array and sort
     const valuesArray = Array.from(uniqueValues);
     valuesArray.sort((a, b) => {
-        // Handle empty values
-        if (a === '(Empty)') return 1;
-        if (b === '(Empty)') return -1;
+        // Handle empty values (em dash)
+        if (a === '—') return 1;
+        if (b === '—') return -1;
 
         // Try numeric sorting first
         const numA = parseFloat(a);
@@ -7654,11 +7663,11 @@ function renderDrilldownTable(cellInfo) {
     drilldownRecords.forEach(row => {
         tableHTML += `<tr>`;
         tableHTML += `<td>${escapeHtml(row[COLUMNS.DATE] || '')}</td>`;
-        tableHTML += `<td>${escapeHtml(row[COLUMNS.MAIN_PRODUCT] || '(Empty)')}</td>`;
-        tableHTML += `<td>${escapeHtml(row[COLUMNS.CUSTOMER_PROJECT] || '(Empty)')}</td>`;
-        tableHTML += `<td>${escapeHtml(row[COLUMNS.NAME] || '(Empty)')}</td>`;
-        tableHTML += `<td>${escapeHtml(row[COLUMNS.MTYPE2] || '(Empty)')}</td>`;
-        tableHTML += `<td>${escapeHtml(row[COLUMNS.TASK] || '(Empty)')}</td>`;
+        tableHTML += `<td>${escapeHtml(formatEmptyValue(row[COLUMNS.MAIN_PRODUCT]))}</td>`;
+        tableHTML += `<td>${escapeHtml(formatEmptyValue(row[COLUMNS.CUSTOMER_PROJECT]))}</td>`;
+        tableHTML += `<td>${escapeHtml(formatEmptyValue(row[COLUMNS.NAME]))}</td>`;
+        tableHTML += `<td>${escapeHtml(formatEmptyValue(row[COLUMNS.MTYPE2]))}</td>`;
+        tableHTML += `<td>${escapeHtml(formatEmptyValue(row[COLUMNS.TASK]))}</td>`;
         tableHTML += `<td>${formatNumber(parseDecimal(row[COLUMNS.DUR_DEC]))}</td>`;
         tableHTML += `</tr>`;
     });
@@ -7708,11 +7717,11 @@ function exportDrilldownToCSV() {
         // Add data rows
         drilldownRecords.forEach(row => {
             const date = escapeCSVField(row[COLUMNS.DATE] || '');
-            const mainProduct = escapeCSVField(row[COLUMNS.MAIN_PRODUCT] || '(Empty)');
-            const customerProject = escapeCSVField(row[COLUMNS.CUSTOMER_PROJECT] || '(Empty)');
-            const employee = escapeCSVField(row[COLUMNS.NAME] || '(Empty)');
-            const type = escapeCSVField(row[COLUMNS.MTYPE2] || '(Empty)');
-            const task = escapeCSVField(row[COLUMNS.TASK] || '(Empty)');
+            const mainProduct = escapeCSVField(formatEmptyValue(row[COLUMNS.MAIN_PRODUCT]));
+            const customerProject = escapeCSVField(formatEmptyValue(row[COLUMNS.CUSTOMER_PROJECT]));
+            const employee = escapeCSVField(formatEmptyValue(row[COLUMNS.NAME]));
+            const type = escapeCSVField(formatEmptyValue(row[COLUMNS.MTYPE2]));
+            const task = escapeCSVField(formatEmptyValue(row[COLUMNS.TASK]));
             const duration = formatNumberWithSeparator(parseDecimal(row[COLUMNS.DUR_DEC]).toFixed(2));
 
             csvContent += `${date};${mainProduct};${customerProject};${employee};${type};${task};${duration}\n`;
@@ -9893,7 +9902,7 @@ function getDetailedBreakdowns(data) {
         const stats = {};
 
         data.forEach(row => {
-            const key = row[dimensionField] || '(Empty)';
+            const key = formatEmptyValue(row[dimensionField]);
             const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
             const billable = (row[COLUMNS.BILLABLE] || '').toString().toLowerCase() === 'true';
 
@@ -9933,8 +9942,8 @@ function getDetailedBreakdowns(data) {
         const dim2Set = new Set();
 
         data.forEach(row => {
-            const key1 = row[dimension1Field] || '(Empty)';
-            const key2 = row[dimension2Field] || '(Empty)';
+            const key1 = formatEmptyValue(row[dimension1Field]);
+            const key2 = formatEmptyValue(row[dimension2Field]);
             const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
             const billable = (row[COLUMNS.BILLABLE] || '').toString().toLowerCase() === 'true';
 

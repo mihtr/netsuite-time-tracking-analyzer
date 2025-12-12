@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.43.1
+- **Current Version**: v1.44.0
 - **Last Updated**: 2025-12-12
 - **Status**: Active Development
 
@@ -20,11 +20,39 @@
 - [x] No validation on date input format (accepts invalid dates) - **RESOLVED** in v1.5.1
 - [x] No way to export filtered results - **RESOLVED** in v1.6.1
 - [x] Monthly view doesn't update when filters change / Timeline not reflecting selection - **RESOLVED** in v1.6.3
-- [ ] Empty/null values show as "(Empty)" in table - could be more elegant
+- [x] Empty/null values show as "(Empty)" in table - could be more elegant - **RESOLVED** in v1.44.0
 
 ---
 
 ## ✅ Completed Features
+
+### Version 1.44.0 (2025-12-12)
+- [x] **Elegant Empty/Null Value Display** - Polish & UX improvement
+  - **Problem**: Empty/null values displayed as "(Empty)" throughout the application
+  - **Solution**: Replaced with elegant em dash "—" for cleaner, more professional appearance
+  - **Implementation** (app.js:2741-2748):
+    - Created `formatEmptyValue(value, fallback = '—')` helper function
+    - Checks for null, undefined, empty string, or whitespace-only values
+    - Returns em dash (—) by default for empty values
+    - Consistent handling across entire application
+  - **Updated Locations**:
+    - **Data Display** (line 7666-7670): Main detail view table
+    - **Data Aggregation** (lines 1041-1045, 2860-2864, 3212-3214): All aggregation functions
+    - **CSV Export** (lines 7720-7724): Exported data files
+    - **Sort Comparison** (lines 5371-5372): Filter dropdown sorting
+    - **Dimension Analysis** (lines 9905, 9945-9946): Insights tab breakdowns
+  - **Visual Impact**:
+    - "—" is cleaner and more minimalist than "(Empty)"
+    - Em dash is semantically appropriate for missing data
+    - More professional appearance in tables and exports
+    - Consistent with data visualization best practices
+  - **User Experience**:
+    - Less visual noise in tables with many empty fields
+    - Easier to scan and read data
+    - Professional polish
+    - International standard for missing data representation
+  - **Bug Fixed**: Resolves low-priority issue "Empty/null values show as '(Empty)' in table - could be more elegant"
+  - **Testing**: All 104 tests pass (33 HTML validation, 40 unit tests, 31 integration tests)
 
 ### Version 1.43.1 (2025-12-12)
 - [x] **Matrix Table Column Headers - Alphabetical Sorting**
