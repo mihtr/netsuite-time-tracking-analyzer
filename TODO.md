@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.41.0
+- **Current Version**: v1.42.0
 - **Last Updated**: 2025-12-12
 - **Status**: Active Development
 
@@ -25,6 +25,37 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.42.0 (2025-12-12)
+- [x] **JIRA Tab Performance Optimization and New Columns**
+  - **Performance Improvements**:
+    - Implemented pagination: Load 100 rows initially instead of all rows
+    - Added "Load More" button (loads 100 additional rows)
+    - Added "Load All" button (loads remaining rows)
+    - Optimized aggregation: Changed from `forEach` to `for` loop for faster iteration
+    - Added loading indicator (opacity 0.5) during aggregation
+    - Added `setTimeout` to keep UI responsive during processing
+    - Removed sticky positioning from most columns (CSS performance optimization)
+  - **New Columns Added to JIRA Tab**:
+    - **Project Name** (COLUMNS.PROJECT_NAME) - Field #6 from CSV
+    - **Task** (COLUMNS.TASK) - Field #23 from CSV
+    - Both columns support full sorting functionality
+    - Both columns display with 30-character truncation and tooltips
+  - **Updated Aggregation Logic** (app.js:12318-12389):
+    - Changed aggregation key from `${jiraIssue}|${project}|${employee}` to `${jiraIssue}|${project}|${employee}|${task}`
+    - Now creates separate rows for different tasks within same JIRA/Project/Employee combination
+    - More granular breakdown for detailed analysis
+  - **Display Enhancements** (app.js:12391-12517):
+    - 7 total columns: JIRA Issue, Project Name, Task, Project, Employee, Months, Total Hours, Records
+    - Only JIRA Issue column remains sticky (left: 0) for horizontal scrolling
+    - Pagination controls show: "Showing X of Y rows" with load buttons
+    - Pagination dynamically updates when filters change
+  - **Sorting Updates** (app.js:12542-12602):
+    - Added sort cases for `projectName` and `task` columns
+    - Handles null/empty values gracefully with `|| ''` fallback
+    - All 7 columns plus month columns fully sortable
+  - **User Request**: Addressed "The performance on the Jira tab is terrible. please add projekt task and project name to jira."
+  - **Testing**: All 104 tests pass (33 HTML validation, 40 unit tests, 31 integration tests)
 
 ### Version 1.41.0 (2025-12-12)
 - [x] **Insights Tab Table Sorting** - All tables in Insights tab now sortable
