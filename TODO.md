@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.40.0
+- **Current Version**: v1.41.0
 - **Last Updated**: 2025-12-12
 - **Status**: Active Development
 
@@ -25,6 +25,41 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.41.0 (2025-12-12)
+- [x] **Insights Tab Table Sorting** - All tables in Insights tab now sortable
+  - **Sortable Tables Implemented**:
+    - Top Performers by Hours (5 columns sortable)
+    - Top Performers by Projects (5 columns sortable)
+    - Top Projects (5 columns sortable)
+    - External Employees by Hours (5 columns sortable)
+  - **Sorting Infrastructure** (app.js:12095-12242)
+    - Created `insightsSortStates` object to manage sort state for each table
+    - Implemented `sortInsightsTable(tableKey, column)` generic sort function
+    - Created `renderInsightsTableBody(tableKey)` to re-render after sorting
+    - Sort state includes: column, direction, and data array
+    - Visual indicators (▲/▼) update automatically
+  - **Table Headers Enhanced**:
+    - Added `class="sortable"` to all sortable column headers
+    - Added `data-column` attribute for sort identification
+    - Added `onclick="sortInsightsTable('tableKey', 'column')"` handlers
+    - Added cursor: pointer styling for visual feedback
+    - Default sort indicators show initial sort state
+  - **Data Management**:
+    - Normalized data structure for consistent sorting
+    - Stores formatted values (billablePercent, avgHoursPerProject, etc.)
+    - Top 10 results maintained after sorting
+    - Data stored in build functions before rendering
+  - **Sort Capabilities**:
+    - Sort by employee name, hours, projects, billable %, avg hours per project
+    - Sort by project name, hours, employees, billable %
+    - Toggle ascending/descending on repeated clicks
+    - Maintains table formatting and styling after sort
+  - **Performance**:
+    - Client-side sorting for instant response
+    - Only re-renders tbody (not entire table)
+    - Efficient data structure updates
+    - No page refresh required
 
 ### Version 1.40.0 (2025-12-12)
 - [x] **JIRA Pivot Table with Month Dimension** - Major performance improvement and enhanced analytics

@@ -10560,6 +10560,21 @@ function renderInsightsDashboard() {
 
 // Build Top Performers HTML
 function buildTopPerformersHTML(topPerformers) {
+    // Store data for sorting
+    insightsSortStates.topPerformersByHours.data = topPerformers.byHours.map(emp => ({
+        name: emp.name,
+        hours: emp.totalHours,
+        projects: emp.projectCount,
+        billablePercent: emp.billablePercent.toFixed(1)
+    }));
+
+    insightsSortStates.topPerformersByProjects.data = topPerformers.byProjects.map(emp => ({
+        name: emp.name,
+        projects: emp.projectCount,
+        hours: emp.totalHours,
+        avgHoursPerProject: (emp.totalHours / emp.projectCount).toFixed(1)
+    }));
+
     return `
         <div id="section-top-performers" class="insights-section">
             <h3 class="insights-section-title">🏆 Top Performers</h3>
@@ -10575,20 +10590,20 @@ function buildTopPerformersHTML(topPerformers) {
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>Employee</th>
-                                    <th style="text-align: right;">Hours</th>
-                                    <th style="text-align: right;">Projects</th>
-                                    <th style="text-align: right;">Billable %</th>
+                                    <th class="sortable" data-column="name" onclick="sortInsightsTable('topPerformersByHours', 'name')" style="cursor: pointer;">Employee</th>
+                                    <th class="sortable sort-desc" data-column="hours" onclick="sortInsightsTable('topPerformersByHours', 'hours')" style="text-align: right; cursor: pointer;">Hours</th>
+                                    <th class="sortable" data-column="projects" onclick="sortInsightsTable('topPerformersByHours', 'projects')" style="text-align: right; cursor: pointer;">Projects</th>
+                                    <th class="sortable" data-column="billablePercent" onclick="sortInsightsTable('topPerformersByHours', 'billablePercent')" style="text-align: right; cursor: pointer;">Billable %</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                ${topPerformers.byHours.slice(0, 5).map((emp, idx) => `
+                            <tbody id="topPerformersByHoursBody">
+                                ${insightsSortStates.topPerformersByHours.data.slice(0, 10).map((emp, idx) => `
                                     <tr>
                                         <td>${idx + 1}</td>
-                                        <td>${emp.name}</td>
-                                        <td style="text-align: right;">${formatNumber(emp.totalHours)}</td>
-                                        <td style="text-align: right;">${emp.projectCount}</td>
-                                        <td style="text-align: right;">${emp.billablePercent.toFixed(1)}%</td>
+                                        <td>${escapeHtml(emp.name)}</td>
+                                        <td style="text-align: right;">${formatNumber(emp.hours)}</td>
+                                        <td style="text-align: right;">${emp.projects}</td>
+                                        <td style="text-align: right;">${emp.billablePercent}%</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -10606,20 +10621,20 @@ function buildTopPerformersHTML(topPerformers) {
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>Employee</th>
-                                    <th style="text-align: right;">Projects</th>
-                                    <th style="text-align: right;">Hours</th>
-                                    <th style="text-align: right;">Avg hrs/project</th>
+                                    <th class="sortable" data-column="name" onclick="sortInsightsTable('topPerformersByProjects', 'name')" style="cursor: pointer;">Employee</th>
+                                    <th class="sortable sort-desc" data-column="projects" onclick="sortInsightsTable('topPerformersByProjects', 'projects')" style="text-align: right; cursor: pointer;">Projects</th>
+                                    <th class="sortable" data-column="hours" onclick="sortInsightsTable('topPerformersByProjects', 'hours')" style="text-align: right; cursor: pointer;">Hours</th>
+                                    <th class="sortable" data-column="avgHoursPerProject" onclick="sortInsightsTable('topPerformersByProjects', 'avgHoursPerProject')" style="text-align: right; cursor: pointer;">Avg hrs/project</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                ${topPerformers.byProjects.slice(0, 5).map((emp, idx) => `
+                            <tbody id="topPerformersByProjectsBody">
+                                ${insightsSortStates.topPerformersByProjects.data.slice(0, 10).map((emp, idx) => `
                                     <tr>
                                         <td>${idx + 1}</td>
-                                        <td>${emp.name}</td>
-                                        <td style="text-align: right;">${emp.projectCount}</td>
-                                        <td style="text-align: right;">${formatNumber(emp.totalHours)}</td>
-                                        <td style="text-align: right;">${(emp.totalHours / emp.projectCount).toFixed(1)}</td>
+                                        <td>${escapeHtml(emp.name)}</td>
+                                        <td style="text-align: right;">${emp.projects}</td>
+                                        <td style="text-align: right;">${formatNumber(emp.hours)}</td>
+                                        <td style="text-align: right;">${emp.avgHoursPerProject}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -10633,6 +10648,14 @@ function buildTopPerformersHTML(topPerformers) {
 
 // Build Project Analytics HTML
 function buildProjectAnalyticsHTML(topProjects) {
+    // Store data for sorting
+    insightsSortStates.topProjects.data = topProjects.map(proj => ({
+        name: proj.displayName,
+        hours: proj.totalHours,
+        employees: proj.employeeCount,
+        billablePercent: proj.billablePercent.toFixed(1)
+    }));
+
     return `
         <div id="section-project-analytics" class="insights-section">
             <h3 class="insights-section-title">📊 Project Analytics</h3>
@@ -10651,19 +10674,21 @@ function buildProjectAnalyticsHTML(topProjects) {
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Project</th>
-                                    <th style="text-align: right;">Hours</th>
-                                    <th style="text-align: right;">Employees</th>
-                                    <th style="text-align: right;">Avg hrs/task</th>
+                                    <th>#</th>
+                                    <th class="sortable" data-column="name" onclick="sortInsightsTable('topProjects', 'name')" style="cursor: pointer;">Project</th>
+                                    <th class="sortable sort-desc" data-column="hours" onclick="sortInsightsTable('topProjects', 'hours')" style="text-align: right; cursor: pointer;">Hours</th>
+                                    <th class="sortable" data-column="employees" onclick="sortInsightsTable('topProjects', 'employees')" style="text-align: right; cursor: pointer;">Employees</th>
+                                    <th class="sortable" data-column="billablePercent" onclick="sortInsightsTable('topProjects', 'billablePercent')" style="text-align: right; cursor: pointer;">Billable %</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                ${topProjects.slice(0, 10).map(proj => `
+                            <tbody id="topProjectsBody">
+                                ${insightsSortStates.topProjects.data.slice(0, 10).map((proj, idx) => `
                                     <tr>
-                                        <td title="${proj.displayName}">${proj.displayName.substring(0, 50)}${proj.displayName.length > 50 ? '...' : ''}</td>
-                                        <td style="text-align: right;">${formatNumber(proj.totalHours)}</td>
-                                        <td style="text-align: right;">${proj.employeeCount}</td>
-                                        <td style="text-align: right;">${proj.avgHoursPerTask.toFixed(2)}</td>
+                                        <td>${idx + 1}</td>
+                                        <td title="${escapeHtml(proj.name)}">${escapeHtml(proj.name.substring(0, 40))}${proj.name.length > 40 ? '...' : ''}</td>
+                                        <td style="text-align: right;">${formatNumber(proj.hours)}</td>
+                                        <td style="text-align: right;">${proj.employees}</td>
+                                        <td style="text-align: right;">${proj.billablePercent}%</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -11267,6 +11292,18 @@ function buildExternalEmployeesHTML(externalData) {
                 </div>
             </div>
 
+            <!-- Store data for sorting -->
+            ${(() => {
+                insightsSortStates.externalByHours.data = externalData.topExternalEmployees.map(emp => ({
+                    name: emp.name,
+                    hours: emp.totalHours,
+                    projects: emp.projectCount,
+                    billablePercent: emp.billablePercentage.toFixed(1),
+                    avgHoursPerProject: (emp.totalHours / emp.projectCount).toFixed(1)
+                }));
+                return '';
+            })()}
+
             <div class="insights-grid">
                 <!-- Top External Employees -->
                 <div class="insights-card">
@@ -11279,20 +11316,20 @@ function buildExternalEmployeesHTML(externalData) {
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>Employee</th>
-                                    <th style="text-align: right;">Hours</th>
-                                    <th style="text-align: right;">Projects</th>
-                                    <th style="text-align: right;">Billable %</th>
+                                    <th class="sortable" data-column="name" onclick="sortInsightsTable('externalByHours', 'name')" style="cursor: pointer;">Employee</th>
+                                    <th class="sortable sort-desc" data-column="hours" onclick="sortInsightsTable('externalByHours', 'hours')" style="text-align: right; cursor: pointer;">Hours</th>
+                                    <th class="sortable" data-column="projects" onclick="sortInsightsTable('externalByHours', 'projects')" style="text-align: right; cursor: pointer;">Projects</th>
+                                    <th class="sortable" data-column="billablePercent" onclick="sortInsightsTable('externalByHours', 'billablePercent')" style="text-align: right; cursor: pointer;">Billable %</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                ${externalData.topExternalEmployees.slice(0, 10).map((emp, idx) => `
+                            <tbody id="externalByHoursBody">
+                                ${insightsSortStates.externalByHours.data.slice(0, 10).map((emp, idx) => `
                                     <tr>
                                         <td>${idx + 1}</td>
-                                        <td title="${emp.jobGroup}">${emp.name}</td>
-                                        <td style="text-align: right;">${formatNumber(emp.totalHours)}</td>
-                                        <td style="text-align: right;">${emp.projectCount}</td>
-                                        <td style="text-align: right;">${emp.billablePercentage.toFixed(1)}%</td>
+                                        <td>${escapeHtml(emp.name)}</td>
+                                        <td style="text-align: right;">${formatNumber(emp.hours)}</td>
+                                        <td style="text-align: right;">${emp.projects}</td>
+                                        <td style="text-align: right;">${emp.billablePercent}%</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -12089,6 +12126,155 @@ function createDetailedBreakdownsCharts(breakdowns) {
                 }
             }
         });
+    }
+}
+
+// ============================================================================
+// INSIGHTS TAB SORTING
+// ============================================================================
+
+// Store insights data globally for sorting
+let insightsDataCache = null;
+
+// Sort states for each insights table
+let insightsSortStates = {
+    topPerformersByHours: { column: 'hours', direction: 'desc', data: [] },
+    topPerformersByProjects: { column: 'projects', direction: 'desc', data: [] },
+    topProjects: { column: 'hours', direction: 'desc', data: [] },
+    departmentUtil: { column: 'hours', direction: 'desc', data: [] },
+    externalByHours: { column: 'hours', direction: 'desc', data: [] },
+    externalByProjects: { column: 'projects', direction: 'desc', data: [] }
+};
+
+// Generic sort function for insights tables
+function sortInsightsTable(tableKey, column) {
+    const state = insightsSortStates[tableKey];
+    if (!state || !state.data || state.data.length === 0) return;
+
+    // Toggle direction
+    if (state.column === column) {
+        state.direction = state.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        state.column = column;
+        state.direction = 'desc';
+    }
+
+    // Sort data
+    state.data.sort((a, b) => {
+        let aVal = a[column];
+        let bVal = b[column];
+
+        // Handle string comparisons
+        if (typeof aVal === 'string') {
+            aVal = aVal.toLowerCase();
+            bVal = bVal.toLowerCase();
+        }
+
+        if (state.direction === 'asc') {
+            return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+        } else {
+            return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+        }
+    });
+
+    // Re-render table body
+    renderInsightsTableBody(tableKey);
+}
+
+// Render table body after sorting
+function renderInsightsTableBody(tableKey) {
+    const tbody = document.getElementById(`${tableKey}Body`);
+    if (!tbody) return;
+
+    const state = insightsSortStates[tableKey];
+    let html = '';
+
+    switch (tableKey) {
+        case 'topPerformersByHours':
+            html = state.data.slice(0, 10).map((emp, idx) => `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td>${escapeHtml(emp.name)}</td>
+                    <td style="text-align: right;">${formatNumber(emp.hours)}</td>
+                    <td style="text-align: right;">${emp.projects}</td>
+                    <td style="text-align: right;">${emp.billablePercent}%</td>
+                </tr>
+            `).join('');
+            break;
+
+        case 'topPerformersByProjects':
+            html = state.data.slice(0, 10).map((emp, idx) => `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td>${escapeHtml(emp.name)}</td>
+                    <td style="text-align: right;">${emp.projects}</td>
+                    <td style="text-align: right;">${formatNumber(emp.hours)}</td>
+                    <td style="text-align: right;">${emp.avgHoursPerProject}</td>
+                </tr>
+            `).join('');
+            break;
+
+        case 'topProjects':
+            html = state.data.slice(0, 10).map((proj, idx) => `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td title="${escapeHtml(proj.name)}">${escapeHtml(proj.name.substring(0, 40))}${proj.name.length > 40 ? '...' : ''}</td>
+                    <td style="text-align: right;">${formatNumber(proj.hours)}</td>
+                    <td style="text-align: right;">${proj.employees}</td>
+                    <td style="text-align: right;">${proj.billablePercent}%</td>
+                </tr>
+            `).join('');
+            break;
+
+        case 'departmentUtil':
+            html = state.data.slice(0, 10).map((dept, idx) => `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td>${escapeHtml(dept.name)}</td>
+                    <td style="text-align: right;">${formatNumber(dept.hours)}</td>
+                    <td style="text-align: right;">${dept.employees}</td>
+                    <td style="text-align: right;">${dept.utilizationRate}%</td>
+                </tr>
+            `).join('');
+            break;
+
+        case 'externalByHours':
+            html = state.data.slice(0, 10).map((emp, idx) => `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td>${escapeHtml(emp.name)}</td>
+                    <td style="text-align: right;">${formatNumber(emp.hours)}</td>
+                    <td style="text-align: right;">${emp.projects}</td>
+                    <td style="text-align: right;">${emp.billablePercent}%</td>
+                </tr>
+            `).join('');
+            break;
+
+        case 'externalByProjects':
+            html = state.data.slice(0, 10).map((emp, idx) => `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td>${escapeHtml(emp.name)}</td>
+                    <td style="text-align: right;">${emp.projects}</td>
+                    <td style="text-align: right;">${formatNumber(emp.hours)}</td>
+                    <td style="text-align: right;">${emp.avgHoursPerProject}</td>
+                </tr>
+            `).join('');
+            break;
+    }
+
+    tbody.innerHTML = html;
+
+    // Update sort indicators
+    const table = tbody.closest('table');
+    if (table) {
+        table.querySelectorAll('th.sortable').forEach(th => {
+            th.classList.remove('sort-asc', 'sort-desc');
+        });
+        const targetTh = table.querySelector(`th[data-column="${state.column}"]`);
+        if (targetTh) {
+            targetTh.classList.add(state.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+        }
     }
 }
 
