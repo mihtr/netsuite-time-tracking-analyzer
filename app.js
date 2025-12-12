@@ -9987,8 +9987,334 @@ function calculateInsights(data) {
         billingBreakdown: getBillingBreakdown(data),
         utilization: getUtilizationMetrics(data),
         externalEmployees: getExternalEmployeesInsights(data),
-        detailedBreakdowns: getDetailedBreakdowns(data)
+        detailedBreakdowns: getDetailedBreakdowns(data),
+        anomalies: detectAnomalies(data)
     };
+}
+
+// Detect data quality anomalies
+function detectAnomalies(data) {
+    if (!data || data.length === 0) {
+        return {
+            total: 0,
+            byType: {},
+            details: []
+        };
+    }
+
+    const anomalies = [];
+
+    // Run all detection functions
+    anomalies.push(...detectWeekendEntries(data));
+    anomalies.push(...detectTimeGaps(data));
+    anomalies.push(...detectDuplicateEntries(data));
+    anomalies.push(...detectUnusualDescriptions(data));
+    anomalies.push(...detectInactiveProjects(data));
+    anomalies.push(...detectHourSpikes(data));
+
+    // Count by type
+    const byType = {};
+    anomalies.forEach(anomaly => {
+        byType[anomaly.type] = (byType[anomaly.type] || 0) + 1;
+    });
+
+    return {
+        total: anomalies.length,
+        byType: byType,
+        details: anomalies.slice(0, 100) // Limit to top 100 for performance
+    };
+}
+
+// Detect weekend entries
+function detectWeekendEntries(data) {
+    const anomalies = [];
+
+    data.forEach((row, index) => {
+        const dateStr = row[COLUMNS.DATE];
+        if (!dateStr) return;
+
+        const dateParts = dateStr.split('.');
+        if (dateParts.length !== 3) return;
+
+        const date = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
+        const dayOfWeek = date.getDay();
+
+        // 0 = Sunday, 6 = Saturday
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+            anomalies.push({
+                type: 'weekend',
+                severity: 'low',
+                message: `Weekend entry on ${dateStr}`,
+                employee: row[COLUMNS.EMPLOYEE] || 'Unknown',
+                project: row[COLUMNS.CUSTOMER_PROJECT] || 'Unknown',
+                date: dateStr,
+                hours: parseFloat(row[COLUMNS.DUR_DEC]) || 0,
+                rowIndex: index
+            });
+        }
+    });
+
+    return anomalies;
+}
+
+// Detect time tracking gaps (employees missing consecutive days)
+function detectTimeGaps(data) {
+    const anomalies = [];
+    const employeeEntries = {};
+
+    // Group by employee
+    data.forEach((row, index) => {
+        const employee = row[COLUMNS.EMPLOYEE] || 'Unknown';
+        const dateStr = row[COLUMNS.DATE];
+        if (!dateStr) return;
+
+        if (!employeeEntries[employee]) {
+            employeeEntries[employee] = [];
+        }
+
+        const dateParts = dateStr.split('.');
+        if (dateParts.length === 3) {
+            const date = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
+            employeeEntries[employee].push({
+                date: date,
+                dateStr: dateStr,
+                rowIndex: index
+            });
+        }
+    });
+
+    // Check for gaps > 7 consecutive business days
+    Object.entries(employeeEntries).forEach(([employee, entries]) => {
+        if (entries.length < 2) return;
+
+        // Sort by date
+        entries.sort((a, b) => a.date - b.date);
+
+        for (let i = 1; i < entries.length; i++) {
+            const daysDiff = Math.floor((entries[i].date - entries[i-1].date) / (1000 * 60 * 60 * 24));
+
+            // If gap is > 10 days (accounting for weekends), flag it
+            if (daysDiff > 10) {
+                anomalies.push({
+                    type: 'gap',
+                    severity: 'medium',
+                    message: `${daysDiff}-day gap in time tracking`,
+                    employee: employee,
+                    date: entries[i-1].dateStr,
+                    details: `No entries between ${entries[i-1].dateStr} and ${entries[i].dateStr}`,
+                    rowIndex: entries[i].rowIndex
+                });
+            }
+        }
+    });
+
+    return anomalies;
+}
+
+// Detect duplicate entries (same employee, project, date)
+function detectDuplicateEntries(data) {
+    const anomalies = [];
+    const entryKeys = {};
+
+    data.forEach((row, index) => {
+        const employee = row[COLUMNS.EMPLOYEE] || 'Unknown';
+        const project = row[COLUMNS.CUSTOMER_PROJECT] || 'Unknown';
+        const dateStr = row[COLUMNS.DATE];
+        const task = row[COLUMNS.TASK] || '';
+
+        if (!dateStr) return;
+
+        // Create key: employee|project|date|task
+        const key = `${employee}|${project}|${dateStr}|${task}`;
+
+        if (!entryKeys[key]) {
+            entryKeys[key] = [];
+        }
+        entryKeys[key].push({
+            index: index,
+            hours: parseFloat(row[COLUMNS.DUR_DEC]) || 0,
+            memo: row[COLUMNS.MEMO] || ''
+        });
+    });
+
+    // Flag entries that appear multiple times
+    Object.entries(entryKeys).forEach(([key, entries]) => {
+        if (entries.length > 1) {
+            const [employee, project, dateStr, task] = key.split('|');
+            const totalHours = entries.reduce((sum, e) => sum + e.hours, 0);
+
+            anomalies.push({
+                type: 'duplicate',
+                severity: 'high',
+                message: `${entries.length} entries for same employee/project/date/task`,
+                employee: employee,
+                project: project,
+                date: dateStr,
+                task: task,
+                hours: totalHours,
+                count: entries.length,
+                rowIndex: entries[0].index
+            });
+        }
+    });
+
+    return anomalies;
+}
+
+// Detect unusual task descriptions
+function detectUnusualDescriptions(data) {
+    const anomalies = [];
+
+    data.forEach((row, index) => {
+        const task = row[COLUMNS.TASK] || '';
+        const memo = row[COLUMNS.MEMO] || '';
+        const description = task + ' ' + memo;
+
+        // Too short (< 5 characters and not empty)
+        if (description.trim().length > 0 && description.trim().length < 5) {
+            anomalies.push({
+                type: 'description',
+                severity: 'low',
+                message: `Very short description: "${description.trim()}"`,
+                employee: row[COLUMNS.EMPLOYEE] || 'Unknown',
+                project: row[COLUMNS.CUSTOMER_PROJECT] || 'Unknown',
+                date: row[COLUMNS.DATE],
+                hours: parseFloat(row[COLUMNS.DUR_DEC]) || 0,
+                rowIndex: index
+            });
+        }
+
+        // Too long (> 300 characters)
+        if (description.length > 300) {
+            anomalies.push({
+                type: 'description',
+                severity: 'low',
+                message: `Very long description (${description.length} chars)`,
+                employee: row[COLUMNS.EMPLOYEE] || 'Unknown',
+                project: row[COLUMNS.CUSTOMER_PROJECT] || 'Unknown',
+                date: row[COLUMNS.DATE],
+                hours: parseFloat(row[COLUMNS.DUR_DEC]) || 0,
+                rowIndex: index
+            });
+        }
+    });
+
+    return anomalies;
+}
+
+// Detect inactive projects (no activity for > 30 days)
+function detectInactiveProjects(data) {
+    const anomalies = [];
+    const projectDates = {};
+    const now = new Date();
+
+    // Group dates by project
+    data.forEach(row => {
+        const project = row[COLUMNS.CUSTOMER_PROJECT] || 'Unknown';
+        const dateStr = row[COLUMNS.DATE];
+        if (!dateStr) return;
+
+        const dateParts = dateStr.split('.');
+        if (dateParts.length === 3) {
+            const date = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
+
+            if (!projectDates[project]) {
+                projectDates[project] = [];
+            }
+            projectDates[project].push(date);
+        }
+    });
+
+    // Check for projects with no recent activity
+    Object.entries(projectDates).forEach(([project, dates]) => {
+        const maxDate = new Date(Math.max(...dates));
+        const daysSinceLastActivity = Math.floor((now - maxDate) / (1000 * 60 * 60 * 24));
+
+        if (daysSinceLastActivity > 30) {
+            anomalies.push({
+                type: 'inactive',
+                severity: 'medium',
+                message: `No activity for ${daysSinceLastActivity} days`,
+                project: project,
+                date: maxDate.toLocaleDateString('en-GB').replace(/\//g, '.'),
+                details: `Last activity: ${daysSinceLastActivity} days ago`,
+                rowIndex: -1
+            });
+        }
+    });
+
+    return anomalies;
+}
+
+// Detect sudden hour spikes (> 200% increase week-over-week)
+function detectHourSpikes(data) {
+    const anomalies = [];
+    const employeeWeeks = {};
+
+    // Group by employee and week
+    data.forEach((row, index) => {
+        const employee = row[COLUMNS.EMPLOYEE] || 'Unknown';
+        const dateStr = row[COLUMNS.DATE];
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+
+        if (!dateStr) return;
+
+        const dateParts = dateStr.split('.');
+        if (dateParts.length === 3) {
+            const date = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
+
+            // Get ISO week number
+            const weekStart = new Date(date);
+            weekStart.setDate(date.getDate() - date.getDay() + 1);
+            const weekKey = weekStart.toISOString().split('T')[0];
+
+            if (!employeeWeeks[employee]) {
+                employeeWeeks[employee] = {};
+            }
+            if (!employeeWeeks[employee][weekKey]) {
+                employeeWeeks[employee][weekKey] = {
+                    hours: 0,
+                    date: weekStart,
+                    entries: []
+                };
+            }
+            employeeWeeks[employee][weekKey].hours += hours;
+            employeeWeeks[employee][weekKey].entries.push(index);
+        }
+    });
+
+    // Check for spikes
+    Object.entries(employeeWeeks).forEach(([employee, weeks]) => {
+        const weekArray = Object.entries(weeks)
+            .map(([weekKey, data]) => ({ weekKey, ...data }))
+            .sort((a, b) => a.date - b.date);
+
+        for (let i = 1; i < weekArray.length; i++) {
+            const prevWeekHours = weekArray[i-1].hours;
+            const currWeekHours = weekArray[i].hours;
+
+            // Skip if previous week had very few hours
+            if (prevWeekHours < 5) continue;
+
+            const percentIncrease = ((currWeekHours - prevWeekHours) / prevWeekHours) * 100;
+
+            if (percentIncrease > 200) {
+                anomalies.push({
+                    type: 'spike',
+                    severity: 'high',
+                    message: `${Math.round(percentIncrease)}% hour increase from previous week`,
+                    employee: employee,
+                    date: weekArray[i].weekKey,
+                    hours: currWeekHours,
+                    previousHours: prevWeekHours,
+                    details: `${formatNumber(prevWeekHours)}h → ${formatNumber(currWeekHours)}h`,
+                    rowIndex: weekArray[i].entries[0]
+                });
+            }
+        }
+    });
+
+    return anomalies;
 }
 
 // Get detailed breakdowns by multiple dimensions
@@ -10744,6 +11070,10 @@ function renderInsightsDashboard() {
                 <button onclick="scrollToInsightsSection('section-detailed-breakdowns')" class="insights-nav-button">
                     📈 Detailed Breakdowns
                 </button>
+                <button onclick="scrollToInsightsSection('section-data-quality')" class="insights-nav-button" ${insights.anomalies && insights.anomalies.total > 0 ? 'style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); border-color: #c0392b; position: relative;" title="' + insights.anomalies.total + ' anomalies detected"' : ''}>
+                    ${insights.anomalies && insights.anomalies.total > 0 ? '⚠️' : '✓'} Data Quality
+                    ${insights.anomalies && insights.anomalies.total > 0 ? '<span style="position: absolute; top: -8px; right: -8px; background: #fff; color: #e74c3c; border: 2px solid #e74c3c; border-radius: 12px; padding: 2px 6px; font-size: 0.7em; font-weight: 700;">' + insights.anomalies.total + '</span>' : ''}
+                </button>
             </div>
         </div>
     `;
@@ -10756,6 +11086,7 @@ function renderInsightsDashboard() {
     html += buildUtilizationMetricsHTML(insights.utilization);
     html += buildExternalEmployeesHTML(insights.externalEmployees);
     html += buildDetailedBreakdownsHTML(insights.detailedBreakdowns);
+    html += buildDataQualityHTML(insights.anomalies);
 
     // Set all HTML at once
     container.innerHTML = html;
@@ -12031,6 +12362,140 @@ function buildDetailedBreakdownsHTML(breakdowns) {
                     </div>
                 </div>
             </div>
+        </div>
+    `;
+}
+
+// Build Data Quality section HTML
+function buildDataQualityHTML(anomalies) {
+    if (!anomalies) return '';
+
+    const hasAnomalies = anomalies.total > 0;
+    const anomalyTypes = {
+        'weekend': { icon: '📅', label: 'Weekend Entries', severity: 'low', color: '#3498db' },
+        'gap': { icon: '⏸️', label: 'Time Gaps', severity: 'medium', color: '#f39c12' },
+        'duplicate': { icon: '📋', label: 'Duplicate Entries', severity: 'high', color: '#e74c3c' },
+        'description': { icon: '📝', label: 'Unusual Descriptions', severity: 'low', color: '#9b59b6' },
+        'inactive': { icon: '💤', label: 'Inactive Projects', severity: 'medium', color: '#e67e22' },
+        'spike': { icon: '📈', label: 'Hour Spikes', severity: 'high', color: '#c0392b' }
+    };
+
+    const severityColors = {
+        'high': '#e74c3c',
+        'medium': '#f39c12',
+        'low': '#3498db'
+    };
+
+    return `
+        <div id="section-data-quality" class="insights-section">
+            <h3 class="insights-section-title">${hasAnomalies ? '⚠️' : '✓'} Data Quality Analysis</h3>
+
+            ${hasAnomalies ? `
+                <div style="background: #fff3cd; border-left: 4px solid #f39c12; padding: 15px; margin-bottom: 20px; border-radius: 6px;">
+                    <p style="margin: 0; color: #856404; font-size: 1em; font-weight: 600;">
+                        <strong>${anomalies.total}</strong> potential data quality issue${anomalies.total !== 1 ? 's' : ''} detected
+                    </p>
+                    <p style="margin: 8px 0 0 0; color: #856404; font-size: 0.9em;">
+                        Review the anomalies below to ensure data accuracy.
+                    </p>
+                </div>
+            ` : `
+                <div style="background: #d4edda; border-left: 4px solid #28a745; padding: 15px; margin-bottom: 20px; border-radius: 6px;">
+                    <p style="margin: 0; color: #155724; font-size: 1em; font-weight: 600;">
+                        ✓ No data quality issues detected
+                    </p>
+                    <p style="margin: 8px 0 0 0; color: #155724; font-size: 0.9em;">
+                        Your data looks clean and consistent.
+                    </p>
+                </div>
+            `}
+
+            <!-- Anomaly Summary Cards -->
+            <div class="insights-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 30px;">
+                ${Object.entries(anomalyTypes).map(([type, info]) => {
+                    const count = anomalies.byType[type] || 0;
+                    return `
+                        <div class="insights-card" style="text-align: center; border-left: 4px solid ${info.color};">
+                            <div style="font-size: 2.5em; margin-bottom: 5px;">${info.icon}</div>
+                            <div style="font-size: 2em; font-weight: 700; color: ${count > 0 ? severityColors[info.severity] : '#95a5a6'}; margin-bottom: 5px;">
+                                ${count}
+                            </div>
+                            <div style="font-size: 0.9em; color: var(--text-secondary);">${info.label}</div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+
+            ${hasAnomalies ? `
+                <!-- Anomaly Details Table -->
+                <div class="insights-card">
+                    <h4>🔍 Detected Anomalies (Top 100)</h4>
+                    <div class="insights-table" style="max-height: 600px; overflow-y: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Severity</th>
+                                    <th>Type</th>
+                                    <th>Message</th>
+                                    <th>Employee</th>
+                                    <th>Project</th>
+                                    <th>Date</th>
+                                    <th style="text-align: right;">Hours</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${anomalies.details.map(anomaly => {
+                                    const typeInfo = anomalyTypes[anomaly.type] || { icon: '❓', label: 'Unknown', severity: 'low', color: '#95a5a6' };
+                                    const severityColor = severityColors[anomaly.severity] || '#95a5a6';
+
+                                    return `
+                                        <tr>
+                                            <td>
+                                                <span style="display: inline-block; padding: 4px 10px; background: ${severityColor}; color: white; border-radius: 12px; font-size: 0.75em; font-weight: 600; text-transform: uppercase;">
+                                                    ${anomaly.severity}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span style="display: inline-flex; align-items: center; gap: 6px;">
+                                                    ${typeInfo.icon}
+                                                    <span style="font-size: 0.9em;">${typeInfo.label}</span>
+                                                </span>
+                                            </td>
+                                            <td title="${escapeHtml(anomaly.details || anomaly.message)}">
+                                                ${escapeHtml(anomaly.message)}
+                                            </td>
+                                            <td>${escapeHtml(anomaly.employee || '-')}</td>
+                                            <td title="${escapeHtml(anomaly.project || '-')}">
+                                                ${anomaly.project ? escapeHtml(anomaly.project.substring(0, 30)) + (anomaly.project.length > 30 ? '...' : '') : '-'}
+                                            </td>
+                                            <td>${anomaly.date || '-'}</td>
+                                            <td style="text-align: right;">${anomaly.hours !== undefined ? formatNumber(anomaly.hours) : '-'}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    ${anomalies.total > 100 ? `
+                        <div style="padding: 15px; background: var(--bg-secondary); border-top: 1px solid var(--border-color); text-align: center; color: var(--text-secondary); font-size: 0.9em;">
+                            Showing top 100 of ${anomalies.total} anomalies
+                        </div>
+                    ` : ''}
+                </div>
+
+                <!-- Recommendations -->
+                <div class="insights-card" style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-left: 4px solid #667eea;">
+                    <h4 style="color: #667eea;">💡 Recommendations</h4>
+                    <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary); line-height: 1.8;">
+                        ${anomalies.byType['duplicate'] > 0 ? '<li><strong>Duplicate Entries:</strong> Review and consolidate duplicate time entries to ensure accurate reporting.</li>' : ''}
+                        ${anomalies.byType['spike'] > 0 ? '<li><strong>Hour Spikes:</strong> Verify sudden increases in hours to confirm accuracy and identify potential overwork.</li>' : ''}
+                        ${anomalies.byType['gap'] > 0 ? '<li><strong>Time Gaps:</strong> Encourage employees to maintain consistent time tracking habits.</li>' : ''}
+                        ${anomalies.byType['inactive'] > 0 ? '<li><strong>Inactive Projects:</strong> Archive or review projects with no recent activity.</li>' : ''}
+                        ${anomalies.byType['weekend'] > 0 ? '<li><strong>Weekend Entries:</strong> Review weekend work entries to ensure they are legitimate and properly approved.</li>' : ''}
+                        ${anomalies.byType['description'] > 0 ? '<li><strong>Unusual Descriptions:</strong> Improve time entry description quality for better reporting.</li>' : ''}
+                    </ul>
+                </div>
+            ` : ''}
         </div>
     `;
 }
