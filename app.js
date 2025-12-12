@@ -10275,6 +10275,7 @@ function getTopProjects(data, limit = 10) {
         const projectName = row[COLUMNS.NAME] || '';
         const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
         const employee = row[COLUMNS.EMPLOYEE];
+        const billable = (row[COLUMNS.BILLABLE] || '').toString().toLowerCase() === 'true';
 
         if (!projectStats[project]) {
             projectStats[project] = {
@@ -10282,12 +10283,16 @@ function getTopProjects(data, limit = 10) {
                 projectName: projectName,
                 displayName: projectName ? `${project} - ${projectName}` : project,
                 totalHours: 0,
+                billableHours: 0,
                 employees: new Set(),
                 taskCount: 0
             };
         }
 
         projectStats[project].totalHours += hours;
+        if (billable) {
+            projectStats[project].billableHours += hours;
+        }
         if (employee) {
             projectStats[project].employees.add(employee);
         }
@@ -10298,7 +10303,8 @@ function getTopProjects(data, limit = 10) {
     const projectArray = Object.values(projectStats).map(proj => ({
         ...proj,
         employeeCount: proj.employees.size,
-        avgHoursPerTask: proj.taskCount > 0 ? (proj.totalHours / proj.taskCount) : 0
+        avgHoursPerTask: proj.taskCount > 0 ? (proj.totalHours / proj.taskCount) : 0,
+        billablePercent: proj.totalHours > 0 ? (proj.billableHours / proj.totalHours * 100) : 0
     }));
 
     return projectArray.sort((a, b) => b.totalHours - a.totalHours).slice(0, limit);

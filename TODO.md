@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.42.0
+- **Current Version**: v1.42.1
 - **Last Updated**: 2025-12-12
 - **Status**: Active Development
 
@@ -25,6 +25,21 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.42.1 (2025-12-12)
+- [x] **Bug Fix: Insights Tab Project Analytics TypeError**
+  - **Issue**: Console error "Cannot read properties of undefined (reading 'tofixed')" at app.js:10656
+  - **Root Cause**: `getTopProjects()` function (app.js:10270-10311) was not calculating `billablePercent` field
+  - **Fix Applied** (app.js:10278, 10286, 10293-10295, 10307):
+    - Added `billable` field extraction from row data
+    - Initialized `billableHours: 0` in project stats tracking
+    - Accumulated billable hours when row is billable
+    - Calculate `billablePercent` in map function: `(billableHours / totalHours * 100) || 0`
+  - **Impact**:
+    - Fixes TypeError when rendering Project Analytics section in Insights tab
+    - Billable % column now displays correctly in Top Projects table
+    - Allows proper sorting by Billable % column
+  - **Testing**: All 104 tests pass (33 HTML validation, 40 unit tests, 31 integration tests)
 
 ### Version 1.42.0 (2025-12-12)
 - [x] **JIRA Tab Performance Optimization and New Columns**
