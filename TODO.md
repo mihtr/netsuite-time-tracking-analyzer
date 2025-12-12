@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.37.1
+- **Current Version**: v1.38.0
 - **Last Updated**: 2025-12-12
 - **Status**: Active Development
 
@@ -25,6 +25,54 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.38.0 (2025-12-12)
+- [x] **JIRA Integration Tab** - Dedicated view for JIRA-linked time entries
+  - Added new 🎫 JIRA tab to main navigation (index.html:1864)
+  - Created JIRA view with stats cards and searchable table (index.html:2676-2717)
+    - Shows JIRA Issues count, Total Hours, Active Projects, Employees
+    - Sortable columns: JIRA Issue, Project, Employee, Hours, Records
+    - Real-time search across JIRA issues, projects, and employees
+  - Added aggregateJiraData() function (app.js:11885-11915)
+    - Aggregates by JIRA issue + project + employee combination
+    - Filters out entries without JIRA issues
+    - Uses EXTERNAL_ISSUE_NUMBER and IS_JIRA columns
+  - Added displayJiraData() function (app.js:11918-11943)
+    - Makes JIRA issues clickable links (e.g., PROJ-123 → https://jira.example.com/browse/PROJ-123)
+    - Auto-detects JIRA key pattern (A-Z+-\d+)
+    - Truncates long project names with tooltip
+  - Added updateJiraStats() function (app.js:11946-11965)
+    - Calculates unique issues, projects, employees, total hours
+  - Added sortJiraData() function with multi-column support (app.js:11968-12013)
+  - Added searchJiraData() with debounced input (app.js:12022-12057)
+  - Integrated into switchView() flow (app.js:220-224)
+  - User benefits:
+    - Quickly identify time entries linked to JIRA
+    - Click through to JIRA from time tracking data
+    - Analyze JIRA coverage per project/employee
+    - Track which issues consume most hours
+
+- [x] **Content Security Policy (CSP)** - Enhanced security hardening
+  - Added CSP meta tag to index.html (line 6)
+  - Policy configuration:
+    - `default-src 'self'` - Only allow same-origin by default
+    - `script-src 'self' 'unsafe-inline' CDN` - Allow inline scripts and CDN libraries
+    - `style-src 'self' 'unsafe-inline' CDN` - Allow inline styles and CDN styles
+    - `img-src 'self' data: https:` - Allow images from self, data URIs, and HTTPS
+    - `font-src 'self' data:` - Allow fonts from self and data URIs
+    - `connect-src 'self'` - Only allow same-origin connections
+  - CDN whitelist: cdn.jsdelivr.net, cdnjs.cloudflare.com
+  - Protects against XSS attacks and unauthorized resource loading
+  - Industry best practice for web application security
+  - OWASP recommendation compliance
+  - User benefits: Enhanced security, prevents malicious script injection
+
+- [x] **Insights Table Header Contrast Fix** - Improved readability
+  - Added explicit color to .insights-table th elements (index.html:1622)
+  - Used `color: var(--text-primary) !important` for consistent contrast
+  - Ensures proper contrast in both light and dark modes
+  - Fixes low contrast issue in table headers
+  - User benefits: Better readability across all themes
 
 ### Version 1.37.1 (2025-12-12)
 - [x] **Comparison Results Heading Contrast Fix** - Fixed poor contrast in Compare view

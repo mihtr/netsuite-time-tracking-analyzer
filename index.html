@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self';">
     <title>NetSuite Time Tracking Analyzer</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
@@ -1619,6 +1620,7 @@
             text-align: left;
             font-weight: 600;
             border-bottom: 2px solid var(--border-color);
+            color: var(--text-primary) !important;
         }
 
         .insights-table td {
@@ -1731,7 +1733,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.37.1</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.38.0</span></p>
 
             <!-- Top Menu Bar -->
             <div class="top-menu-bar">
@@ -1860,6 +1862,7 @@
             <div class="tab" onclick="switchView('kenpbi1')">📊 Ken.PBI.1</div>
             <div class="tab" onclick="switchView('pivotbuilder')">🔧 Pivot Builder</div>
             <div class="tab" onclick="switchView('employees')">👤 Employees</div>
+            <div class="tab" onclick="switchView('jira')">🎫 JIRA</div>
             <div class="tab" onclick="switchView('charts')">📈 Charts</div>
             <div class="tab" onclick="switchView('compare')">📊 Compare</div>
             <div class="tab" onclick="switchView('insights')">💡 Insights</div>
@@ -2670,6 +2673,49 @@
             </div>
 
         </div> <!-- End Employees View -->
+
+        <!-- JIRA View -->
+        <div id="jiraView" class="view-container">
+            <div class="stats" id="statsJira" style="display: none;">
+                <div class="stat-card">
+                    <div class="stat-label">JIRA Issues</div>
+                    <div class="stat-value" id="totalJiraIssues">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Hours</div>
+                    <div class="stat-value" id="totalJiraHours">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Active Projects</div>
+                    <div class="stat-value" id="totalJiraProjects">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Employees</div>
+                    <div class="stat-value" id="totalJiraEmployees">0</div>
+                </div>
+            </div>
+
+            <div style="margin: 20px 0; display: flex; gap: 10px; align-items: center;">
+                <input type="text" id="jiraSearchInput" placeholder="🔍 Search JIRA issues, projects, or employees..." style="flex: 1; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px;">
+                <button onclick="clearJiraSearch()" style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">✕ Clear</button>
+            </div>
+
+            <div id="jiraTableContainer" style="overflow-x: auto; max-height: calc(100vh - 320px); overflow-y: auto;">
+                <table id="jiraTable">
+                    <thead>
+                        <tr>
+                            <th class="sortable" onclick="sortJiraData('jiraIssue')">JIRA Issue</th>
+                            <th class="sortable" onclick="sortJiraData('project')">Project</th>
+                            <th class="sortable" onclick="sortJiraData('employee')">Employee</th>
+                            <th class="sortable" onclick="sortJiraData('hours')">Hours</th>
+                            <th class="sortable" onclick="sortJiraData('records')">Records</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jiraTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div> <!-- End JIRA View -->
 
         <!-- Charts View -->
         <div id="chartsView" class="view-container">

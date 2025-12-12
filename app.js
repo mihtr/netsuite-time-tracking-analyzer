@@ -217,6 +217,11 @@ async function switchView(viewName) {
         displayEmployeeData();
         updateEmployeeStats();
         createEmployeeTrendChart();
+    } else if (viewName === 'jira') {
+        document.getElementById('jiraView').classList.add('active');
+        await aggregateJiraData();
+        displayJiraData();
+        updateJiraStats();
     } else if (viewName === 'charts') {
         document.getElementById('chartsView').classList.add('active');
         updateCharts();
@@ -11866,5 +11871,200 @@ window.addEventListener('scroll', function() {
         } else {
             backToTopBtn.style.display = 'none';
         }
+    }
+});
+
+// ============================================
+// JIRA View Functions
+// ============================================
+
+let jiraAggregatedData = [];
+let jiraSortState = { column: 'hours', direction: 'desc' };
+
+// Aggregate JIRA data
+async function aggregateJiraData() {
+    const data = {};
+
+    filteredData.forEach(row => {
+        const jiraIssue = row[COLUMNS.EXTERNAL_ISSUE_NUMBER] || row[COLUMNS.IS_JIRA] || '(No JIRA)';
+        const project = row[COLUMNS.CUSTOMER_PROJECT] || '(No Project)';
+        const employee = row[COLUMNS.EMPLOYEE] || '(Unknown)';
+        const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+
+        // Only include entries with JIRA issues
+        if (jiraIssue && jiraIssue !== '(No JIRA)' && jiraIssue.toLowerCase() !== 'false') {
+            const key = `${jiraIssue}|${project}|${employee}`;
+
+            if (!data[key]) {
+                data[key] = {
+                    jiraIssue: jiraIssue,
+                    project: project,
+                    employee: employee,
+                    totalHours: 0,
+                    recordCount: 0
+                };
+            }
+
+            data[key].totalHours += hours;
+            data[key].recordCount++;
+        }
+    });
+
+    jiraAggregatedData = Object.values(data);
+    sortJiraData(jiraSortState.column);
+}
+
+// Display JIRA data
+function displayJiraData() {
+    const tbody = document.getElementById('jiraTableBody');
+    if (!tbody) return;
+
+    let html = '';
+
+    jiraAggregatedData.forEach(item => {
+        // Make JIRA issue clickable if it looks like a JIRA key (e.g., PROJ-123)
+        let jiraDisplay = escapeHtml(item.jiraIssue);
+        if (/^[A-Z]+-\d+$/.test(item.jiraIssue)) {
+            // Assume JIRA URL pattern - users can customize this
+            jiraDisplay = `<a href="https://jira.example.com/browse/${escapeHtml(item.jiraIssue)}" target="_blank" style="color: #667eea; text-decoration: none;">${escapeHtml(item.jiraIssue)} 🔗</a>`;
+        }
+
+        html += `
+            <tr>
+                <td>${jiraDisplay}</td>
+                <td title="${escapeHtml(item.project)}">${escapeHtml(item.project.substring(0, 50))}${item.project.length > 50 ? '...' : ''}</td>
+                <td>${escapeHtml(item.employee)}</td>
+                <td style="text-align: right;">${formatNumber(item.totalHours)}</td>
+                <td style="text-align: right;">${item.recordCount}</td>
+            </tr>`;
+    });
+
+    tbody.innerHTML = html || '<tr><td colspan="5" style="text-align: center; padding: 40px; color: var(--text-tertiary);">No JIRA data found in current filters</td></tr>';
+}
+
+// Update JIRA stats
+function updateJiraStats() {
+    const uniqueIssues = new Set();
+    const uniqueProjects = new Set();
+    const uniqueEmployees = new Set();
+    let totalHours = 0;
+
+    jiraAggregatedData.forEach(item => {
+        uniqueIssues.add(item.jiraIssue);
+        uniqueProjects.add(item.project);
+        uniqueEmployees.add(item.employee);
+        totalHours += item.totalHours;
+    });
+
+    document.getElementById('totalJiraIssues').textContent = uniqueIssues.size.toLocaleString();
+    document.getElementById('totalJiraHours').textContent = formatNumber(totalHours);
+    document.getElementById('totalJiraProjects').textContent = uniqueProjects.size.toLocaleString();
+    document.getElementById('totalJiraEmployees').textContent = uniqueEmployees.size.toLocaleString();
+
+    document.getElementById('statsJira').style.display = 'grid';
+}
+
+// Sort JIRA data
+function sortJiraData(column) {
+    if (jiraSortState.column === column) {
+        jiraSortState.direction = jiraSortState.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        jiraSortState.column = column;
+        jiraSortState.direction = 'desc';
+    }
+
+    jiraAggregatedData.sort((a, b) => {
+        let aVal, bVal;
+
+        switch (column) {
+            case 'jiraIssue':
+                aVal = a.jiraIssue.toLowerCase();
+                bVal = b.jiraIssue.toLowerCase();
+                break;
+            case 'project':
+                aVal = a.project.toLowerCase();
+                bVal = b.project.toLowerCase();
+                break;
+            case 'employee':
+                aVal = a.employee.toLowerCase();
+                bVal = b.employee.toLowerCase();
+                break;
+            case 'hours':
+                aVal = a.totalHours;
+                bVal = b.totalHours;
+                break;
+            case 'records':
+                aVal = a.recordCount;
+                bVal = b.recordCount;
+                break;
+            default:
+                return 0;
+        }
+
+        if (jiraSortState.direction === 'asc') {
+            return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+        } else {
+            return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+        }
+    });
+
+    displayJiraData();
+    updateSortIndicators('jiraTable', column, jiraSortState.direction);
+}
+
+// Clear JIRA search
+function clearJiraSearch() {
+    document.getElementById('jiraSearchInput').value = '';
+    searchJiraData();
+}
+
+// Search JIRA data
+function searchJiraData() {
+    const searchTerm = document.getElementById('jiraSearchInput').value.toLowerCase();
+
+    if (!searchTerm) {
+        displayJiraData();
+        return;
+    }
+
+    const tbody = document.getElementById('jiraTableBody');
+    if (!tbody) return;
+
+    const filtered = jiraAggregatedData.filter(item => {
+        return item.jiraIssue.toLowerCase().includes(searchTerm) ||
+               item.project.toLowerCase().includes(searchTerm) ||
+               item.employee.toLowerCase().includes(searchTerm);
+    });
+
+    let html = '';
+    filtered.forEach(item => {
+        let jiraDisplay = escapeHtml(item.jiraIssue);
+        if (/^[A-Z]+-\d+$/.test(item.jiraIssue)) {
+            jiraDisplay = `<a href="https://jira.example.com/browse/${escapeHtml(item.jiraIssue)}" target="_blank" style="color: #667eea; text-decoration: none;">${escapeHtml(item.jiraIssue)} 🔗</a>`;
+        }
+
+        html += `
+            <tr>
+                <td>${jiraDisplay}</td>
+                <td title="${escapeHtml(item.project)}">${escapeHtml(item.project.substring(0, 50))}${item.project.length > 50 ? '...' : ''}</td>
+                <td>${escapeHtml(item.employee)}</td>
+                <td style="text-align: right;">${formatNumber(item.totalHours)}</td>
+                <td style="text-align: right;">${item.recordCount}</td>
+            </tr>`;
+    });
+
+    tbody.innerHTML = html || '<tr><td colspan="5" style="text-align: center; padding: 40px; color: var(--text-tertiary);">No matching results</td></tr>';
+}
+
+// Setup JIRA search input listener
+document.addEventListener('DOMContentLoaded', function() {
+    const jiraSearchInput = document.getElementById('jiraSearchInput');
+    if (jiraSearchInput) {
+        jiraSearchInput.addEventListener('input', debounce(searchJiraData, 300));
+        jiraSearchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchJiraData();
+            }
+        });
     }
 });
