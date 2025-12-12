@@ -1733,7 +1733,7 @@
     <div class="container">
         <header>
             <h1>📊 NetSuite Time Tracking Analyzer</h1>
-            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.39.1</span></p>
+            <p class="subtitle">View and analyze time tracking data with advanced filtering <span style="opacity: 0.7; font-size: 0.85em;">v1.40.0</span></p>
 
             <!-- Top Menu Bar -->
             <div class="top-menu-bar">
@@ -2701,17 +2701,12 @@
             </div>
 
             <div id="jiraTableContainer" style="overflow-x: auto; max-height: calc(100vh - 320px); overflow-y: auto;">
-                <table id="jiraTable">
-                    <thead>
-                        <tr>
-                            <th class="sortable" onclick="sortJiraData('jiraIssue')">JIRA Issue</th>
-                            <th class="sortable" onclick="sortJiraData('project')">Project</th>
-                            <th class="sortable" onclick="sortJiraData('employee')">Employee</th>
-                            <th class="sortable" onclick="sortJiraData('hours')">Hours</th>
-                            <th class="sortable" onclick="sortJiraData('records')">Records</th>
-                        </tr>
+                <table id="jiraTable" class="pivot-table" style="min-width: 100%;">
+                    <thead id="jiraTableHead">
+                        <!-- Headers will be dynamically generated -->
                     </thead>
                     <tbody id="jiraTableBody">
+                        <!-- Pivot data will be dynamically generated -->
                     </tbody>
                 </table>
             </div>

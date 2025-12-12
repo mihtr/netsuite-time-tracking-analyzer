@@ -2751,6 +2751,24 @@ function debounce(func, wait) {
     };
 }
 
+// ============================================================================
+// TABLE SORTING UTILITY
+// ============================================================================
+//
+// 📋 DESIGN RULE: All tables in this application MUST be sortable
+//
+// To make a table sortable:
+// 1. Add class="sortable" to each <th> that should be sortable
+// 2. Add onclick="sortXxxData('columnName')" where Xxx is the view name
+// 3. Create sortXxxData(column) function with sort state management
+// 4. Call updateSortIndicators(tableId, column, direction) after sorting
+//
+// Example:
+//   <th class="sortable" onclick="sortEmployeeData('hours')">Hours</th>
+//
+// This ensures consistent UX across all views and tables.
+// ============================================================================
+
 // Update sort indicators on table headers
 function updateSortIndicators(tableId, column, direction) {
     const table = document.getElementById(tableId);
@@ -12104,24 +12122,36 @@ window.addEventListener('scroll', function() {
 });
 
 // ============================================
-// JIRA View Functions
+// JIRA View Functions (Pivot Table with Month)
 // ============================================
 
 let jiraAggregatedData = [];
-let jiraSortState = { column: 'hours', direction: 'desc' };
+let jiraSortState = { column: 'totalHours', direction: 'desc' };
+let jiraMonthColumns = []; // Store available months
 
-// Aggregate JIRA data
+// Aggregate JIRA data as pivot by month
 async function aggregateJiraData() {
     const data = {};
+    const monthsSet = new Set();
 
+    // Use filteredData to respect global filters
     filteredData.forEach(row => {
         const jiraIssue = row[COLUMNS.EXTERNAL_ISSUE_NUMBER] || row[COLUMNS.IS_JIRA] || '(No JIRA)';
         const project = row[COLUMNS.CUSTOMER_PROJECT] || '(No Project)';
         const employee = row[COLUMNS.EMPLOYEE] || '(Unknown)';
         const hours = parseFloat(row[COLUMNS.DUR_DEC]) || 0;
+        const dateStr = row[COLUMNS.DATE];
+        const date = parseDate(dateStr);
 
         // Only include entries with JIRA issues
-        if (jiraIssue && jiraIssue !== '(No JIRA)' && jiraIssue.toLowerCase() !== 'false') {
+        if (jiraIssue && jiraIssue !== '(No JIRA)' && jiraIssue.toLowerCase() !== 'false' && date) {
+            // Get year-month key
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1; // 1-12
+            const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+            monthsSet.add(monthKey);
+
+            // Use JIRA + Project + Employee as key
             const key = `${jiraIssue}|${project}|${employee}`;
 
             if (!data[key]) {
@@ -12130,45 +12160,89 @@ async function aggregateJiraData() {
                     project: project,
                     employee: employee,
                     totalHours: 0,
-                    recordCount: 0
+                    recordCount: 0,
+                    monthlyHours: {} // Store hours per month
                 };
             }
 
             data[key].totalHours += hours;
             data[key].recordCount++;
+
+            // Add to monthly breakdown
+            if (!data[key].monthlyHours[monthKey]) {
+                data[key].monthlyHours[monthKey] = 0;
+            }
+            data[key].monthlyHours[monthKey] += hours;
         }
     });
 
+    // Sort months chronologically
+    jiraMonthColumns = Array.from(monthsSet).sort();
     jiraAggregatedData = Object.values(data);
     sortJiraData(jiraSortState.column);
 }
 
-// Display JIRA data
+// Display JIRA data as pivot table
 function displayJiraData() {
+    const thead = document.getElementById('jiraTableHead');
     const tbody = document.getElementById('jiraTableBody');
-    if (!tbody) return;
+    if (!thead || !tbody) return;
 
-    let html = '';
+    // Build header row with month columns
+    let headerHTML = '<tr>';
+    headerHTML += '<th class="sortable row-header" onclick="sortJiraData(\'jiraIssue\')" style="position: sticky; left: 0; background: var(--bg-tertiary); z-index: 10; cursor: pointer;">JIRA Issue</th>';
+    headerHTML += '<th class="sortable row-header" onclick="sortJiraData(\'project\')" style="position: sticky; left: 140px; background: var(--bg-tertiary); z-index: 10; cursor: pointer;">Project</th>';
+    headerHTML += '<th class="sortable row-header" onclick="sortJiraData(\'employee\')" style="position: sticky; left: 380px; background: var(--bg-tertiary); z-index: 10; cursor: pointer;">Employee</th>';
 
-    jiraAggregatedData.forEach(item => {
-        // Make JIRA issue clickable if it looks like a JIRA key (e.g., PROJ-123)
-        let jiraDisplay = escapeHtml(item.jiraIssue);
-        if (/^[A-Z]+-\d+$/.test(item.jiraIssue)) {
-            // Assume JIRA URL pattern - users can customize this
-            jiraDisplay = `<a href="https://jira.example.com/browse/${escapeHtml(item.jiraIssue)}" target="_blank" style="color: #667eea; text-decoration: none;">${escapeHtml(item.jiraIssue)} 🔗</a>`;
-        }
-
-        html += `
-            <tr>
-                <td>${jiraDisplay}</td>
-                <td title="${escapeHtml(item.project)}">${escapeHtml(item.project.substring(0, 50))}${item.project.length > 50 ? '...' : ''}</td>
-                <td>${escapeHtml(item.employee)}</td>
-                <td style="text-align: right;">${formatNumber(item.totalHours)}</td>
-                <td style="text-align: right;">${item.recordCount}</td>
-            </tr>`;
+    // Add month columns
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    jiraMonthColumns.forEach(monthKey => {
+        const [year, month] = monthKey.split('-');
+        const monthName = monthNames[parseInt(month) - 1];
+        headerHTML += `<th class="sortable month-header" onclick="sortJiraData('month_${monthKey}')" style="text-align: right; cursor: pointer; white-space: nowrap;">${monthName} ${year}</th>`;
     });
 
-    tbody.innerHTML = html || '<tr><td colspan="5" style="text-align: center; padding: 40px; color: var(--text-tertiary);">No JIRA data found in current filters</td></tr>';
+    headerHTML += '<th class="sortable" onclick="sortJiraData(\'totalHours\')" style="text-align: right; background: var(--bg-tertiary); cursor: pointer; font-weight: bold;">Total Hours</th>';
+    headerHTML += '<th class="sortable" onclick="sortJiraData(\'recordCount\')" style="text-align: right; background: var(--bg-tertiary); cursor: pointer;">Records</th>';
+    headerHTML += '</tr>';
+
+    thead.innerHTML = headerHTML;
+
+    // Build data rows
+    let bodyHTML = '';
+
+    if (jiraAggregatedData.length === 0) {
+        bodyHTML = `<tr><td colspan="${3 + jiraMonthColumns.length + 2}" style="text-align: center; padding: 40px; color: var(--text-tertiary);">No JIRA data found in current filters</td></tr>`;
+    } else {
+        jiraAggregatedData.forEach(item => {
+            // Make JIRA issue clickable
+            let jiraDisplay = escapeHtml(item.jiraIssue);
+            if (/^[A-Z]+-\d+$/.test(item.jiraIssue)) {
+                jiraDisplay = `<a href="https://jira.example.com/browse/${escapeHtml(item.jiraIssue)}" target="_blank" style="color: #667eea; text-decoration: none;">${escapeHtml(item.jiraIssue)} 🔗</a>`;
+            }
+
+            bodyHTML += '<tr>';
+            bodyHTML += `<td style="position: sticky; left: 0; background: var(--bg-primary); border-right: 1px solid var(--border-color);">${jiraDisplay}</td>`;
+            bodyHTML += `<td title="${escapeHtml(item.project)}" style="position: sticky; left: 140px; background: var(--bg-primary); border-right: 1px solid var(--border-color); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(item.project)}</td>`;
+            bodyHTML += `<td style="position: sticky; left: 380px; background: var(--bg-primary); border-right: 2px solid var(--border-color);">${escapeHtml(item.employee)}</td>`;
+
+            // Add month columns
+            jiraMonthColumns.forEach(monthKey => {
+                const hours = item.monthlyHours[monthKey] || 0;
+                if (hours > 0) {
+                    bodyHTML += `<td style="text-align: right;">${formatNumber(hours)}</td>`;
+                } else {
+                    bodyHTML += `<td style="text-align: right; color: var(--text-tertiary);">-</td>`;
+                }
+            });
+
+            bodyHTML += `<td style="text-align: right; background: var(--bg-secondary); font-weight: bold;">${formatNumber(item.totalHours)}</td>`;
+            bodyHTML += `<td style="text-align: right; background: var(--bg-secondary);">${item.recordCount}</td>`;
+            bodyHTML += '</tr>';
+        });
+    }
+
+    tbody.innerHTML = bodyHTML;
 }
 
 // Update JIRA stats
@@ -12205,29 +12279,36 @@ function sortJiraData(column) {
     jiraAggregatedData.sort((a, b) => {
         let aVal, bVal;
 
-        switch (column) {
-            case 'jiraIssue':
-                aVal = a.jiraIssue.toLowerCase();
-                bVal = b.jiraIssue.toLowerCase();
-                break;
-            case 'project':
-                aVal = a.project.toLowerCase();
-                bVal = b.project.toLowerCase();
-                break;
-            case 'employee':
-                aVal = a.employee.toLowerCase();
-                bVal = b.employee.toLowerCase();
-                break;
-            case 'hours':
-                aVal = a.totalHours;
-                bVal = b.totalHours;
-                break;
-            case 'records':
-                aVal = a.recordCount;
-                bVal = b.recordCount;
-                break;
-            default:
-                return 0;
+        // Check if sorting by month column
+        if (column.startsWith('month_')) {
+            const monthKey = column.substring(6); // Remove 'month_' prefix
+            aVal = a.monthlyHours[monthKey] || 0;
+            bVal = b.monthlyHours[monthKey] || 0;
+        } else {
+            switch (column) {
+                case 'jiraIssue':
+                    aVal = a.jiraIssue.toLowerCase();
+                    bVal = b.jiraIssue.toLowerCase();
+                    break;
+                case 'project':
+                    aVal = a.project.toLowerCase();
+                    bVal = b.project.toLowerCase();
+                    break;
+                case 'employee':
+                    aVal = a.employee.toLowerCase();
+                    bVal = b.employee.toLowerCase();
+                    break;
+                case 'totalHours':
+                    aVal = a.totalHours;
+                    bVal = b.totalHours;
+                    break;
+                case 'recordCount':
+                    aVal = a.recordCount;
+                    bVal = b.recordCount;
+                    break;
+                default:
+                    return 0;
+            }
         }
 
         if (jiraSortState.direction === 'asc') {
@@ -12248,41 +12329,37 @@ function clearJiraSearch() {
 }
 
 // Search JIRA data
+let jiraFullData = []; // Store full data before search filtering
+
 function searchJiraData() {
     const searchTerm = document.getElementById('jiraSearchInput').value.toLowerCase();
+
+    // Backup full data on first search
+    if (!searchTerm && jiraFullData.length > 0) {
+        jiraAggregatedData = jiraFullData;
+        jiraFullData = [];
+        displayJiraData();
+        return;
+    }
 
     if (!searchTerm) {
         displayJiraData();
         return;
     }
 
-    const tbody = document.getElementById('jiraTableBody');
-    if (!tbody) return;
+    // Backup full data
+    if (jiraFullData.length === 0) {
+        jiraFullData = [...jiraAggregatedData];
+    }
 
-    const filtered = jiraAggregatedData.filter(item => {
+    // Filter data
+    jiraAggregatedData = jiraFullData.filter(item => {
         return item.jiraIssue.toLowerCase().includes(searchTerm) ||
                item.project.toLowerCase().includes(searchTerm) ||
                item.employee.toLowerCase().includes(searchTerm);
     });
 
-    let html = '';
-    filtered.forEach(item => {
-        let jiraDisplay = escapeHtml(item.jiraIssue);
-        if (/^[A-Z]+-\d+$/.test(item.jiraIssue)) {
-            jiraDisplay = `<a href="https://jira.example.com/browse/${escapeHtml(item.jiraIssue)}" target="_blank" style="color: #667eea; text-decoration: none;">${escapeHtml(item.jiraIssue)} 🔗</a>`;
-        }
-
-        html += `
-            <tr>
-                <td>${jiraDisplay}</td>
-                <td title="${escapeHtml(item.project)}">${escapeHtml(item.project.substring(0, 50))}${item.project.length > 50 ? '...' : ''}</td>
-                <td>${escapeHtml(item.employee)}</td>
-                <td style="text-align: right;">${formatNumber(item.totalHours)}</td>
-                <td style="text-align: right;">${item.recordCount}</td>
-            </tr>`;
-    });
-
-    tbody.innerHTML = html || '<tr><td colspan="5" style="text-align: center; padding: 40px; color: var(--text-tertiary);">No matching results</td></tr>';
+    displayJiraData();
 }
 
 // Setup JIRA search input listener

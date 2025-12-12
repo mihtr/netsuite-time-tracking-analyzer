@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.39.1
+- **Current Version**: v1.40.0
 - **Last Updated**: 2025-12-12
 - **Status**: Active Development
 
@@ -25,6 +25,46 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.40.0 (2025-12-12)
+- [x] **JIRA Pivot Table with Month Dimension** - Major performance improvement and enhanced analytics
+  - **Pivot Table Implementation** (app.js:12115-12165)
+    - Redesigned JIRA view as pivot table with months as columns
+    - Each row shows JIRA Issue + Project + Employee combination
+    - Dynamically generates month columns from available data (chronologically sorted)
+    - Sticky columns for JIRA Issue, Project, and Employee for horizontal scrolling
+    - Total Hours and Records columns with highlighted background
+    - Empty cells display "-" for months with no activity
+  - **Performance Optimization** (app.js:12119)
+    - Uses filteredData to respect global filters (Product, Project Type, Date Range)
+    - Efficient aggregation using Map/Object data structures
+    - Single pass through data with month bucketing
+    - Reduced rendering overhead compared to previous list view
+  - **Full Column Sorting** (app.js:12253-12305)
+    - Sort by any dimension: JIRA Issue, Project, Employee
+    - Sort by any month column to find high-activity periods
+    - Sort by Total Hours or Record Count
+    - Month column sorting handled via `month_YYYY-MM` pattern
+    - Visual sort indicators on all columns
+  - **Enhanced Search** (app.js:12316-12345)
+    - Search filters across JIRA Issue, Project, and Employee
+    - Maintains pivot table structure during search
+    - Debounced input (300ms) for performance
+    - Clear button restores full dataset
+  - **UI/UX Improvements** (index.html:2704-2712)
+    - Horizontal and vertical scrolling with sticky headers
+    - Responsive month column widths
+    - Clickable JIRA links (pattern: PROJ-123)
+    - Project names with ellipsis and full-text tooltips
+  - **Filter Support**
+    - JIRA tab now fully respects Product, Project Type, and Date Range filters
+    - Real-time updates when filters change
+    - Month columns dynamically adjust based on filtered date range
+  - **Design Rule Documentation** (app.js:2754-2770)
+    - Added comprehensive table sorting rule documentation
+    - Standard pattern for all future tables
+    - Clear guidelines: sortable class + onclick + sort function + updateSortIndicators
+    - Ensures consistent UX across all views
 
 ### Version 1.39.1 (2025-12-12)
 - [x] **Bug Fixes** - Fixed browser console errors from v1.39.0
