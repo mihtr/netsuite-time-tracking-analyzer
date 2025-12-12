@@ -1,7 +1,7 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.44.0
+- **Current Version**: v1.45.0
 - **Last Updated**: 2025-12-12
 - **Status**: Active Development
 
@@ -25,6 +25,31 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.45.0 (2025-12-12)
+- [x] **Global Filters Now Apply to JIRA and Insights Tabs** - Critical bug fix
+  - **Problem**: Global filters (Product, Project Type, Department) were not applied when on JIRA or Insights tabs
+  - **User Experience**: Changing filters while viewing JIRA or Insights tabs had no effect on displayed data
+  - **Root Cause**: `applyFilters()` function only updated Detail, Monthly, Ken.PBI.1, and Employees views
+  - **Solution**: Added filter integration for JIRA and Insights tabs in `applyFilters()`
+  - **Implementation** (app.js):
+    - **JIRA Tab Integration** (lines 1030-1041):
+      - Check if `currentView === 'jira'`
+      - Call `aggregateJiraData()` to re-aggregate filtered data
+      - Call `displayJiraData()` to refresh table display
+      - Call `updateJiraStats()` to update statistics
+      - Wrapped in async setTimeout for smooth UI
+    - **Insights Tab Integration** (lines 985-989):
+      - Check if `currentView === 'insights'`
+      - Call `renderInsightsDashboard()` to fully re-render all insights
+      - Replaces individual update calls for cleaner, more reliable refresh
+  - **Benefits**:
+    - Filters now work consistently across ALL tabs
+    - JIRA data instantly reflects Product/Department/Project Type selections
+    - Insights dashboard automatically recalculates when filters change
+    - No need to switch tabs to see filtered results
+  - **Testing**: All 104 tests pass (33 HTML validation, 40 unit tests, 31 integration tests)
+  - **User Request**: "global filters must work in Jira Tab"
 
 ### Version 1.44.0 (2025-12-12)
 - [x] **Elegant Empty/Null Value Display** - Polish & UX improvement

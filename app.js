@@ -983,10 +983,9 @@ function applyFilters() {
 
     // If currently on insights view, update it as well
     if (currentView === 'insights') {
-        updateInsightsStats();
-        updateTimeDistribution();
-        updateAdditionalAnalytics();
-        updateSuggestedImprovements();
+        setTimeout(() => {
+            renderInsightsDashboard();
+        }, 10);
     }
 
     // If currently on Ken.PBI.1 view, update it as well
@@ -1023,6 +1022,19 @@ function applyFilters() {
                 console.error('Error updating employees view:', employeesError);
             } finally {
                 if (loadingEmployees) loadingEmployees.style.display = 'none';
+            }
+        }, 10);
+    }
+
+    // If currently on JIRA view, update it as well
+    if (currentView === 'jira') {
+        setTimeout(async () => {
+            try {
+                await aggregateJiraData();
+                displayJiraData();
+                updateJiraStats();
+            } catch (jiraError) {
+                console.error('Error updating JIRA view:', jiraError);
             }
         }, 10);
     }
