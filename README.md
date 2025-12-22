@@ -162,13 +162,15 @@ The application can handle large CSV files (200+ MB) but performance depends on 
 - Use Chrome or Edge for best performance
 - Close other browser tabs to free up memory
 
-## Files Included
+## Documentation
 
-- **index.html**: Main application interface
-- **app.js**: Application logic and data processing
-- **FIELD_CATALOG.md**: Complete field reference with data types
-- **CLAUDE.md**: Repository overview for AI assistants
-- **README.md**: This file
+- **README.md**: This file (user guide)
+- **CI-CD.md**: Deployment and CI/CD pipeline guide
+- **FIELD_CATALOG.md**: Complete field reference (59 fields)
+- **TODO.md**: Project tracking and changelog
+- **DOCUMENTATION.md**: Complete documentation index
+
+For complete documentation guide, see `DOCUMENTATION.md`
 
 ## Privacy & Security
 

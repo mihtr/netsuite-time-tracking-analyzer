@@ -1,3 +1,13 @@
+# ⚠️ ARCHIVED - GitHub Setup Guide
+
+> **This file has been archived and consolidated into `CI-CD.md`.**
+> See the "Quick Start: Deploy to GitHub" section in CI-CD.md for current instructions.
+>
+> **Archived Date**: 2025-12-22
+> **Reason**: Consolidated to reduce documentation redundancy
+
+---
+
 # GitHub Setup Guide
 
 ## Quick Start: Push to GitHub

@@ -1,8 +1,8 @@
 # NetSuite Time Tracking Analyzer - TODO & IMPROVEMENTS
 
 ## Project Information
-- **Current Version**: v1.48.0
-- **Last Updated**: 2025-12-12
+- **Current Version**: v1.48.1
+- **Last Updated**: 2025-12-22
 - **Status**: Active Development
 
 ---
@@ -26,6 +26,27 @@
 ---
 
 ## ✅ Completed Features
+
+### Version 1.48.1 - Documentation Consolidation (2025-12-22)
+- [x] **Consolidate Documentation Files** - Reduce redundancy and improve navigation
+  - **Compacted CLAUDE.md**: Reduced from 114 to 76 lines (33% reduction)
+    - Removed redundant field listings (now references FIELD_CATALOG.md)
+    - Kept critical version management workflow
+    - Added live demo link and repository structure
+  - **Archived Redundant Files**: Moved 3 outdated/redundant files to ARCHIVED-* prefix
+    - GITHUB_SETUP.md → ARCHIVED-GITHUB_SETUP.md (consolidated into CI-CD.md)
+    - DEPLOYMENT_SUMMARY.md → ARCHIVED-DEPLOYMENT_SUMMARY.md (v1.4.0 snapshot, outdated)
+    - RANKED_PRIORITIES.md → ARCHIVED-RANKED_PRIORITIES.md (v1.21.0 snapshot, many items completed)
+  - **Created DOCUMENTATION.md**: New central navigation guide
+    - Quick reference for all documentation files
+    - "I want to..." navigation guide
+    - Active vs archived file listings
+    - Documentation statistics
+  - **Consolidated Deployment Documentation**: Merged GitHub setup guide into CI-CD.md
+    - Added "Quick Start: Deploy to GitHub" section to CI-CD.md
+    - Single source of truth for deployment instructions
+  - **Updated Cross-References**: Updated README.md and CLAUDE.md with new structure
+  - **Result**: 8 active files + 3 archived, clear navigation, minimal redundancy
 
 ### Version 1.46.1 (2025-12-12)
 - [x] **Fix Chart.js Canvas Reuse Error** - Critical bug fix

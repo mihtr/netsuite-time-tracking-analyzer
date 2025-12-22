@@ -4,6 +4,39 @@
 
 This document describes the Continuous Integration and Continuous Deployment (CI/CD) pipeline for the NetSuite Time Tracking Analyzer application.
 
+## Quick Start: Deploy to GitHub
+
+**New to the project? Start here:**
+
+1. **Create GitHub Repository**
+   - Go to [GitHub](https://github.com) → New repository
+   - Name: `netsuite-time-tracking-analyzer`
+   - ⚠️ Do NOT initialize with README/license/.gitignore
+
+2. **Push Your Code**
+   ```bash
+   cd C:\Users\mihtr\claude\NetSuiteMIT
+   git remote add origin https://github.com/YOUR-USERNAME/netsuite-time-tracking-analyzer.git
+   git branch -M main
+   git push -u origin main
+   ```
+
+3. **Enable GitHub Pages**
+   - Go to Settings → Pages
+   - Source: **GitHub Actions**
+   - Save
+
+4. **Watch CI/CD Run**
+   - Actions tab → Wait ~3-4 minutes
+   - All jobs should show ✅
+
+5. **Access Your App**
+   - URL: `https://YOUR-USERNAME.github.io/netsuite-time-tracking-analyzer/`
+
+**Done!** Your app is live. See sections below for details.
+
+---
+
 ## Table of Contents
 
 1. [Pipeline Architecture](#pipeline-architecture)

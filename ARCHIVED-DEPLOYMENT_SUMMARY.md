@@ -1,3 +1,13 @@
+# ⚠️ ARCHIVED - Deployment Summary (v1.4.0 Snapshot)
+
+> **This file has been archived as it's a historical snapshot from v1.4.0.**
+> Current version is v1.48.0. For current deployment info, see `CI-CD.md`.
+>
+> **Archived Date**: 2025-12-22
+> **Reason**: Outdated snapshot, current information in CI-CD.md and README.md
+
+---
+
 # Deployment Summary - NetSuite Time Tracking Analyzer v1.4.0
 
 ## ✅ Completed Tasks

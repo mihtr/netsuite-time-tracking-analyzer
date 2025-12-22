@@ -1,3 +1,14 @@
+# ⚠️ ARCHIVED - Ranked Priorities (v1.21.0 Snapshot)
+
+> **This file has been archived as many items have been completed since v1.21.0.**
+> Current version is v1.48.0. For current priorities, see `TODO.md` and `SUGGESTED_IMPROVEMENTS.md`.
+>
+> **Archived Date**: 2025-12-22
+> **Original Date**: 2025-12-10 (v1.21.0)
+> **Reason**: Many items completed (anomaly detection, insights dashboard, etc.), priorities have evolved
+
+---
+
 # NetSuite Time Tracking Analyzer - Ranked Priorities
 
 **Last Updated**: 2025-12-10
